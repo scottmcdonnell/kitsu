@@ -989,6 +989,7 @@ export default {
     },
 
     fields: {
+      code: 'Code',
       end_date: 'End date',
       episode_span: 'Episode spacing',
       fps: 'FPS',
@@ -1202,7 +1203,7 @@ export default {
       is_retake: 'Has retake value',
       is_default: 'Is default',
       name: 'Name',
-      short_name: 'Short name'
+      short_name: 'Short Name'
     }
   },
 
@@ -1220,8 +1221,10 @@ export default {
       department: 'Department',
       color: 'Color',
       name: 'Name',
+      short_name: 'Short Name',
       allow_timelog: 'Timelog',
-      priority: 'Priority'
+      priority: 'Priority',
+      short_name: 'Short Name'
     }
   },
 
