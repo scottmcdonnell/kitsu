@@ -139,6 +139,7 @@
                   ref="add-comment"
                   :user="user"
                   :team="currentTeam"
+                  :task-types="currentTaskTypes"
                   :task="task"
                   :task-status="taskStatuses"
                   :is-loading="loading.addComment"
@@ -511,6 +512,16 @@ export default {
       return sortPeople(
         production.team.map(personId => this.personMap.get(personId))
       )
+    },
+    currentTaskTypes() {
+      // get current task types for this project filtered by current task entity type (Shot or Asset)
+      if (!this.task) return []
+      const production = this.productionMap.get(this.task.project_id)
+      if (!production) return []
+      const task_types = production.task_types
+      return task_types
+        .map(taskTypeId => this.taskTypeMap.get(taskTypeId))
+        .filter(taskType => taskType.for_entity === this.task.entity_type_name)
     },
 
     title() {
