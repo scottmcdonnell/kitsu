@@ -192,6 +192,7 @@
                       :revision="currentRevision"
                       :task="task"
                       :team="currentTeam"
+                      :task-types="currentTaskTypes"
                       @ack-comment="onAckComment"
                       @duplicate-comment="onDuplicateComment"
                       @pin-comment="onPinComment"
@@ -248,6 +249,7 @@
           :is-error="errors.editComment"
           :revision="currentRevision"
           :team="currentTeam"
+          :task-types="currentTaskTypes"
           @confirm="confirmEditTaskComment"
           @cancel="onCancelEditComment"
         />

@@ -746,10 +746,15 @@ export default {
         const members = values.map(taskType => {
           return {
             isDepartment: true,
-            full_name: taskType.short_name || taskType.name,
+            full_name: taskType.name, //taskType.short_name || taskType.name,
             color: taskType.color,
             id: taskType.id
           }
+        })
+        members.push({
+          isDepartment: true,
+          color: '#000',
+          full_name: 'All'
         })
         this.$set(this.membersForAts, '#', members)
       }

@@ -183,7 +183,8 @@
                 </div>
               </div>
               <at-ta
-                :members="atOptions"
+                :ats="['#', '@']"
+                :members-for-ats="membersForAts"
                 name-key="full_name"
                 :limit="2"
                 @input="onAtTextChanged"
@@ -345,7 +346,7 @@
 </template>
 
 <script>
-import AtTa from 'vue-at/dist/vue-at-textarea'
+import AtTa from '@/components/widgets/At/AtTextarea'
 import moment from 'moment'
 import { mapActions, mapGetters } from 'vuex'
 import {
@@ -394,7 +395,7 @@ export default {
 
   data() {
     return {
-      atOptions: [],
+      membersForAts: { '@': [], '#': [] },
       checklist: [],
       isReplyLoading: false,
       menuVisible: false,
@@ -440,6 +441,10 @@ export default {
     isPinnable: {
       type: Boolean,
       default: false
+    },
+    taskTypes: {
+      type: Array,
+      default: () => []
     },
     team: {
       type: Array,
@@ -776,18 +781,42 @@ export default {
       }
     },
 
+    taskTypes: {
+      //deep: true,
+      immediate: true,
+      handler(values) {
+        const members = values.map(taskType => {
+          return {
+            isDepartment: true,
+            full_name: taskType.name, //taskType.short_name || taskType.name,
+            color: taskType.color,
+            id: taskType.id
+          }
+        })
+        members.push({
+          isDepartment: true,
+          color: '#000',
+          full_name: 'All'
+        })
+        this.$set(this.membersForAts, '#', members)
+      }
+    },
+
     team: {
       deep: true,
       immediate: true,
       handler() {
+        let teamOptions = []
         if (this.isCurrentUserClient) {
-          this.atOptions = this.team.filter(person =>
-            ['admin', 'manager', 'supervisor', 'client'].includes(person.role)
-          )
+          teamOptions = [
+            ...this.team.filter(person =>
+              ['admin', 'manager', 'supervisor', 'client'].includes(person.role)
+            )
+          ]
         } else {
-          this.atOptions = [...this.team]
+          teamOptions = [...this.team]
         }
-        this.atOptions = this.atOptions.concat(
+        teamOptions = teamOptions.concat(
           this.productionDepartmentIds.map(departmentId => {
             const department = this.departmentMap.get(departmentId)
             return {
@@ -798,10 +827,11 @@ export default {
             }
           })
         )
-        this.atOptions.push({
+        teamOptions.push({
           isTime: true,
           full_name: 'frame'
         })
+        this.$set(this.membersForAts, '@', teamOptions)
       }
     }
   }
