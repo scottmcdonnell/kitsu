@@ -200,6 +200,7 @@
                 :is-loading="loading.addComment"
                 :is-movie="isMovie"
                 :team="currentTeam"
+                :task-types="currentTaskTypes"
                 :task="task"
                 :task-status="taskStatusForCurrentUser"
                 :preview-forms="previewForms"
@@ -244,6 +245,7 @@
                     :revision="currentRevision"
                     :task="task"
                     :team="currentTeam"
+                    :task-types="currentTaskTypes"
                     @ack-comment="onAckComment"
                     @duplicate-comment="onDuplicateComment"
                     @pin-comment="onPinComment"
@@ -309,6 +311,7 @@
         :is-error="errors.editComment"
         :comment-to-edit="commentToEdit"
         :team="currentTeam"
+        :task-types="currentTaskTypes"
         :fps="currentFps"
         :revision="currentRevision"
         @confirm="confirmEditTaskComment"
@@ -781,6 +784,16 @@ export default {
           this.personMap.get(personId)
         )
       )
+    },
+    currentTaskTypes() {
+      // get current task types for this project filtered by current task entity type (Shot or Asset)
+      if (!this.task) return []
+      const production = this.productionMap.get(this.task.project_id)
+      if (!production) return []
+      const task_types = production.task_types
+      return task_types
+        .map(taskTypeId => this.taskTypeMap.get(taskTypeId))
+        .filter(taskType => taskType.for_entity === this.task.entity_type_name)
     },
 
     pinnedCount() {
