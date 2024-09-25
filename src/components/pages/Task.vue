@@ -227,6 +227,7 @@
                     :comment="comment"
                     :fps="currentFps"
                     :frame="currentFrame"
+                    :is-change="isStatusChange(index)"
                     :is-checkable="
                       user.id === comment.person?.id ||
                       (isCurrentUserArtist && isAssigned) ||
@@ -236,12 +237,9 @@
                     :is-editable="
                       user.id === comment.person?.id || isCurrentUserAdmin
                     "
-                    :is-first="index === 0"
-                    :is-last="index === pinnedCount"
                     :is-pinnable="
                       isDepartmentSupervisor || isCurrentUserManager
                     "
-                    :is-change="isStatusChange(index)"
                     :revision="currentRevision"
                     :task="task"
                     :team="currentTeam"
@@ -794,10 +792,6 @@ export default {
       return task_types
         .map(taskTypeId => this.taskTypeMap.get(taskTypeId))
         .filter(taskType => taskType.for_entity === this.task.entity_type_name)
-    },
-
-    pinnedCount() {
-      return this.taskComments.filter(c => c.pinned).length
     }
   },
 
