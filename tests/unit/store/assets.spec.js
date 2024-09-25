@@ -1,4 +1,3 @@
-import auth from '@/lib/auth'
 import store from '@/store/modules/assets'
 import taskTypesStore from '@/store/modules/tasktypes'
 import tasksStore from '@/store/modules/tasks'
@@ -791,10 +790,10 @@ describe('Assets store', () => {
       expect(state).toEqual({
         assetMap: new Map(),
         assetValidationColumns: [],
-        displayedAssets: [],
         assetFilledColumns: {},
         assetSearchFilterGroups: [],
         assetSearchQueries: [],
+        displayedAssets: [],
         displayedAssetsCount: 0,
         displayedAssetsLength: 0,
         displayedAssetsTimeSpent: 0,
@@ -987,6 +986,7 @@ describe('Assets store', () => {
         isAssetTime: false,
         isAssetEstimation: false,
         isAssetDescription: true,
+        isAssetResolution: false,
         assetValidationColumns: [],
         nbValidationColumns: 0,
         displayedAssets: store.cache.assets,
@@ -2002,6 +2002,7 @@ describe('Assets store', () => {
         isAssetDescription: false,
         isAssetEstimation: false,
         isAssetTime: false,
+        isAssetResolution: false,
         isAssetsLoading: false,
         isAssetsLoadingError: false,
         nbValidationColumns: 0,

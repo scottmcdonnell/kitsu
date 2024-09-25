@@ -748,7 +748,8 @@ export default {
             isDepartment: true,
             full_name: taskType.name, //taskType.short_name || taskType.name,
             color: taskType.color,
-            id: taskType.id
+            id: taskType.id,
+            url: taskType.url
           }
         })
         members.push({

@@ -28,7 +28,8 @@ export default {
   newEdit(edit) {
     const data = {
       name: edit.name,
-      description: edit.description
+      description: edit.description,
+      data: edit.data
     }
     if (edit.parent_id !== 'null') {
       data.episode_id = edit.parent_id

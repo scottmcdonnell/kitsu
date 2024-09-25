@@ -120,7 +120,6 @@ export default {
 
     openPanel(list, chunk, offset, at) {
       const fn = () => {
-        console.log('openPanel', list, chunk, offset)
         const el = this.$el.querySelector('textarea')
         const atEnd = offset + at.length // 从@后第一位开始
         const rect = getCaretCoordinates(el, atEnd)

@@ -227,6 +227,7 @@
                     :comment="comment"
                     :fps="currentFps"
                     :frame="currentFrame"
+                    :is-change="isStatusChange(index)"
                     :is-checkable="
                       user.id === comment.person?.id ||
                       (isCurrentUserArtist && isAssigned) ||
@@ -236,12 +237,9 @@
                     :is-editable="
                       user.id === comment.person?.id || isCurrentUserAdmin
                     "
-                    :is-first="index === 0"
-                    :is-last="index === pinnedCount"
                     :is-pinnable="
                       isDepartmentSupervisor || isCurrentUserManager
                     "
-                    :is-change="isStatusChange(index)"
                     :revision="currentRevision"
                     :task="task"
                     :team="currentTeam"
@@ -791,13 +789,35 @@ export default {
       const production = this.productionMap.get(this.task.project_id)
       if (!production) return []
       const task_types = production.task_types
-      return task_types
-        .map(taskTypeId => this.taskTypeMap.get(taskTypeId))
-        .filter(taskType => taskType.for_entity === this.task.entity_type_name)
-    },
 
-    pinnedCount() {
-      return this.taskComments.filter(c => c.pinned).length
+      // lets get a map of all tasks that are the same entity
+      // where the key is the task type id
+      const entity_tasks = {}
+      for (const keyValue of this.taskMap) {
+        const task = keyValue[1]
+        if (task.entity_id === this.task.entity_id)
+          entity_tasks[task.task_type_id] = task
+      }
+
+      return (
+        task_types
+          // get all task type objects
+          .map(taskTypeId => this.taskTypeMap.get(taskTypeId))
+
+          // filter down to just those that match this task entity type Shot, Asset etc.
+          .filter(
+            taskType => taskType.for_entity === this.task.entity_type_name
+          )
+
+          // add a url that points to the task
+
+          .map(taskType => {
+            const task = entity_tasks[taskType.id]
+            if (task)
+              taskType.url = `/productions/${task.project_id}/episodes/${task.episode_id}/shots/tasks/${task.id}`
+            return taskType
+          })
+      )
     }
   },
 
