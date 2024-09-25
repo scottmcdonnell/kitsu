@@ -387,7 +387,6 @@ const actions = {
     const userFilters = rootGetters.userFilters
     const userFilterGroups = rootGetters.userFilterGroups
     const taskTypeMap = rootGetters.taskTypeMap
-    const taskMap = rootGetters.taskMap
     const episodeMap = rootGetters.episodeMap
     const personMap = rootGetters.personMap
     const isTVShow = rootGetters.isTVShow
@@ -425,6 +424,7 @@ const actions = {
       })
       .then(shots => {
         const sequenceMap = rootGetters.sequenceMap
+        const taskMap = rootGetters.taskMap
         commit(LOAD_SHOTS_END, {
           production,
           shots,
@@ -863,8 +863,8 @@ const mutations = {
       let estimation = 0
       const sequence = sequenceMap.get(shot.sequence_id)
       const episode = episodeMap.get(shot.episode_id)
-      shot.sequence_name = sequence.name
-      shot.episode_name = episode ? episode.name : ''
+      shot.sequence_name = sequence?.name || ''
+      shot.episode_name = episode?.name || ''
       shot.project_name = production.name
       shot.production_id = production.id
       shot.full_name = helpers.getShotName(shot)

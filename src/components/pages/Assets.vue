@@ -22,11 +22,7 @@
               class="flexrow-item"
               icon="assets"
               :is-on="showSharedAssets"
-              :title="
-                showSharedAssets
-                  ? $t('breakdown.hide_library')
-                  : $t('breakdown.show_library')
-              "
+              :title="$t('breakdown.show_library')"
               @click="showSharedAssets = !showSharedAssets"
             />
             <div class="flexrow-item filler"></div>
@@ -422,8 +418,11 @@ export default {
 
     if (
       this.assetMap.size < 2 ||
+      this.assetValidationColumns.length === 0 ||
       (this.assetValidationColumns.length > 0 &&
-        !this.assetMap.get(this.assetMap.keys().next().value).validations)
+        (!this.assetMap.get(this.assetMap.keys().next().value).validations ||
+          this.assetMap.get(this.assetMap.keys().next().value).validations
+            .size === 0))
     ) {
       setTimeout(() => {
         this.loadAssets().then(() => {
@@ -848,6 +847,7 @@ export default {
         this.setAssetSearch(searchQuery)
         this.setSearchInUrl()
       }
+      this.clearSelection()
     },
 
     saveSearchQuery(searchQuery) {
