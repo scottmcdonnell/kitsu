@@ -49,7 +49,8 @@ export const renderComment = (
   departmentMentions,
   personMap,
   departmentMap,
-  className = ''
+  className = '',
+  taskTypes = []
 ) => {
   let html = renderMarkdown(input)
 
@@ -67,6 +68,16 @@ export const renderComment = (
         `@${department.name}`,
         `<span style="color: ${department.color}">@${department.name}</span>`
       )
+    })
+  }
+
+  if (taskTypes) {
+    taskTypes.forEach(taskType => {
+      if (taskType.url)
+        html = html.replaceAll(
+          `#${taskType.name}`,
+          `<a class="mention mention-task" href="${taskType.url}">#${taskType.name}</a>`
+        )
     })
   }
 
