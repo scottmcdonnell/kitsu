@@ -65,6 +65,14 @@
           :label="$t('settings.fields.timesheets_locked')"
           v-model="form.timesheets_locked"
         />
+        <combobox-boolean
+          :label="$t('settings.fields.format_duration_in_hours')"
+          v-model="form.format_duration_in_hours"
+        />
+        <combobox-boolean
+          :label="$t('settings.fields.dark_theme_by_default')"
+          v-model="form.dark_theme_by_default"
+        />
         <h2>
           {{ $t('settings.integrations') }}
         </h2>
@@ -142,7 +150,9 @@ export default {
         hours_by_day: 0,
         name: '',
         timesheets_locked: 'false',
-        use_original_file_name: 'false'
+        use_original_file_name: 'false',
+        format_duration_in_hours: 'false',
+        dark_theme_by_default: 'false'
       },
       errors: {
         save: false,
@@ -204,7 +214,10 @@ export default {
           ...this.form,
           hd_by_default: this.form.hd_by_default === 'true',
           timesheets_locked: this.form.timesheets_locked === 'true',
-          use_original_file_name: this.form.use_original_file_name === 'true'
+          use_original_file_name: this.form.use_original_file_name === 'true',
+          format_duration_in_hours:
+            this.form.format_duration_in_hours === 'true',
+          dark_theme_by_default: this.form.dark_theme_by_default === 'true'
         }
         this.saveOrganisation(organisation)
           .catch(err => {
@@ -267,6 +280,12 @@ export default {
             ? 'true'
             : 'false',
           use_original_file_name: this.organisation.use_original_file_name
+            ? 'true'
+            : 'false',
+          format_duration_in_hours: this.organisation.format_duration_in_hours
+            ? 'true'
+            : 'false',
+          dark_theme_by_default: this.organisation.dark_theme_by_default
             ? 'true'
             : 'false'
         }

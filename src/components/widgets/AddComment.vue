@@ -446,21 +446,29 @@ export default {
   },
 
   mounted() {
-    ;[
-      'drag',
-      'dragstart',
-      'dragend',
-      'dragover',
-      'dragenter',
-      'dragleave',
-      'drop'
-    ].forEach(evt => {
-      if (this.$refs.wrapper) {
-        this.$refs.wrapper.addEventListener(evt, e => {
-          e.preventDefault()
-          e.stopPropagation()
-        })
-      }
+    const production = this.productionMap.get(this.task.project_id)
+    this.mode =
+      production.is_publish_default_for_artists && this.isCurrentUserArtist
+        ? 'publish'
+        : 'status'
+
+    this.$nextTick(() => {
+      ;[
+        'drag',
+        'dragstart',
+        'dragend',
+        'dragover',
+        'dragenter',
+        'dragleave',
+        'drop'
+      ].forEach(evt => {
+        if (this.$refs.wrapper) {
+          this.$refs.wrapper.addEventListener(evt, e => {
+            e.preventDefault()
+            e.stopPropagation()
+          })
+        }
+      })
     })
   },
 
@@ -470,6 +478,7 @@ export default {
       'isCurrentUserArtist',
       'isCurrentUserClient',
       'productionDepartmentIds',
+      'productionMap',
       'taskStatusForCurrentUser',
       'taskStatusMap',
       'taskTypeMap',

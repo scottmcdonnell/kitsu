@@ -28,6 +28,9 @@
             <th class="frames number-cell" ref="th-frames" v-if="isShots">
               {{ $t('tasks.fields.frames') }}
             </th>
+            <th class="difficulty number-cell" ref="th-difficulty">
+              {{ $t('tasks.fields.difficulty') }}
+            </th>
             <th
               ref="th-estimation"
               class="estimation number-cell"
@@ -116,8 +119,27 @@
                 />
               </div>
             </td>
-            <td class="frames" v-if="isShots">
+            <td class="frames number-cell" v-if="isShots">
               {{ getEntity(task.entity.id).nb_frames }}
+            </td>
+            <td class="difficulty number-cell">
+              <combobox
+                class="difficulty-combobox"
+                :options="difficultyOptions"
+                :with-margin="false"
+                :value="task.difficulty"
+                @input="updateDifficulty($event)"
+                v-if="isInDepartment(task) && selectionGrid[task.id]"
+                v-models="task.difficulty"
+              />
+              <span
+                class="difficulty number-cell"
+                v-for="index in task.difficulty"
+                :key="task.id + 'difficulty' + index"
+                v-else
+              >
+                &bull;
+              </span>
             </td>
             <td class="estimation number-cell">
               <input
@@ -284,9 +306,16 @@
       {{ tasks.length }} {{ $tc('tasks.number', tasks.length) }} ({{
         formatDuration(timeEstimated)
       }}
-      {{ $tc('main.days_estimated', isTimeEstimatedPlural) }},
+      {{
+        isDurationInHours()
+          ? $tc('main.hours_estimated', isTimeEstimatedPlural)
+          : $tc('main.days_estimated', isTimeEstimatedPlural)
+      }},
       {{ formatDuration(timeSpent) }}
-      {{ $tc('main.days_spent', isTimeSpentPlural)
+      {{
+        isDurationInHours()
+          ? $tc('main.hours_spent', isTimeSpentPlural)
+          : $tc('main.days_spent', isTimeSpentPlural)
       }}<span v-if="!isAssets"
         >, {{ nbFrames }} {{ $tc('main.nb_frames', nbFrames) }}</span
       >)
@@ -310,6 +339,7 @@ import {
 import { formatListMixin } from '@/components/mixins/format'
 import { domMixin } from '@/components/mixins/dom'
 
+import Combobox from '@/components/widgets/Combobox.vue'
 import DateField from '@/components/widgets/DateField.vue'
 import EntityPreview from '@/components/widgets/EntityPreview.vue'
 import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
@@ -324,6 +354,7 @@ export default {
   mixins: [domMixin, formatListMixin],
 
   components: {
+    Combobox,
     DateField,
     EntityPreview,
     EntityThumbnail,
@@ -335,6 +366,13 @@ export default {
 
   data() {
     return {
+      difficultyOptions: [
+        { label: '•', value: 1 },
+        { label: '••', value: 2 },
+        { label: '•••', value: 3 },
+        { label: '••••', value: 4 },
+        { label: '•••••', value: 5 }
+      ],
       lastSelection: null,
       page: 1,
       selectionGrid: {},
@@ -524,7 +562,9 @@ export default {
       return (
         (data.start_date !== undefined && taskStart !== data.start_date) ||
         (data.due_date !== undefined && taskDue !== data.due_date) ||
-        (data.estimation !== undefined && task.estimation !== data.estimation)
+        (data.estimation !== undefined &&
+          task.estimation !== data.estimation) ||
+        (data.difficulty !== undefined && task.difficulty !== data.difficulty)
       )
     },
 
@@ -532,8 +572,11 @@ export default {
       return date ? moment(date, 'YYYY-MM-DD').toDate() : null
     },
 
-    updateEstimation(days) {
-      const estimation = daysToMinutes(this.organisation, days)
+    updateEstimation(duration) {
+      const estimation = this.organisation.format_duration_in_hours
+        ? duration * 60
+        : daysToMinutes(this.organisation, duration)
+
       this.updateTasksEstimation({ estimation })
     },
 
@@ -550,7 +593,8 @@ export default {
       Object.keys(this.selectionGrid).forEach(taskId => {
         let data = {
           start_date: null,
-          due_date: null
+          due_date: null,
+          difficulty: null
         }
         const task = this.taskMap.get(taskId)
         const dueDate = task.due_date ? parseSimpleDate(task.due_date) : null
@@ -562,6 +606,7 @@ export default {
           )
             return
           data = getDatesFromStartDate(
+            this.organisation,
             startDate,
             dueDate,
             minutesToDays(this.organisation, task.estimation)
@@ -571,6 +616,9 @@ export default {
             start_date: null,
             due_date: dueDate
           }
+        }
+        if (task.difficulty) {
+          data.difficulty = task.difficulty
         }
         if (this.isTaskChanged(task, data)) {
           this.updateTask({ taskId, data }).catch(console.error)
@@ -596,6 +644,7 @@ export default {
           )
             return
           data = getDatesFromEndDate(
+            this.organisation,
             startDate,
             dueDate,
             minutesToDays(this.organisation, task.estimation)
@@ -626,6 +675,20 @@ export default {
           )
           data.estimation = estimation
         }
+        if (this.isTaskChanged(task, data)) {
+          this.updateTask({ taskId, data }).catch(console.error)
+        }
+      })
+    },
+
+    updateDifficulty(difficulty) {
+      this.updateTasksDifficulty({ difficulty })
+    },
+
+    updateTasksDifficulty({ difficulty }) {
+      Object.keys(this.selectionGrid).forEach(taskId => {
+        const task = this.taskMap.get(taskId)
+        const data = { difficulty }
         if (this.isTaskChanged(task, data)) {
           this.updateTask({ taskId, data }).catch(console.error)
         }
@@ -679,6 +742,16 @@ export default {
         event.target &&
         // Dirty hack needed to make date picker and inputs work properly
         (['INPUT'].includes(event.target.nodeName) ||
+          // Combo box should not trigger selection
+          event.target.className.indexOf('selected-line') >= 0 ||
+          event.target.className.indexOf('down-icon') >= 0 ||
+          event.target.className.indexOf('flexrow') >= 0 ||
+          event.target.className.indexOf('c-mask') >= 0 ||
+          event.target.className.indexOf('option-line') >= 0 ||
+          event.target.className.indexOf('combobox') >= 0 ||
+          event.target.className === '' ||
+          (event.target.parentNode &&
+            ['difficulty'].includes(event.target.className)) ||
           (event.target.parentNode &&
             ['HEADER'].includes(event.target.parentNode.nodeName)) ||
           ['cell day selected'].includes(event.target.className))
@@ -1062,5 +1135,9 @@ input[type='number'] {
 
 .datatable-row:hover {
   background: var(--background-selectable);
+}
+
+.frames {
+  padding-right: 10px;
 }
 </style>

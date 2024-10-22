@@ -161,10 +161,12 @@ const helpers = {
     let timeSpent = 0
     let estimation = 0
     if (!assetTypeMap.get(asset.asset_type)) {
-      assetTypeMap.set(asset.asset_type_id, {
-        id: asset.asset_type_id,
+      const assetTypeId = asset.asset_type_id || asset.entity_type_id
+      const assetType = {
+        id: assetTypeId,
         name: asset.asset_type_name
-      })
+      }
+      assetTypeMap.set(assetTypeId, assetType)
     }
     asset.production_id = production.id
     asset.project_name = production.name
@@ -1210,6 +1212,17 @@ const mutations = {
   },
 
   [REMOVE_SELECTED_TASK](state, validationInfo) {
+    if (
+      !validationInfo.x &&
+      validationInfo.task?.column &&
+      state.assetMap.get(validationInfo.task.entity.id)
+    ) {
+      const entity = validationInfo.task.entity
+      const taskType = validationInfo.task.column
+      const list = state.displayedAssets.flat()
+      validationInfo.x = list.findIndex(e => e.id === entity.id)
+      validationInfo.y = state.assetValidationColumns.indexOf(taskType.id)
+    }
     if (
       state.assetSelectionGrid[0] &&
       state.assetSelectionGrid[validationInfo.x]
