@@ -824,6 +824,9 @@ export default {
   .comment-text {
     color: $white-grey;
   }
+  .comment-footer {
+    color: $grey;
+  }
 
   .content .client-comment {
     background: #c4677b;
@@ -875,6 +878,9 @@ article.comment {
     word-break: break-word;
     hyphens: auto;
     hyphenate-limit-chars: 8 6 2;
+  }
+  .comment-footer {
+    color: $grey;
   }
 }
 
