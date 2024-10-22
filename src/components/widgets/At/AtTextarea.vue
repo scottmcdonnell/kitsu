@@ -70,8 +70,10 @@ export default {
       // vue3 migration.2.1
       // https://vuejs.org/guide/components/events.html#usage-with-v-model
       // https://laracasts.com/discuss/channels/vue/how-do-emit-to-v-model-in-vue-3
-      // this.$emit('input', el.value)
-      this.$emit('update:value', el.value)
+
+      // ## for kitsu Vue2 leave this as input compatibility
+      this.$emit('input', el.value)
+      //this.$emit('update:value', el.value)
 
       const text = el.value.slice(0, el.selectionEnd)
       if (text) {
