@@ -17,6 +17,8 @@
         "
         :is-movie-preview="isMoviePreview"
         :is-set-frame-thumbnail-loading="loading.setFrameThumbnail"
+        :production-id="currentProductionId"
+        :team="currentTeam"
         @export-task="onExportClick"
         @set-frame-thumbnail="onSetCurrentFrameAsThumbnail"
       />
@@ -89,6 +91,7 @@
                     :options="previewOptions"
                     is-preview
                     thin
+                    :value="previewOptions[currentPreviewIndex]?.value"
                     @input="onPreviewChanged"
                   />
                 </div>
@@ -469,6 +472,7 @@ export default {
     ...mapGetters([
       'isSavingCommentPreview',
       'currentEpisode',
+      'currentProduction',
       'getTaskComment',
       'getTaskComments',
       'getTaskPreviews',
@@ -511,6 +515,10 @@ export default {
 
     selectedEntities() {
       return this[`selected${this.entityType}s`]
+    },
+
+    currentProductionId() {
+      return this.task?.project_id || this.currentProduction?.id
     },
 
     currentTeam() {
@@ -754,10 +762,12 @@ export default {
 
     previewOptions() {
       if (!this.taskPreviews) return []
-      return this.taskPreviews.map(preview => ({
-        value: preview.id,
-        label: `v${preview.revision}`
-      }))
+      return [...this.taskPreviews]
+        .sort((a, b) => b.revision - a.revision)
+        .map(preview => ({
+          value: preview.id,
+          label: `v${preview.revision}`
+        }))
     },
 
     selectedTasksToDisplay() {

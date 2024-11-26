@@ -130,7 +130,7 @@
                 :value="task.difficulty"
                 @input="updateDifficulty($event)"
                 v-if="isInDepartment(task) && selectionGrid[task.id]"
-                v-models="task.difficulty"
+                v-model="task.difficulty"
               />
               <span
                 class="difficulty number-cell"
@@ -669,6 +669,7 @@ export default {
           const startDate = moment(task.start_date)
           const dueDate = task.due_date ? moment(task.due_date) : null
           data = getDatesFromStartDate(
+            this.organisation,
             startDate,
             dueDate,
             minutesToDays(this.organisation, estimation)

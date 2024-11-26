@@ -444,6 +444,7 @@
               is-reversed
               is-preview
               thin
+              :value="currentPreview?.id"
               @input="changeCurrentPreviewFile"
             />
           </div>
@@ -914,12 +915,12 @@ export default {
 
     lastPreviewFileOptions() {
       if (!this.lastPreviewFiles) return []
-      return this.lastPreviewFiles.map(previewFile => {
-        return {
-          label: `v${previewFile.revision}`,
-          value: previewFile.id
-        }
-      })
+      return [...this.lastPreviewFiles]
+        .sort((a, b) => b.revision - a.revision)
+        .map(preview => ({
+          value: preview.id,
+          label: `v${preview.revision}`
+        }))
     },
 
     previewFileOptions() {

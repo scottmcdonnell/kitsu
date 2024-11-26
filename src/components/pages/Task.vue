@@ -484,12 +484,14 @@ export default {
     },
 
     previewOptions() {
-      return this.taskPreviews.map(preview => {
-        return {
-          label: `v${preview.revision}`,
-          value: preview.id
-        }
-      })
+      return [...this.taskPreviews]
+        .sort((a, b) => b.revision - a.revision)
+        .map(preview => {
+          return {
+            label: `v${preview.revision}`,
+            value: preview.id
+          }
+        })
     },
 
     isPreviewButtonVisible() {

@@ -20,6 +20,14 @@
             />
             <div class="filler"></div>
             <div class="flexrow flexrow-item" v-if="!isCurrentUserClient">
+              <combobox-department
+                class="combobox-department flexrow-item"
+                :selectable-departments="selectableDepartments('Episode')"
+                :display-all-and-my-departments="true"
+                rounded
+                v-model="selectedDepartment"
+                v-if="departments.length > 0"
+              />
               <show-assignations-button class="flexrow-item" />
               <show-infos-button class="flexrow-item" />
               <big-thumbnails-button class="flexrow-item" />
@@ -202,6 +210,7 @@ import AddThumbnailsModal from '@/components/modals/AddThumbnailsModal.vue'
 import BigThumbnailsButton from '@/components/widgets/BigThumbnailsButton.vue'
 import BuildFilterModal from '@/components/modals/BuildFilterModal.vue'
 import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
 import CreateTasksModal from '@/components/modals/CreateTasksModal.vue'
 import DeleteModal from '@/components/modals/DeleteModal.vue'
 import EditEpisodeModal from '@/components/modals/EditEpisodeModal.vue'
@@ -225,6 +234,7 @@ export default {
     BigThumbnailsButton,
     BuildFilterModal,
     ButtonSimple,
+    ComboboxDepartment,
     CreateTasksModal,
     DeleteModal,
     EditEpisodeModal,
@@ -334,7 +344,7 @@ export default {
           this.episodeListScrollPosition
         )
         this.$nextTick(() => {
-          this.$refs['episode-list'].selectTaskFromQuery()
+          this.$refs['episode-list']?.selectTaskFromQuery()
         })
       }
     }
@@ -362,8 +372,8 @@ export default {
       'currentEpisode',
       'currentProduction',
       'departmentMap',
-      'displayedEpisodes',
       'departments',
+      'displayedEpisodes',
       'episodeMap',
       'episodes',
       'episodeMap',
@@ -559,22 +569,22 @@ export default {
     async onFieldChanged({ entry, fieldName, value }) {
       const data = {
         id: entry.id,
-        description: entry.description
+        description: entry.description,
+        [fieldName]: value
       }
-      data[fieldName] = value
       await this.editEpisode(data)
-      this.onSearchChange()
+      this.onSearchChange(false)
     },
 
     async onMetadataChanged({ entry, descriptor, value }) {
-      const metadata = {}
-      metadata[descriptor.field_name] = value
       const data = {
         id: entry.id,
-        data: metadata
+        data: {
+          [descriptor.field_name]: value
+        }
       }
       await this.editEpisode(data)
-      this.onSearchChange()
+      this.onSearchChange(false)
     },
 
     onEditClicked(episode) {
@@ -596,7 +606,7 @@ export default {
           .then(() => {
             this.loading.edit = false
             this.modals.isNewDisplayed = false
-            this.onSearchChange()
+            this.onSearchChange(false)
           })
           .catch(err => {
             console.error(err)
