@@ -84,8 +84,9 @@
           />
           <color-field
             class="mt2"
-            :label="$t('task_status.fields.color')"
             :colors="colors"
+            :column="5"
+            :label="$t('task_status.fields.color')"
             v-model="form.color"
             v-if="taskStatusToEdit.short_name !== 'todo'"
           />
@@ -152,13 +153,15 @@ export default {
     }
   },
 
+  emits: ['cancel', 'confirm'],
+
   data() {
     return {
       form: {
         name: '',
         short_name: '',
         description: '',
-        color: '$grey999',
+        color: '#999999',
         is_done: 'false',
         is_feedback_request: 'false',
         is_default: 'false',
@@ -167,6 +170,7 @@ export default {
       colors: [
         '#999999',
         '#CCCCCC',
+        '#F5F5F5',
         '#CC9999',
         '#FF3860',
         '#E81123',

@@ -39,10 +39,11 @@
       </div>
       <at-ta
         :ats="['#', '@']"
-        :members-for-ats="membersForAts"
+        :members="[...membersForAts['@'], ...membersForAts['#']]"
         name-key="full_name"
         :limit="2"
-        @input="onAtTextChanged"
+        :filter-match="atOptionsFilter"
+        @update:value="onAtTextChanged"
         v-if="mode === 'status' || showCommentArea"
       >
         <template #item="{ item }">
@@ -55,6 +56,19 @@
                 width: '10px',
                 height: '10px',
                 'border-radius': '50%'
+              }"
+            >
+              &nbsp;
+            </span>
+            {{ item.full_name }}
+          </template>
+          <template v-else-if="item.isTaskType">
+            <span
+              class="mr05"
+              :style="{
+                background: item.color,
+                width: '10px',
+                height: '10px'
               }"
             >
               &nbsp;
@@ -77,14 +91,13 @@
             </div>
           </template>
         </template>
-        <textarea-autosize
+        <textarea
           ref="comment-textarea"
           class="textarea flexrow-item"
           :disabled="isLoading"
-          :min-height="50"
-          :max-height="300"
           :placeholder="$t('comments.add_comment')"
-          @keyup.enter.ctrl.native="
+          rows="2"
+          @keyup.enter.ctrl="
             runAddComment(
               text,
               attachments,
@@ -94,7 +107,7 @@
               link
             )
           "
-          @keyup.enter.meta.native="
+          @keyup.enter.meta="
             runAddComment(
               text,
               attachments,
@@ -104,9 +117,10 @@
               link
             )
           "
-          v-model="text"
+          v-autosize
           v-focus
-        />
+          v-model="text"
+        ></textarea>
       </at-ta>
       <div
         class="flexrow link-field"
@@ -317,28 +331,30 @@
       :confirm-button-text="$t('comments.confirm_publish_button')"
       @cancel="modals.confirmFeedbackPublish = false"
       @confirm="
-        modals.confirmFeedbackPublish = false
-        runAddComment(
-          text,
-          attachments,
-          checklist,
-          task_status_id,
-          nextRevision,
-          link,
-          true
-        )
+        () => {
+          modals.confirmFeedbackPublish = false
+          runAddComment(
+            text,
+            attachments,
+            checklist,
+            task_status_id,
+            nextRevision,
+            link,
+            true
+          )
+        }
       "
     />
   </article>
 </template>
 
 <script>
-// import AtTa from 'vue-at/dist/vue-at-textarea'
-import AtTa from './At/AtTextarea'
+import AtTa from 'vue-at/dist/vue-at-textarea'
 import { mapGetters } from 'vuex'
 
 import drafts from '@/lib/drafts'
 import { remove } from '@/lib/models'
+import { getDownloadAttachmentPath } from '@/lib/path'
 import { replaceTimeWithTimecode } from '@/lib/render'
 import strings from '@/lib/string'
 
@@ -364,19 +380,22 @@ export default {
     PeopleAvatar
   },
 
+  emits: [
+    'add-comment',
+    'add-preview',
+    'annotation-snapshots-requested',
+    'clear-files',
+    'file-drop',
+    'remove-preview'
+  ],
+
+  inject: ['draftComment'],
+
   data() {
     return {
       membersForAts: { '@': [], '#': [] },
-      attachments: [],
-      checklist: [],
+      atOptions: [],
       isDragging: false,
-      link: null,
-      mode: 'status',
-      showCommentArea: false,
-      showLinkField: false,
-      nextRevision: undefined,
-      text: '',
-      task_status_id: null,
       errors: {
         addCommentAttachment: false
       },
@@ -445,10 +464,19 @@ export default {
     }
   },
 
+  beforeMount() {
+    if (!this.attachments) {
+      this.attachments = []
+    }
+    if (!this.checklist) {
+      this.checklist = []
+    }
+  },
+
   mounted() {
     const production = this.productionMap.get(this.task.project_id)
     this.mode =
-      production.is_publish_default_for_artists && this.isCurrentUserArtist
+      production?.is_publish_default_for_artists && this.isCurrentUserArtist
         ? 'publish'
         : 'status'
 
@@ -484,6 +512,88 @@ export default {
       'taskTypeMap',
       'uploadProgress'
     ]),
+
+    attachments: {
+      get() {
+        return this.draftComment.attachments
+      },
+      set(value) {
+        this.draftComment.attachments = value
+      }
+    },
+
+    checklist: {
+      get() {
+        return this.draftComment.checklist
+      },
+      set(value) {
+        this.draftComment.checklist = value
+      }
+    },
+
+    link: {
+      get() {
+        return this.draftComment.link
+      },
+      set(value) {
+        this.draftComment.link = value
+      }
+    },
+
+    mode: {
+      get() {
+        return this.draftComment.mode
+      },
+      set(value) {
+        this.draftComment.mode = value
+      }
+    },
+
+    nextRevision: {
+      get() {
+        return this.draftComment.nextRevision
+      },
+      set(value) {
+        this.draftComment.nextRevision = value
+      }
+    },
+
+    showCommentArea: {
+      get() {
+        return this.draftComment.showCommentArea
+      },
+      set(value) {
+        this.draftComment.showCommentArea = value
+      }
+    },
+
+    showLinkField: {
+      get() {
+        return this.draftComment.showLinkField
+      },
+      set(value) {
+        this.draftComment.showLinkField = value
+      }
+    },
+
+    task_status_id: {
+      get() {
+        return this.draftComment.task_status_id
+      },
+      set(value) {
+        this.draftComment.task_status_id = value
+      }
+    },
+
+    text: {
+      get() {
+        return this.draftComment.text
+      },
+      set(value) {
+        this.draftComment.text = value
+        drafts.setTaskDraft(this.task.id, this.text)
+      }
+    },
 
     attachmentModal() {
       return this.$refs['add-attachment-modal']
@@ -572,6 +682,9 @@ export default {
         revision,
         link
       )
+    },
+
+    reset() {
       this.text = ''
       this.link = null
       this.attachments = []
@@ -582,9 +695,9 @@ export default {
     focus() {
       const textarea = this.$refs['comment-textarea']
       if (textarea) {
-        textarea.$el.focus()
-        const caretPosition = textarea.$el.value.length
-        textarea.$el.setSelectionRange(caretPosition, caretPosition)
+        textarea.focus()
+        const caretPosition = textarea.value.length
+        textarea.setSelectionRange(caretPosition, caretPosition)
       }
     },
 
@@ -694,9 +807,33 @@ export default {
       this.checklist = remove(this.checklist, entry)
     },
 
-    setValue(comment) {
-      this.checklist = comment.checklist
+    async setValue(comment) {
+      this.checklist = JSON.parse(JSON.stringify(comment.checklist))
       this.text = comment.text
+
+      // duplicate attachment files
+      this.attachments = (
+        await Promise.all(
+          comment.attachment_files.map(async attachment => {
+            const fileUrl = getDownloadAttachmentPath(attachment)
+            const response = await fetch(fileUrl)
+            if (!response.ok) return
+            const fileBlob = await response.blob()
+            const formData = new FormData()
+            formData.append('file', fileBlob, attachment.name)
+            return formData
+          })
+        )
+      ).filter(Boolean)
+    },
+
+    atOptionsFilter(name, chunk, at, v) {
+      // filter the list by the given at symbol
+      const option_at = v?.isTaskType ? '#' : '@'
+      // @ for team, # for task type
+      if (at !== option_at) return false
+      // match at lower-case
+      return name.toLowerCase().indexOf(chunk.toLowerCase()) > -1
     },
 
     onAtTextChanged(input) {
@@ -735,10 +872,6 @@ export default {
       }
     },
 
-    text() {
-      drafts.setTaskDraft(this.task.id, this.text)
-    },
-
     mode() {
       if (this.mode === 'publish') {
         this.checklist = []
@@ -755,7 +888,7 @@ export default {
       deep: true,
       immediate: true,
       handler() {
-        const form = this.previewForms.findLast(
+        const form = this.previewForms?.findLast(
           form => this.getRevision(form) > 0
         )
         this.nextRevision = this.getRevision(form)
@@ -763,24 +896,24 @@ export default {
     },
 
     taskTypes: {
-      //deep: true,
+      deep: true,
       immediate: true,
       handler(values) {
-        const members = values.map(taskType => {
+        const taskTypeOptions = values.map(taskType => {
           return {
-            isDepartment: true,
-            full_name: taskType.name, //taskType.short_name || taskType.name,
+            isTaskType: true,
+            full_name: taskType.name,
             color: taskType.color,
             id: taskType.id,
             url: taskType.url
           }
         })
-        members.push({
-          isDepartment: true,
+        taskTypeOptions.push({
+          isTaskType: true,
           color: '#000',
           full_name: 'All'
         })
-        this.$set(this.membersForAts, '#', members)
+        this.membersForAts['#'] = taskTypeOptions
       }
     },
 
@@ -811,9 +944,10 @@ export default {
         )
         teamOptions.push({
           isTime: true,
+          at: '@',
           full_name: 'frame'
         })
-        this.$set(this.membersForAts, '@', teamOptions)
+        this.membersForAts['@'] = teamOptions
       }
     }
   }
@@ -821,6 +955,8 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@use 'sass:color';
+
 .dark textarea:disabled {
   background: #555;
 }
@@ -838,7 +974,8 @@ article.add-comment {
 
   textarea {
     margin: 0;
-    min-height: 3.5em;
+    min-height: 57px;
+    max-height: 300px;
     border-radius: 0;
 
     &:focus,
@@ -932,7 +1069,7 @@ article.add-comment {
 }
 
 .tab-row {
-  color: lighten($dark-grey-light, 40%);
+  color: color.adjust($dark-grey-light, $lightness: 40%);
   font-size: 0.9em;
   text-transform: uppercase;
   margin-top: 5px;

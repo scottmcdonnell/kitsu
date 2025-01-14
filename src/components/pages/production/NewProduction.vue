@@ -120,30 +120,19 @@
               {{ $t('productions.creation.start_and_end_dates') }}
             </label>
             <div class="date-picker-wrapper">
-              <datepicker
-                wrapper-class="datepicker"
-                input-class="is-small date-input input"
-                label="Start date"
+              <date-field
+                :can-delete="false"
+                :label="$t('main.start_date')"
+                :max-date="productionToCreate.settings.dateEnd"
                 :placeholder="startDatePlaceholder"
-                :language="locale"
-                :disabled-dates="{
-                  from: productionToCreate.settings.dateEnd
-                }"
-                :monday-first="true"
-                format="yyyy-MM-dd"
                 v-model="productionToCreate.settings.dateStart"
               />
               <span class="input-separator">-</span>
-              <datepicker
-                wrapper-class="datepicker"
-                input-class="is-small date-input input"
-                :language="locale"
-                :disabled-dates="{
-                  to: productionToCreate.settings.dateStart
-                }"
+              <date-field
+                :can-delete="false"
+                :label="$t('main.end_date')"
+                :min-date="productionToCreate.settings.dateStart"
                 :placeholder="endDatePlaceholder"
-                :monday-first="true"
-                format="yyyy-MM-dd"
                 v-model="productionToCreate.settings.dateEnd"
               />
             </div>
@@ -161,28 +150,25 @@
           :is-completed="hasValidAssetTaskTypes"
           v-if="!isShotsOnly"
         >
-          <draggable
-            v-model="productionToCreate.assetTaskTypes"
-            draggable=".task-type"
-          >
-            <task-type-name
-              class="task-type"
-              :task-type="taskType"
-              :key="taskType.id"
-              deletable
-              @delete="deleteFromList(taskType, 'assetTaskTypes')"
-              v-for="taskType in productionToCreate.assetTaskTypes"
-            />
+          <draggable item-key="id" v-model="productionToCreate.assetTaskTypes">
+            <template #item="{ element: taskType }">
+              <task-type-name
+                class="task-type"
+                deletable
+                :task-type="taskType"
+                @delete="deleteFromList(taskType, 'assetTaskTypes')"
+              />
+            </template>
             <template #footer>
               <combobox-task-type
                 class="is-inline inline-task-type-combo"
                 :task-type-list="availableAssetTaskTypes"
                 add-placeholder
-                @input="
+                @update:model-value="
                   id =>
                     productionToCreate.assetTaskTypes.push(taskTypeMap.get(id))
                 "
-                v-if="availableAssetTaskTypes.length > 0"
+                v-if="availableAssetTaskTypes.length"
               />
             </template>
           </draggable>
@@ -196,28 +182,25 @@
           :is-completed="hasValidShotTaskTypes"
           v-if="!isAssetsOnly"
         >
-          <draggable
-            v-model="productionToCreate.shotTaskTypes"
-            draggable=".task-type"
-          >
-            <task-type-name
-              class="task-type"
-              :task-type="taskType"
-              :key="taskType.id"
-              @delete="deleteFromList(taskType, 'shotTaskTypes')"
-              deletable
-              v-for="taskType in productionToCreate.shotTaskTypes"
-            />
+          <draggable item-key="id" v-model="productionToCreate.shotTaskTypes">
+            <template #item="{ element: taskType }">
+              <task-type-name
+                class="task-type"
+                deletable
+                :task-type="taskType"
+                @delete="deleteFromList(taskType, 'shotTaskTypes')"
+              />
+            </template>
             <template #footer>
               <combobox-task-type
                 class="is-inline inline-task-type-combo"
                 :task-type-list="availableShotTaskTypes"
                 add-placeholder
-                @input="
+                @update:model-value="
                   id =>
                     productionToCreate.shotTaskTypes.push(taskTypeMap.get(id))
                 "
-                v-if="availableShotTaskTypes.length > 0"
+                v-if="availableShotTaskTypes.length"
               />
             </template>
           </draggable>
@@ -243,7 +226,7 @@
               :task-status-list="availableTaskStatuses"
               :with-margin="false"
               add-placeholder
-              @input="
+              @update:model-value="
                 id =>
                   productionToCreate.taskStatuses.push(taskStatusMap.get(id))
               "
@@ -271,7 +254,7 @@
               class="flexrow-item"
               :options="availableAssetTypes"
               :with-margin="false"
-              @input="
+              @update:model-value="
                 id => {
                   assetTypeMap.get(id) &&
                     productionToCreate.assetTypes.push(assetTypeMap.get(id))
@@ -430,9 +413,7 @@
 
 <script>
 import draggable from 'vuedraggable'
-import Datepicker from 'vuejs-datepicker'
 import moment from 'moment'
-import { en, fr } from 'vuejs-datepicker/dist/locale'
 import { mapActions, mapGetters } from 'vuex'
 
 import csv from '@/lib/csv'
@@ -447,8 +428,9 @@ import {
 
 import Combobox from '@/components/widgets/Combobox.vue'
 import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
 import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import DateField from '@/components/widgets/DateField.vue'
 import ImportModal from '@/components/modals/ImportModal.vue'
 import ImportRenderModal from '@/components/modals/ImportRenderModal.vue'
 import ManageShotsModal from '@/components/modals/ManageShotsModal.vue'
@@ -467,7 +449,7 @@ export default {
     ComboboxStyled,
     ComboboxTaskType,
     ComboboxStatus,
-    Datepicker,
+    DateField,
     ImportModal,
     ImportRenderModal,
     ManageShotsModal,
@@ -477,6 +459,7 @@ export default {
     TimelineItem,
     ValidationTag
   },
+
   data() {
     return {
       errors: {
@@ -512,9 +495,9 @@ export default {
         settings: {
           dateStart: null,
           dateEnd: null,
-          fps: 25, // eg: '24'
-          ratio: [16, 9], // eg: [4, 3]
-          resolution: [1920, 1080], // eg: [1440, 1080]
+          fps: 25,
+          ratio: [16, 9],
+          resolution: [1920, 1080],
           style: PRODUCTION_STYLE_OPTIONS[0].value,
           type: PRODUCTION_TYPE_OPTIONS[0].value
         },
@@ -551,14 +534,12 @@ export default {
       'assetTaskTypes',
       'assetTypeMap',
       'assetTypes',
-      'productions',
       'productionStatus',
       'shotsCsvFormData',
       'shotTaskTypes',
       'taskStatus',
       'taskStatusMap',
-      'taskTypeMap',
-      'user'
+      'taskTypeMap'
     ]),
 
     isTVShow() {
@@ -609,14 +590,6 @@ export default {
       return this.isTVShow
         ? ['Episode', 'Sequence', 'Name']
         : ['Sequence', 'Name']
-    },
-
-    locale() {
-      if (this.user.locale === 'fr_FR') {
-        return fr
-      } else {
-        return en
-      }
     },
 
     allowedProductionTypes() {
@@ -800,6 +773,7 @@ export default {
       'uploadAssetFile',
       'uploadShotFile'
     ]),
+
     removeModelFromList,
 
     deleteFromList(object, listName) {

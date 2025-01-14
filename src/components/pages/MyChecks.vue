@@ -35,11 +35,11 @@
             v-model="taskStatusId"
           />
 
-          <div class="field flexrow-item selector small">
+          <div class="field flexrow-item selector">
             <label class="label person-label">
               {{ $t('main.person') }}
             </label>
-            <people-field :people="assignees" :big="true" v-model="person" />
+            <people-field :people="assignees" small v-model="person" />
           </div>
 
           <combobox
@@ -77,9 +77,6 @@
           :is-error="isLoadingError"
           :selection-grid="selectionGrid"
           :is-to-check="true"
-          @task-selection-cleared="onTaskSelectionCleared"
-          @task-selection-addition="onTaskSelectionAdded"
-          @task-selection-removal="onTaskSelectionRemoved"
         />
       </div>
     </div>
@@ -383,18 +380,6 @@ export default {
           short_name: this.$t('news.all')
         }
       ].concat(sortByName(taskStatusList))
-    },
-
-    onTaskSelectionCleared() {
-      this.buildSelectionGrid(this.sortedTasks)
-    },
-
-    onTaskSelectionAdded(selection) {
-      this.selectionGrid[selection.x][selection.y] = true
-    },
-
-    onTaskSelectionRemoved(selection) {
-      this.selectionGrid[selection.x][selection.y] = false
     }
   },
 
@@ -418,7 +403,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('tasks.my_checks')} - Kitsu`
     }

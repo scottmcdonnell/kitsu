@@ -55,7 +55,6 @@
       :default-height="defaultHeight"
       :full-screen="isFullScreen"
       :is-comparing="isComparing"
-      :is-comparison-overlay="isComparisonOverlay"
       :light="isLight"
       :margin-bottom="marginBottom"
       :panzoom="true"
@@ -65,6 +64,7 @@
     />
 
     <object-viewer
+      ref="object-viewer"
       class="model-viewer"
       :background-url="backgroundUrl"
       :default-height="defaultHeight"
@@ -74,6 +74,7 @@
       :is-wireframe="isWireframe"
       :light="isLight"
       :preview-url="originalPath"
+      @model-loaded="$emit('model-loaded')"
       v-if="is3DModel"
     />
 
@@ -103,7 +104,7 @@
 </template>
 
 <script>
-import { DownloadIcon } from 'lucide-vue'
+import { DownloadIcon } from 'lucide-vue-next'
 
 import { formatFrame, formatTime } from '@/lib/video'
 import { domMixin } from '@/components/mixins/dom'
@@ -203,6 +204,16 @@ export default {
     }
   },
 
+  emits: [
+    'duration-changed',
+    'frame-update',
+    'model-loaded',
+    'play-ended',
+    'size-changed',
+    'video-end',
+    'video-loaded'
+  ],
+
   computed: {
     // Elements
 
@@ -220,6 +231,10 @@ export default {
 
     soundViewer() {
       return this.$refs['sound-viewer']
+    },
+
+    objectViewer() {
+      return this.$refs['object-viewer']
     },
 
     //  Utils
@@ -351,6 +366,14 @@ export default {
       }
     },
 
+    playModelAnimation(animationName) {
+      this.objectViewer.play(animationName)
+    },
+
+    pauseModelAnimation() {
+      this.objectViewer.pause()
+    },
+
     goPreviousFrame() {
       return this.videoViewer.goPreviousFrame()
     },
@@ -365,6 +388,10 @@ export default {
       } else {
         this.pause()
       }
+    },
+
+    get3DAnimations() {
+      return this.$refs['object-viewer'].getAnimations()
     },
 
     // Sizing

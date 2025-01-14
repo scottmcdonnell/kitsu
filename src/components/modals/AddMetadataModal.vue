@@ -56,7 +56,6 @@
           </div>
 
           <text-field
-            ref="addChoiceField"
             v-model.trim="valueToAdd"
             :button-label="$t('main.add')"
             @enter="addValue"
@@ -196,6 +195,8 @@ export default {
     }
   },
 
+  emits: ['cancel', 'confirm'],
+
   data() {
     return {
       form: {
@@ -300,8 +301,8 @@ export default {
   },
 
   methods: {
-    addValue() {
-      const newValue = this.$refs.addChoiceField.value
+    addValue(value) {
+      const newValue = value
       if (!this.form.values.find(v => v === newValue) && newValue) {
         this.form.values.push(newValue)
         if (this.form.data_type === 'taglist') {
@@ -465,11 +466,5 @@ export default {
 
 .checklist-wrapper .button {
   margin: 0.5em 0.2em;
-}
-</style>
-
-<style lang="scss">
-.checklist-entry.checked .checklist-text {
-  text-decoration: none !important;
 }
 </style>

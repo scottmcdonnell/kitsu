@@ -50,19 +50,20 @@
             >
               {{ $t('tasks.fields.assignees') }}:
             </span>
-            <span
-              class="flexrow-item avatar-wrapper"
-              :key="person.id"
-              v-for="person in assignees"
-              v-if="!isCurrentUserClient"
-            >
-              <people-avatar
-                class="flexrow-item"
-                :person="person"
-                :size="30"
-                :font-size="16"
-              />
-            </span>
+            <template v-if="!isCurrentUserClient">
+              <span
+                class="flexrow-item avatar-wrapper"
+                :key="person.id"
+                v-for="person in assignees"
+              >
+                <people-avatar
+                  class="flexrow-item"
+                  :person="person"
+                  :size="30"
+                  :font-size="16"
+                />
+              </span>
+            </template>
             <subscribe-button
               class="flexrow-item action-button"
               :subscribed="isAssigned || task.is_subscribed"
@@ -91,7 +92,10 @@
                 </em>
               </div>
 
-              <div class="set-main-preview flexrow-item flexrow pull-right">
+              <div
+                class="set-main-preview flexrow-item flexrow pull-right"
+                v-if="isCurrentUserManager && $refs['preview-player']"
+              >
                 <button
                   :class="{
                     button: true,
@@ -99,7 +103,6 @@
                     'is-loading': loading.setPreview
                   }"
                   @click="setPreview"
-                  v-if="isCurrentUserManager"
                 >
                   <image-icon class="icon" />
                   <span class="text">
@@ -340,7 +343,7 @@
 </template>
 
 <script>
-import { CornerLeftUpIcon, ImageIcon } from 'lucide-vue'
+import { CornerLeftUpIcon, ImageIcon } from 'lucide-vue-next'
 import { mapGetters, mapActions } from 'vuex'
 
 import drafts from '@/lib/drafts'
@@ -389,10 +392,18 @@ export default {
     ValidationTag
   },
 
+  provide() {
+    return {
+      draftComment: this.draftComment
+    }
+  },
+
   data() {
     return {
+      draftComment: {},
       previewForms: [],
       currentFrame: 0,
+      currentTask: null,
       selectedTab: 'validation',
       taskLoading: {
         isLoading: true,
@@ -785,12 +796,18 @@ export default {
         )
       )
     },
+
+    // get current task types for this project filtered by current task entity type (Shot or Asset)
     currentTaskTypes() {
-      // get current task types for this project filtered by current task entity type (Shot or Asset)
-      if (!this.task) return []
-      const production = this.productionMap.get(this.task.project_id)
-      if (!production) return []
-      const task_types = production.task_types
+      if (!this.task || !this.currentProduction) return []
+
+      // task types for this project
+      const task_types = this.currentProduction.task_types
+
+      // get the current task entity type eg. 'Shot' or 'Asset'
+      const current_task_type = this.taskTypeMap.get(this.task.task_type_id)
+      const task_type_entity = current_task_type.for_entity
+      const task_type_entity_slug = task_type_entity.toLowerCase() + 's'
 
       // lets get a map of all tasks that are the same entity
       // where the key is the task type id
@@ -801,25 +818,22 @@ export default {
           entity_tasks[task.task_type_id] = task
       }
 
-      return (
-        task_types
-          // get all task type objects
-          .map(taskTypeId => this.taskTypeMap.get(taskTypeId))
+      const filtered = task_types
+        // get all task type objects
+        .map(taskTypeId => this.taskTypeMap.get(taskTypeId))
 
-          // filter down to just those that match this task entity type Shot, Asset etc.
-          .filter(
-            taskType => taskType.for_entity === this.task.entity_type_name
-          )
+        // filter down to just those that match this task entity type Shot, Asset etc.
+        .filter(taskType => taskType.for_entity === task_type_entity)
 
-          // add a url that points to the task
-
-          .map(taskType => {
-            const task = entity_tasks[taskType.id]
-            if (task)
-              taskType.url = `/productions/${task.project_id}/episodes/${task.episode_id}/shots/tasks/${task.id}`
-            return taskType
-          })
-      )
+        // add a url that points to the task
+        .map(taskType => {
+          const task = entity_tasks[taskType.id]
+          if (task)
+            taskType.url = `/productions/${task.project_id}/episodes/${task.episode_id || 'all'}/${task_type_entity_slug}/tasks/${task.id}`
+          return taskType
+        })
+      console.log('filtered', filtered)
+      return filtered
     }
   },
 
@@ -938,7 +952,7 @@ export default {
     ) {
       const params = {
         taskId: this.task.id,
-        taskStatusId: taskStatusId,
+        taskStatusId,
         attachment,
         checklist,
         comment,
@@ -954,6 +968,7 @@ export default {
         .dispatch(action, params)
         .then(() => {
           drafts.clearTaskDraft(this.task.id)
+          this.$refs['add-comment']?.reset()
           this.reset()
           this.loading.addComment = false
         })
@@ -1041,9 +1056,10 @@ export default {
     },
 
     setPreview() {
+      const previewPlayer = this.$refs['preview-player']
+      if (!previewPlayer) return
       this.loading.setPreview = true
       this.errors.setPreview = false
-      const previewPlayer = this.$refs['preview-player']
       const previewId = previewPlayer.currentPreview.id
       this.$store
         .dispatch('setPreview', {
@@ -1140,7 +1156,7 @@ export default {
           preview: {
             id: previewId,
             revision,
-            extension: extension
+            extension
           },
           taskId,
           commentId,
@@ -1352,7 +1368,7 @@ export default {
 
   watch: {
     $route() {
-      if (this.$route.params.task_id !== this.task.id) {
+      if (this.task && this.$route.params.task_id !== this.task.id) {
         this.loadTaskData()
       }
       if (this.$route.params.preview_id !== this.selectedPreviewId) {
@@ -1497,7 +1513,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     let title = 'Loading task... - Kitsu'
     if (this.task) {
       const taskTypeName = this.taskTypeMap.get(this.task.task_type_id).name

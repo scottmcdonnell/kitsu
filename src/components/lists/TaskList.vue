@@ -3,7 +3,7 @@
     <div
       ref="body"
       class="datatable-wrapper"
-      v-scroll="onBodyScroll"
+      @scroll.passive="onBodyScroll"
       v-if="!isContactSheet"
     >
       <table class="datatable">
@@ -13,7 +13,11 @@
             <th class="asset-type" ref="th-type" v-if="isAssets">
               {{ $t('tasks.fields.asset_type') }}
             </th>
-            <th class="sequence" ref="th-type" v-else-if="!isEpisodes">
+            <th
+              class="sequence"
+              ref="th-type"
+              v-else-if="!isEpisodes && !isSequences"
+            >
               {{ $t('tasks.fields.sequence') }}
             </th>
             <th class="name" ref="th-name">
@@ -92,7 +96,7 @@
             <td class="asset-type" v-if="isAssets">
               {{ getEntity(task.entity.id).asset_type_name }}
             </td>
-            <td class="sequence" v-else-if="!isEpisodes">
+            <td class="sequence" v-else-if="!isEpisodes && !isSequences">
               {{ getEntity(task.entity.id).sequence_name }}
             </td>
             <td class="name">
@@ -128,18 +132,19 @@
                 :options="difficultyOptions"
                 :with-margin="false"
                 :value="task.difficulty"
-                @input="updateDifficulty($event)"
+                @update:model-value="updateDifficulty($event)"
                 v-if="isInDepartment(task) && selectionGrid[task.id]"
                 v-model="task.difficulty"
               />
-              <span
-                class="difficulty number-cell"
-                v-for="index in task.difficulty"
-                :key="task.id + 'difficulty' + index"
-                v-else
-              >
-                &bull;
-              </span>
+              <template v-else>
+                <span
+                  class="difficulty number-cell"
+                  v-for="index in task.difficulty"
+                  :key="task.id + 'difficulty' + index"
+                >
+                  &bull;
+                </span>
+              </template>
             </td>
             <td class="estimation number-cell">
               <input
@@ -174,9 +179,9 @@
               <date-field
                 class="flexrow-item"
                 :with-margin="false"
-                :value="getDate(task.start_date)"
-                :disabled-dates="disabledDates"
-                @input="updateStartDate"
+                :min-date="disabledDates.to"
+                :model-value="getDate(task.start_date)"
+                @update:model-value="updateStartDate"
                 v-if="isInDepartment(task) && selectionGrid[task.id]"
               />
               <span v-else>
@@ -187,9 +192,9 @@
               <date-field
                 class="flexrow-item"
                 :with-margin="false"
-                :value="getDate(task.due_date)"
-                :disabled-dates="disabledDates"
-                @input="updateDueDate"
+                :model-value="getDate(task.due_date)"
+                :max-date="disabledDates.from"
+                @update:model-value="updateDueDate"
                 v-if="isInDepartment(task) && selectionGrid[task.id]"
               />
               <span v-else>
@@ -324,7 +329,6 @@
 </template>
 
 <script>
-import Vue from 'vue/dist/vue'
 import { mapGetters, mapActions } from 'vuex'
 import moment from 'moment-timezone'
 import {
@@ -348,6 +352,20 @@ import TableInfo from '@/components/widgets/TableInfo.vue'
 import ValidationCell from '@/components/cells/ValidationCell.vue'
 import ValidationTag from '@/components/widgets/ValidationTag.vue'
 
+import assetStore from '@/store/modules/assets'
+import editStore from '@/store/modules/edits'
+import episodeStore from '@/store/modules/episodes'
+import shotStore from '@/store/modules/shots'
+import sequenceStore from '@/store/modules/sequences'
+
+const stores = {
+  assetStore,
+  episodeStore,
+  shotStore,
+  sequenceStore,
+  editStore
+}
+
 export default {
   name: 'task-list',
 
@@ -363,6 +381,8 @@ export default {
     ValidationCell,
     ValidationTag
   },
+
+  emits: ['task-selected'],
 
   data() {
     return {
@@ -419,7 +439,7 @@ export default {
     window.addEventListener('keydown', this.onKeyDown, false)
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('keydown', this.onKeyDown)
   },
 
@@ -446,6 +466,10 @@ export default {
 
     isEpisodes() {
       return this.entityType === 'Episode'
+    },
+
+    isSequences() {
+      return this.entityType === 'Sequence'
     },
 
     isShots() {
@@ -499,7 +523,7 @@ export default {
             const entity = this.shotMap.get(task.entity.id)
             if (previousTask) {
               const previousEntity = this.shotMap.get(previousTask.entity.id)
-              if (previousEntity.sequence_id !== entity.sequence_id) {
+              if (previousEntity?.sequence_id !== entity?.sequence_id) {
                 result.push(currentTasks)
                 currentTasks = {
                   name: task.sequence_name,
@@ -521,7 +545,7 @@ export default {
             const entity = this.assetMap.get(task.entity.id)
             if (previousTask) {
               const previousEntity = this.assetMap.get(previousTask.entity.id)
-              if (previousEntity.asset_type_id !== entity.asset_type_id) {
+              if (previousEntity?.asset_type_id !== entity?.asset_type_id) {
                 result.push(currentTasks)
                 currentTasks = {
                   name: task.entity_type_name,
@@ -709,8 +733,8 @@ export default {
       )
     },
 
-    onBodyScroll(event, position) {
-      this.$emit('scroll', position.scrollTop)
+    onBodyScroll(event) {
+      const position = event.target
       const maxHeight =
         this.$refs.body.scrollHeight - this.$refs.body.offsetHeight
       if (maxHeight < position.scrollTop + 100) {
@@ -719,7 +743,9 @@ export default {
     },
 
     getEntity(entityId) {
-      return this[`${this.entityType.toLowerCase()}Map`].get(entityId) || {}
+      const store = stores[`${this.entityType.toLowerCase()}Store`]
+      const map = store.cache[`${this.entityType.toLowerCase()}Map`]
+      return map.get(entityId) || {}
     },
 
     onKeyDown(event) {
@@ -768,11 +794,11 @@ export default {
       if (!event.shiftKey) {
         if (isSelected && !isManySelection) {
           this.removeSelectedTask({ task })
-          Vue.set(this.selectionGrid, task.id, undefined)
+          this.selectionGrid[task.id] = undefined
         } else if (!isSelected || isManySelection) {
           this.addSelectedTask({ task })
           this.$emit('task-selected', task)
-          Vue.set(this.selectionGrid, task.id, true)
+          this.selectionGrid[task.id] = true
           this.lastSelection = index
         }
       } else {
@@ -785,7 +811,7 @@ export default {
         }
         const selection = taskIndices.map(i => ({ task: this.tasks[i] }))
         selection.forEach(task => {
-          Vue.set(this.selectionGrid, task.task.id, true)
+          this.selectionGrid[task.task.id] = true
         })
         this.addSelectedTasks(selection)
       }
@@ -1076,6 +1102,7 @@ td.retake-count {
       margin-bottom: 0.5em;
       margin-top: 0.3em;
       padding: 0 0.5em;
+      word-break: break-word;
     }
     .task-data {
       padding: 0 0.1em 0 0.3em;

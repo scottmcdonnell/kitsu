@@ -2,6 +2,7 @@
   <!-- text input -->
   <input
     class="input-editor"
+    :readonly="!isEditable"
     @input="event => onMetadataFieldChanged(entity, descriptor, event)"
     @keyup.ctrl="
       event =>
@@ -12,13 +13,12 @@
         )
     "
     :value="getMetadataFieldValue(descriptor, entity)"
-    v-if="
-      (!descriptor.data_type || descriptor.data_type === 'string') && isEditable
-    "
+    v-if="!descriptor.data_type || descriptor.data_type === 'string'"
   />
   <!-- number input -->
   <input
     class="input-editor"
+    :readonly="!isEditable"
     type="number"
     step="any"
     @keydown="onNumberFieldKeyDown"
@@ -32,11 +32,12 @@
         )
     "
     :value="getMetadataFieldValue(descriptor, entity)"
-    v-else-if="descriptor.data_type === 'number' && isEditable"
+    v-else-if="descriptor.data_type === 'number'"
   />
   <!-- boolean input -->
   <input
     class="input-editor"
+    :disabled="!isEditable"
     @input="event => onMetadataFieldChanged(entity, descriptor, event)"
     @keyup.ctrl="
       event =>
@@ -48,7 +49,7 @@
     "
     type="checkbox"
     :checked="getMetadataFieldValue(descriptor, entity) === 'true'"
-    v-else-if="descriptor.data_type === 'boolean' && isEditable"
+    v-else-if="descriptor.data_type === 'boolean'"
   />
   <!-- checklist input -->
   <div
@@ -59,8 +60,8 @@
     "
   >
     <p
-      v-for="(option, i) in getDescriptorChecklistValues(descriptor)"
       :key="`${entity.id}-${descriptor.id}-${i}-${option.text}-div`"
+      v-for="(option, i) in getDescriptorChecklistValues(descriptor)"
     >
       <input
         type="checkbox"
@@ -76,16 +77,14 @@
       <label
         :for="`${entity.id}-${descriptor.id}-${i}-${option.text}-input`"
         :style="[isEditable ? { cursor: 'pointer' } : { cursor: 'auto' }]"
+        class="ml05"
       >
         {{ option.text }}
       </label>
     </p>
   </div>
   <!-- list input -->
-  <span
-    class="select"
-    v-else-if="descriptor.data_type === 'list' && isEditable"
-  >
+  <span class="select" v-else-if="descriptor.data_type === 'list'">
     <select
       class="select-input"
       @keyup.ctrl="
@@ -99,10 +98,11 @@
       @change="event => onMetadataFieldChanged(entity, descriptor, event)"
     >
       <option
-        v-for="(option, i) in getDescriptorChoicesOptions(descriptor)"
+        :disabled="!isEditable"
         :key="`desc-value-${entity.id}-${descriptor.id}-${i}-${option.label}-${option.value}`"
         :value="option.value"
         :selected="getMetadataFieldValue(descriptor, entity) === option.value"
+        v-for="(option, i) in getDescriptorChoicesOptions(descriptor)"
       >
         {{ option.label }}
       </option>
@@ -110,12 +110,15 @@
   </span>
   <!-- tag list input -->
   <combobox-tag
+    :disabled="!isEditable"
     :options="getDescriptorChoicesOptions(descriptor, false)"
     :shy="true"
-    :value="getMetadataFieldValue(descriptor, entity)"
+    :model-value="getMetadataFieldValue(descriptor, entity)"
     :with-margin="false"
-    @input="value => onMetadataFieldChanged(entity, descriptor, value)"
-    v-else-if="descriptor.data_type === 'taglist' && isEditable"
+    @update:model-value="
+      value => onMetadataFieldChanged(entity, descriptor, value)
+    "
+    v-else-if="descriptor.data_type === 'taglist'"
   />
   <!-- default -->
   <span class="metadata-value selectable" v-else>
@@ -268,6 +271,10 @@ export default {
 }
 
 .metadata-value {
+  display: inline-block;
+  max-width: 100%;
   padding: 0.8rem;
+  overflow: auto;
+  white-space: nowrap;
 }
 </style>

@@ -3,6 +3,8 @@
  * list.
  */
 export const searchMixin = {
+  emits: ['change'],
+
   methods: {
     changeSearch(searchQuery) {
       this.searchField.setValue(searchQuery.search_query)
@@ -16,21 +18,19 @@ export const searchMixin = {
     },
 
     focusSearchField(options) {
-      if (this.searchField) {
-        this.searchField.focus(options)
-      }
+      this.searchField?.focus(options)
     },
 
     setSearchFromUrl() {
       const searchQuery = this.searchField?.getValue()
       const searchFromUrl = this.$route.query.search
       if (!searchQuery && searchFromUrl) {
-        this.searchField.setValue(searchFromUrl)
+        this.searchField?.setValue(searchFromUrl)
       }
     },
 
     setSearchInUrl() {
-      const searchQuery = this.searchField.getValue()
+      const searchQuery = this.searchField?.getValue()
       if (this.$route.query.search !== searchQuery) {
         this.$router.push({
           query: {

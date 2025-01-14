@@ -58,7 +58,7 @@
           class="nav-item"
           v-else-if="lastProduction && $route.path !== '/open-productions'"
         >
-          <router-link :to="lastSectionPath" class="flexrow">
+          <router-link :to="lastProductionRoute" class="flexrow">
             <chevron-left-icon />
             {{ $t('main.go_productions') }}
           </router-link>
@@ -126,6 +126,7 @@
             :is-lazy="false"
             :is-link="false"
             :person="user"
+            v-if="user"
           />
         </div>
       </div>
@@ -140,10 +141,7 @@
     <nav class="user-menu" v-if="!isUserMenuHidden">
       <ul>
         <li>
-          <router-link
-            :to="{ name: 'profile' }"
-            @click.native="toggleUserMenu()"
-          >
+          <router-link :to="{ name: 'profile' }" @click="toggleUserMenu()">
             {{ $t('main.profile') }}
           </router-link>
         </li>
@@ -219,7 +217,7 @@ import {
   HelpCircleIcon,
   LogOutIcon,
   ZapIcon
-} from 'lucide-vue'
+} from 'lucide-vue-next'
 
 import localPreferences from '@/lib/preferences'
 
@@ -284,7 +282,7 @@ export default {
       'isSupportChat',
       'isUserMenuHidden',
       'isTVShow',
-      'lastProductionScreen',
+      'lastProductionRoute',
       'lastProductionViewed',
       'mainConfig',
       'openProductions',
@@ -392,31 +390,6 @@ export default {
         production = this.currentProduction
       }
       return production
-    },
-
-    lastSectionPath() {
-      const production = this.lastProduction
-      const section = this.lastProductionScreen
-      const route = {
-        name: section,
-        params: {
-          production_id: production.id
-        }
-      }
-      if (production.production_type === 'tvshow') {
-        if (section !== 'episodes') {
-          route.name = `episode-${section}`
-        }
-        if (
-          !['edits', 'episodes'].includes(section) &&
-          production.first_episode_id
-        ) {
-          route.params.episode_id = production.first_episode_id
-        } else {
-          route.params.episode_id = 'all'
-        }
-      }
-      return route
     },
 
     sectionOptions() {
@@ -551,6 +524,7 @@ export default {
       'loadEpisodes',
       'incrementNotificationCounter',
       'logout',
+      'saveLastProductionRoute',
       'setProduction',
       'setCurrentEpisode',
       'setSupportChat',
@@ -621,6 +595,8 @@ export default {
     configureProduction(routeProductionId, routeEpisodeId = undefined) {
       this.setProduction(routeProductionId)
       this.currentProductionId = routeProductionId
+      this.currentEpisodeId = null
+      this.clearEpisodes()
       if (this.isTVShow) {
         this.loadEpisodes()
           .then(episodes => {
@@ -638,7 +614,6 @@ export default {
             this.$router.push({
               params: {
                 production_id: routeProductionId,
-                section: this.currentProjectSection,
                 episode_id: this.currentEpisodeId
               },
               query
@@ -646,7 +621,6 @@ export default {
           })
           .catch(console.error)
       } else {
-        this.clearEpisodes()
         this.updateCombosFromRoute()
       }
     },
@@ -766,52 +740,6 @@ export default {
         route.name = this.isCurrentUserClient ? 'playlists' : 'assets'
       }
       return route
-    },
-
-    resetEpisodeForTVShow(soft = false) {
-      // TODO seems deprecated
-      const section =
-        this.currentProjectSection || this.getCurrentSectionFromRoute()
-      const isEditSection = this.editSections.includes(section)
-      const isShotSection = this.shotSections.includes(section)
-      const isAssetEpisode = ['all', 'main'].includes(this.currentEpisodeId)
-      const production = this.productionMap.get(this.currentProductionId)
-      if (!production) return
-      const isTVShow = production.production_type === 'tvshow'
-
-      if (isAssetEpisode) {
-        // It's an asset episode. We have to switch if we are in a shot
-        // section.
-        if (isShotSection) {
-          // Set current episode to first episode if it's a shot section.
-          this.currentEpisodeId =
-            this.episodes.length > 0 ? this.episodes[0].id : null
-        }
-      }
-
-      // If no episode is set and we are in a tv show, select the first one.
-      if (isTVShow) {
-        // It's an asset section, and episode is not set, we chose all
-        if (isEditSection && !this.currentEpisodeId) {
-          this.currentEpisodeId = 'all'
-          this.setCurrentEpisode(this.currentEpisodeId)
-          // It's a shot section, and episode is not set, we chose the first
-          // one.
-        } else if (!this.currentEpisode) {
-          if (!this.currentEpisodeId) {
-            if (this.episodes.length > 0) {
-              this.currentEpisodeId = this.episodes[0].id
-            } else {
-              this.currentEpisodeId = production.first_episode_id
-            }
-          }
-          this.setCurrentEpisode(this.currentEpisodeId)
-        } else if (!this.currentEpisodeId && this.currentEpisode) {
-          this.currentEpisodeId = this.currentEpisode.id
-        }
-      } else {
-        this.currentEpisodeId = null
-      }
     }
   },
 
@@ -821,6 +749,8 @@ export default {
     $route() {
       const productionId = this.$route.params.production_id
       if (productionId) {
+        const route = this.$route
+        this.saveLastProductionRoute(route)
         this.updateContext(productionId)
       }
     },

@@ -117,10 +117,13 @@
             >
               <date-field
                 class="flexrow-item"
-                :disabled-dates="startDisabledDates"
-                :with-margin="false"
-                :label="$t('main.start_date')"
                 :can-delete="false"
+                :min-date="startDisabledDates.to"
+                :max-date="startDisabledDates.from"
+                :label="$t('main.start_date')"
+                utc
+                week-days-disabled
+                :with-margin="false"
                 v-model="schedule.taskTypeStartDate"
               />
             </div>
@@ -130,10 +133,13 @@
             >
               <date-field
                 class="flexrow-item"
-                :disabled-dates="endDisabledDates"
-                :with-margin="false"
-                :label="$t('main.end_date')"
                 :can-delete="false"
+                :min-date="endDisabledDates.to"
+                :max-date="endDisabledDates.from"
+                :label="$t('main.end_date')"
+                utc
+                week-days-disabled
+                :with-margin="false"
                 v-model="schedule.taskTypeEndDate"
               />
             </div>
@@ -256,10 +262,16 @@
 </template>
 
 <script>
-import { CornerLeftUpIcon } from 'lucide-vue'
+import assetsStore from '@/store/modules/assets.js'
+import editsStore from '@/store/modules/edits.js'
+import episodesStore from '@/store/modules/episodes.js'
+import sequencesStore from '@/store/modules/sequences.js'
+import shotsStore from '@/store/modules/shots.js'
+import taskStatusStore from '@/store/modules/taskstatus.js'
+
+import { CornerLeftUpIcon } from 'lucide-vue-next'
 import moment from 'moment'
 import firstBy from 'thenby'
-import { en, fr } from 'vuejs-datepicker/dist/locale'
 import { mapGetters, mapActions } from 'vuex'
 
 import csv from '@/lib/csv'
@@ -521,7 +533,7 @@ export default {
   },
 
   mounted() {
-    this.searchField.setValue(this.$route.query.search || '')
+    this.searchField?.setValue(this.$route.query.search || '')
     this.clearSelectedTasks()
     const isAssets = this.$route.path.includes('assets')
     const isShots = this.$route.path.includes('shots')
@@ -544,22 +556,19 @@ export default {
     window.addEventListener('resize', this.resetScheduleHeight)
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.clearSelectedTasks()
     window.removeEventListener('resize', this.resetScheduleHeight)
   },
 
   computed: {
     ...mapGetters([
-      'assetMap',
       'assetsPath',
       'currentEpisode',
       'currentProduction',
       'currentTaskType',
       'editsPath',
       'episodesPath',
-      'editMap',
-      'episodeMap',
       'isCurrentUserManager',
       'isCurrentUserSupervisor',
       'isTVShow',
@@ -567,24 +576,21 @@ export default {
       'organisation',
       'personMap',
       'selectedTasks',
-      'sequenceMap',
       'sequencesPath',
       'sequenceSubscriptions',
       'shotsByEpisode',
-      'shotMap',
       'shotsPath',
       'taskSearchQueries',
-      'taskStatusMap',
       'taskMap',
       'user'
     ]),
 
     taskTypeStartDate() {
-      return moment(this.schedule.taskTypeStartDate)
+      return moment(this.schedule.taskTypeStartDate).utc()
     },
 
     taskTypeEndDate() {
-      return moment(this.schedule.taskTypeEndDate)
+      return moment(this.schedule.taskTypeEndDate).utc()
     },
 
     isSupervisorInDepartment() {
@@ -600,11 +606,28 @@ export default {
       return this[`${this.entityType.toLowerCase()}Map`]
     },
 
-    locale() {
-      if (this.user.locale === 'fr_FR') {
-        return fr
-      }
-      return en
+    assetMap() {
+      return assetsStore.cache.assetMap
+    },
+
+    editMap() {
+      return editsStore.cache.editMap
+    },
+
+    episodeMap() {
+      return episodesStore.cache.episodeMap
+    },
+
+    sequenceMap() {
+      return sequencesStore.cache.sequenceMap
+    },
+
+    shotMap() {
+      return shotsStore.cache.shotMap
+    },
+
+    taskStatusMap() {
+      return taskStatusStore.cache.taskStatusMap
     },
 
     productionStartDate() {
@@ -1040,6 +1063,7 @@ export default {
     },
 
     resetTaskIndex() {
+      if (!this.entityTasks) return
       this.$options.taskIndex = buildSupervisorTaskIndex(
         this.entityTasks,
         this.personMap,
@@ -1054,12 +1078,15 @@ export default {
     getTasks(entities) {
       const tasks = []
       entities.forEach(entity => {
-        ;(entity.tasks || []).forEach(taskId => {
+        const entityTasks = entity.tasks || []
+        entityTasks.forEach(taskId => {
           const task = this.taskMap.get(taskId.id || taskId)
           if (task && !entity.canceled) {
             // Hack to allow filtering on linked entity metadata.
-
-            task.data = entity.data
+            this.$store.commit('SET_TASK_EXTRA_DATA', {
+              task,
+              data: entity.data
+            })
             if (task.task_type_id === this.currentTaskType.id) {
               tasks.push(task)
             }
@@ -1555,23 +1582,33 @@ export default {
     },
 
     'schedule.taskTypeStartDate'() {
-      const newDate = formatSimpleDate(this.schedule.taskTypeStartDate)
+      const newDate = moment(this.schedule.taskTypeStartDate)
+        .utc()
+        .format('YYYY-MM-DD')
       if (newDate !== this.currentScheduleItem.start_date) {
-        this.currentScheduleItem.startDate = moment(
-          this.schedule.taskTypeStartDate
-        )
-        this.currentScheduleItem.endDate = moment(this.schedule.taskTypeEndDate)
+        this.$store.commit('SET_SCHEDULE_ITEM_DATES', {
+          scheduleItem: this.currentScheduleItem,
+          dates: {
+            startDate: moment(this.schedule.taskTypeStartDate).utc(),
+            endDate: moment(this.schedule.taskTypeEndDate).utc()
+          }
+        })
         this.saveScheduleItem(this.currentScheduleItem)
       }
     },
 
     'schedule.taskTypeEndDate'() {
-      const newDate = formatSimpleDate(this.schedule.taskTypeEndDate)
+      const newDate = moment(this.schedule.taskTypeEndDate)
+        .utc()
+        .format('YYYY-MM-DD')
       if (newDate !== this.currentScheduleItem.end_date) {
-        this.currentScheduleItem.startDate = moment(
-          this.schedule.taskTypeStartDate
-        )
-        this.currentScheduleItem.endDate = moment(this.schedule.taskTypeEndDate)
+        this.$store.commit('SET_SCHEDULE_ITEM_DATES', {
+          scheduleItem: this.currentScheduleItem,
+          dates: {
+            startDate: moment(this.schedule.taskTypeStartDate).utc(),
+            endDate: moment(this.schedule.taskTypeEndDate).utc()
+          }
+        })
         this.saveScheduleItem(this.currentScheduleItem)
       }
     }
@@ -1597,7 +1634,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.title} - Kitsu`
     }

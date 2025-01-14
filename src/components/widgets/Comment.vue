@@ -45,16 +45,22 @@
               :is-pinned="comment.pinned"
               :is-editable="isEditable"
               @pin-clicked="
-                $emit('pin-comment', comment)
-                toggleCommentMenu()
+                () => {
+                  $emit('pin-comment', comment)
+                  toggleCommentMenu()
+                }
               "
               @edit-clicked="
-                $emit('edit-comment', comment)
-                toggleCommentMenu()
+                () => {
+                  $emit('edit-comment', comment)
+                  toggleCommentMenu()
+                }
               "
               @delete-clicked="
-                $emit('delete-comment', comment)
-                toggleCommentMenu()
+                () => {
+                  $emit('delete-comment', comment)
+                  toggleCommentMenu()
+                }
               "
               v-if="menuVisible"
             />
@@ -66,14 +72,12 @@
               class="client-comment"
               v-if="isAuthorClient && !isCurrentUserClient"
             >
-              <span>
-                {{ $t('comments.comment_from_client') }}
-                <copy-icon
-                  class="copy-icon"
-                  :size="12"
-                  @click="$emit('duplicate-comment', comment)"
-                />
-              </span>
+              {{ $t('comments.comment_from_client') }}
+              <copy-icon
+                class="copy-icon"
+                :size="12"
+                @click="$emit('duplicate-comment', comment)"
+              />
             </p>
             <p
               v-html="
@@ -96,23 +100,25 @@
               :disabled="true"
               :is-editable="isCheckable"
               @remove-task="removeTask"
-              @keyup.native="onChecklistChanged"
               @emit-change="onChecklistChanged"
               @time-code-clicked="onChecklistTimecodeClicked"
               v-if="checklist.length > 0"
             />
             <p v-if="comment.attachment_files.length > 0">
               <a
-                :href="getAttachmentPath(attachment)"
+                :href="getDownloadAttachmentPath(attachment)"
                 :key="attachment.id"
                 :title="attachment.name"
                 target="_blank"
                 v-for="attachment in pictureAttachments"
               >
-                <img class="attachment" :src="getAttachmentPath(attachment)" />
+                <img
+                  class="attachment"
+                  :src="getDownloadAttachmentPath(attachment)"
+                />
               </a>
               <a
-                :href="getAttachmentPath(attachment)"
+                :href="getDownloadAttachmentPath(attachment)"
                 :key="attachment.id"
                 :title="attachment.name"
                 class="flexrow"
@@ -180,10 +186,11 @@
               </div>
               <at-ta
                 :ats="['#', '@']"
-                :members-for-ats="membersForAts"
+                :members="[...membersForAts['@'], ...membersForAts['#']]"
+                :filter-match="atOptionsFilter"
                 name-key="full_name"
                 :limit="2"
-                @input="onAtTextChanged"
+                @update:value="onAtTextChanged"
               >
                 <template #item="{ item }">
                   <template v-if="item.isTime"> ⏱️ frame </template>
@@ -195,6 +202,19 @@
                         width: '10px',
                         height: '10px',
                         'border-radius': '50%'
+                      }"
+                    >
+                      &nbsp;
+                    </span>
+                    {{ item.full_name }}
+                  </template>
+                  <template v-else-if="item.isTaskType">
+                    <span
+                      class="mr05"
+                      :style="{
+                        background: item.color,
+                        width: '10px',
+                        height: '10px'
                       }"
                     >
                       &nbsp;
@@ -275,7 +295,12 @@
           class="flexrow-item round-name revision"
           :to="previewRoute"
         >
-          {{ $t('comments.revision') }} {{ comment.previews[0].revision }}
+          {{
+            comment.pinned
+              ? $t('comments.pinned_revision')
+              : $t('comments.revision')
+          }}
+          {{ comment.previews[0].revision }}
         </router-link>
         <a
           class="preview-link button flexrow-item"
@@ -322,16 +347,22 @@
             :is-editable="isEditable"
             :is-empty="true"
             @pin-clicked="
-              $emit('pin-comment', comment)
-              toggleCommentMenu()
+              () => {
+                $emit('pin-comment', comment)
+                toggleCommentMenu()
+              }
             "
             @edit-clicked="
-              $emit('edit-comment', comment)
-              toggleCommentMenu()
+              () => {
+                $emit('edit-comment', comment)
+                toggleCommentMenu()
+              }
             "
             @delete-clicked="
-              $emit('delete-comment', comment)
-              toggleCommentMenu()
+              () => {
+                $emit('delete-comment', comment)
+                toggleCommentMenu()
+              }
             "
             v-if="menuVisible"
           />
@@ -342,7 +373,7 @@
 </template>
 
 <script>
-import AtTa from '@/components/widgets/At/AtTextarea'
+import AtTa from 'vue-at/dist/vue-at-textarea'
 import moment from 'moment'
 import { mapActions, mapGetters } from 'vuex'
 import {
@@ -351,11 +382,11 @@ import {
   LinkIcon,
   PaperclipIcon,
   ThumbsUpIcon
-} from 'lucide-vue'
+} from 'lucide-vue-next'
 
 import files from '@/lib/files'
 import { remove } from '@/lib/models'
-import { pluralizeEntityType } from '@/lib/path'
+import { getDownloadAttachmentPath, pluralizeEntityType } from '@/lib/path'
 import { renderComment, replaceTimeWithTimecode } from '@/lib/render'
 import { sortByName } from '@/lib/sorting'
 import { formatDate, parseDate } from '@/lib/time'
@@ -400,6 +431,16 @@ export default {
       uniqueClassName: (Math.random() + 1).toString(36).substring(2)
     }
   },
+
+  emits: [
+    'ack-comment',
+    'checklist-updated',
+    'delete-comment',
+    'duplicate-comment',
+    'edit-comment',
+    'pin-comment',
+    'time-code-clicked'
+  ],
 
   props: {
     comment: {
@@ -463,7 +504,7 @@ export default {
     )
   },
 
-  destroyed() {
+  beforeUnmount() {
     Array.from(document.getElementsByClassName(this.uniqueClassName)).forEach(
       element => {
         element.removeEventListener('click', this.timeCodeClicked)
@@ -623,9 +664,7 @@ export default {
       return route
     },
 
-    getAttachmentPath(attachment) {
-      return `/api/data/attachment-files/${attachment.id}/file/${attachment.name}`
-    },
+    getDownloadAttachmentPath,
 
     toggleCommentMenu() {
       this.menuVisible = !this.menuVisible
@@ -735,6 +774,15 @@ export default {
         .catch(console.error)
     },
 
+    atOptionsFilter(name, chunk, at, v) {
+      // filter the list by the given at symbol
+      const option_at = v?.isTaskType ? '#' : '@'
+      // @ for team, # for task type
+      if (at !== option_at) return false
+      // match at lower-case
+      return name.toLowerCase().indexOf(chunk.toLowerCase()) > -1
+    },
+
     onAtTextChanged(input) {
       if (input.includes('@frame')) {
         this.replyText = replaceTimeWithTimecode(
@@ -763,23 +811,24 @@ export default {
     },
 
     taskTypes: {
-      //deep: true,
+      deep: true,
       immediate: true,
       handler(values) {
-        const members = values.map(taskType => {
+        const taskTypeOptions = values.map(taskType => {
           return {
-            isDepartment: true,
-            full_name: taskType.name, //taskType.short_name || taskType.name,
+            isTaskType: true,
+            full_name: taskType.name,
             color: taskType.color,
-            id: taskType.id
+            id: taskType.id,
+            url: taskType.url
           }
         })
-        members.push({
-          isDepartment: true,
+        taskTypeOptions.push({
+          isTaskType: true,
           color: '#000',
           full_name: 'All'
         })
-        this.$set(this.membersForAts, '#', members)
+        this.membersForAts['#'] = taskTypeOptions
       }
     },
 
@@ -812,7 +861,7 @@ export default {
           isTime: true,
           full_name: 'frame'
         })
-        this.$set(this.membersForAts, '@', teamOptions)
+        this.membersForAts['@'] = teamOptions
       }
     }
   }
@@ -820,6 +869,8 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@use 'sass:color';
+
 .dark {
   .comment-text {
     color: $white-grey;
@@ -899,6 +950,7 @@ article.comment {
 }
 
 .pinned {
+  border: 2px solid var(--border-alt);
   transform: scale(1.02);
 }
 
@@ -920,8 +972,8 @@ article.comment {
 
 .content .client-comment {
   border-radius: 4px;
-  background: lighten($red, 80%);
-  color: desaturate(darken($red, 30%), 20%);
+  background: color.adjust($red, $lightness: 80%);
+  color: color.adjust($red, $lightness: -30%, $saturation: -20%);
   font-size: 0.8em;
   margin-top: 0.4em;
   margin-bottom: 0;

@@ -23,10 +23,15 @@
         <div
           :key="option.id"
           class="option-line flexrow"
-          @click="selectOption(option)"
+          @click="!disabled && selectOption(option)"
           v-for="option in optionList"
         >
-          <input type="checkbox" class="mr05" :checked="isChecked(option)" />
+          <input
+            type="checkbox"
+            class="mr05"
+            :checked="isChecked(option)"
+            :disabled="disabled"
+          />
           {{ getOptionLabel(option) }}
         </div>
       </div>
@@ -42,7 +47,7 @@
 </template>
 
 <script>
-import { ChevronDownIcon } from 'lucide-vue'
+import { ChevronDownIcon } from 'lucide-vue-next'
 
 import { sortByValue } from '@/lib/sorting'
 
@@ -53,6 +58,8 @@ export default {
     ChevronDownIcon
   },
 
+  emits: ['change', 'update:modelValue'],
+
   data() {
     return {
       showList: false
@@ -60,6 +67,10 @@ export default {
   },
 
   props: {
+    disabled: {
+      default: false,
+      type: Boolean
+    },
     label: {
       default: '',
       type: String
@@ -68,7 +79,7 @@ export default {
       default: () => [],
       type: Array
     },
-    value: {
+    modelValue: {
       default: '',
       type: String
     },
@@ -104,13 +115,13 @@ export default {
     },
 
     renderedValue() {
-      return this.value.split(',').filter(Boolean).sort().join(', ')
+      return this.modelValue.split(',').filter(Boolean).sort().join(', ')
     }
   },
 
   methods: {
     selectOption(option) {
-      let values = this.value.split(',').filter(Boolean)
+      let values = this.modelValue.split(',').filter(Boolean)
       if (values.includes(option.value)) {
         values.splice(values.indexOf(option.value), 1)
       } else {
@@ -122,7 +133,7 @@ export default {
           .map(oldOption => oldOption.value)
       }
       const value = values.join(',')
-      this.$emit('input', value)
+      this.$emit('update:modelValue', value)
       this.$emit('change', value)
     },
 
@@ -146,7 +157,7 @@ export default {
     },
 
     isChecked(option) {
-      const values = this.value.split(',')
+      const values = this.modelValue.split(',')
       return values.includes(option.value)
     }
   },

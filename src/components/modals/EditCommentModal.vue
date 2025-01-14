@@ -26,10 +26,11 @@
             </label>
             <at-ta
               :ats="['#', '@']"
-              :members-for-ats="membersForAts"
+              :members="[...membersForAts['@'], ...membersForAts['#']]"
               name-key="full_name"
               limit="2"
-              @input="onAtTextChanged"
+              :filter-match="atOptionsFilter"
+              @update:value="onAtTextChanged"
             >
               <template #item="{ item }">
                 <template v-if="item.isTime"> ⏱️ frame </template>
@@ -41,6 +42,19 @@
                       width: '10px',
                       height: '10px',
                       'border-radius': '50%'
+                    }"
+                  >
+                    &nbsp;
+                  </span>
+                  {{ item.full_name }}
+                </template>
+                <template v-else-if="item.isTaskType">
+                  <span
+                    class="mr05"
+                    :style="{
+                      background: item.color,
+                      width: '10px',
+                      height: '10px'
                     }"
                   >
                     &nbsp;
@@ -157,8 +171,8 @@
 </template>
 
 <script>
-import { XIcon } from 'lucide-vue'
-import AtTa from '@/components/widgets/At/AtTextarea'
+import { XIcon } from 'lucide-vue-next'
+import AtTa from 'vue-at/dist/vue-at-textarea'
 import { mapGetters } from 'vuex'
 
 import files from '@/lib/files'
@@ -228,6 +242,8 @@ export default {
       default: 1
     }
   },
+
+  emits: ['cancel', 'confirm'],
 
   data() {
     return {
@@ -348,6 +364,15 @@ export default {
       }
     },
 
+    atOptionsFilter(name, chunk, at, v) {
+      // filter the list by the given at symbol
+      const option_at = v?.isTaskType ? '#' : '@'
+      // @ for team, # for task type
+      if (at !== option_at) return false
+      // match at lower-case
+      return name.toLowerCase().indexOf(chunk.toLowerCase()) > -1
+    },
+
     onAtTextChanged(input) {
       if (input.includes('@frame')) {
         this.form.text = replaceTimeWithTimecode(
@@ -375,23 +400,24 @@ export default {
     },
 
     taskTypes: {
-      //deep: true,
+      deep: true,
       immediate: true,
       handler(values) {
-        const members = values.map(taskType => {
+        const taskTypeOptions = values.map(taskType => {
           return {
-            isDepartment: true,
-            full_name: taskType.name, //taskType.short_name || taskType.name,
+            isTaskType: true,
+            full_name: taskType.name,
             color: taskType.color,
-            id: taskType.id
+            id: taskType.id,
+            url: taskType.url
           }
         })
-        members.push({
-          isDepartment: true,
+        taskTypeOptions.push({
+          isTaskType: true,
           color: '#000',
           full_name: 'All'
         })
-        this.$set(this.membersForAts, '#', members)
+        this.membersForAts['#'] = taskTypeOptions
       }
     },
 
@@ -424,7 +450,7 @@ export default {
           isTime: true,
           full_name: 'frame'
         })
-        this.$set(this.membersForAts, '@', teamOptions)
+        this.membersForAts['@'] = teamOptions
       }
     }
   }

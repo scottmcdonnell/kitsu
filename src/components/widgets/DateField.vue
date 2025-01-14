@@ -1,49 +1,33 @@
 <template>
   <div :class="{ field: withMargin }">
     <label class="label" v-if="label">{{ label }}</label>
-    <p class="control">
-      <datepicker
-        wrapper-class="datepicker"
-        :input-class="{
-          'date-input': true,
-          input: true,
-          invalid,
-          short: shortDate
-        }"
-        :language="locale"
-        :disabled="disabled"
-        :disabled-dates="disabledDates"
-        :monday-first="true"
-        format="yyyy-MM-dd"
-        @input="$emit('input', localValue)"
-        v-model="localValue"
-      />
-      <span
-        class="clear-button unselectable"
-        @click="event => clearValue(event)"
-        v-if="localValue && canDelete && !disabled"
-      >
-        +
-      </span>
-    </p>
+    <vue-date-picker
+      auto-apply
+      class="datepicker"
+      :clearable="canDelete"
+      :dark="isDarkTheme"
+      :disabled-week-days="weekDaysDisabled ? [6, 0] : []"
+      :disabled="disabled"
+      :enable-time-picker="false"
+      :format="'yyyy-MM-dd'"
+      hide-input-icon
+      :locale="user.locale.substring(0, 2)"
+      :min-date="minDate"
+      :max-date="maxDate"
+      :placeholder="placeholder"
+      :teleport="true"
+      :utc="utc ? 'preserve' : false"
+      v-model="localValue"
+    >
+    </vue-date-picker>
   </div>
 </template>
 
 <script>
 import { mapGetters } from 'vuex'
-import { en, fr } from 'vuejs-datepicker/dist/locale'
-import Datepicker from 'vuejs-datepicker'
-
-import { domMixin } from '@/components/mixins/dom'
 
 export default {
   name: 'date-field',
-
-  components: {
-    Datepicker
-  },
-
-  mixins: [domMixin],
 
   props: {
     canDelete: {
@@ -54,25 +38,33 @@ export default {
       default: false,
       type: Boolean
     },
-    disabledDates: {
-      default: () => {},
-      type: Object
-    },
-    invalid: {
-      default: false,
-      type: Boolean
-    },
     label: {
       default: '',
       type: String
     },
-    shortDate: {
-      default: true,
+    minDate: {
+      default: null,
+      type: [Date, String]
+    },
+    maxDate: {
+      default: null,
+      type: [Date, String]
+    },
+    modelValue: {
+      default: () => new Date(),
+      type: [Date, String]
+    },
+    placeholder: {
+      default: null,
+      type: String
+    },
+    utc: {
+      default: false,
       type: Boolean
     },
-    value: {
-      default: () => new Date(),
-      type: Date
+    weekDaysDisabled: {
+      default: false,
+      type: Boolean
     },
     withMargin: {
       default: true,
@@ -80,54 +72,29 @@ export default {
     }
   },
 
-  data() {
-    return {
-      localValue: null
-    }
-  },
-
-  mounted() {
-    this.localValue = this.value
-  },
+  emits: ['update:modelValue'],
 
   computed: {
-    ...mapGetters(['user']),
+    ...mapGetters(['isDarkTheme', 'user']),
 
-    locale() {
-      if (this.user.locale === 'fr_FR') {
-        return fr
-      } else {
-        return en
+    localValue: {
+      get() {
+        return this.modelValue
+      },
+      set(value) {
+        if (value?.setHours) {
+          value.setHours(0, 0, 0, 0)
+        }
+        this.$emit('update:modelValue', value)
       }
-    }
-  },
-
-  methods: {
-    clearValue(event) {
-      this.pauseEvent(event)
-      this.localValue = null
-      this.$emit('input', null)
-    }
-  },
-
-  watch: {
-    value() {
-      this.localValue = this.value
     }
   }
 }
 </script>
-<style lang="scss" scoped>
-.control {
-  display: inline-flex;
-}
 
-.clear-button {
-  cursor: pointer;
-  position: absolute;
-  right: 5px;
-  top: 0;
-  color: $light-grey;
-  transform: rotate(45deg);
+<style lang="scss" scoped>
+.datepicker {
+  display: inline-flex;
+  max-width: 200px;
 }
 </style>

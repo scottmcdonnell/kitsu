@@ -1,6 +1,5 @@
-import Vue from 'vue/dist/vue'
-
 import colors from '@/lib/colors'
+import preferences from '@/lib/preferences'
 import stringHelpers from '@/lib/string'
 
 import assetStore from '@/store/modules/assets'
@@ -9,7 +8,23 @@ import episodeStore from '@/store/modules/episodes'
 import sequenceStore from '@/store/modules/sequences'
 import shotStore from '@/store/modules/shots'
 
+const entityMaps = {
+  asset: assetStore.cache.assetMap,
+  shot: shotStore.cache.shotMap,
+  sequence: sequenceStore.cache.sequenceMap,
+  episode: episodeStore.cache.episodeMap,
+  edit: editStore.cache.editMap
+}
+
 export const entityListMixin = {
+  emits: [
+    'change-sort',
+    'delete-all-tasks',
+    'field-changed',
+    'keep-task-panel-open',
+    'scroll'
+  ],
+
   created() {
     this.initHiddenColumns(this.validationColumns, this.hiddenColumns)
   },
@@ -19,10 +34,10 @@ export const entityListMixin = {
     window.addEventListener('keydown', this.onKeyDown, false)
     window.addEventListener('keyup', this.onKeyUp, false)
     this.stickedColumns =
-      JSON.parse(localStorage.getItem(this.localStorageStickKey)) || {}
+      preferences.getObjectPreference(this.localStorageStickKey) || {}
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
   },
@@ -84,7 +99,8 @@ export const entityListMixin = {
   },
 
   methods: {
-    onBodyScroll(event, position) {
+    onBodyScroll(event) {
+      const position = event.target
       this.$emit('scroll', position.scrollTop)
     },
 
@@ -138,7 +154,7 @@ export const entityListMixin = {
       if (validationColumns && hiddenColumns) {
         validationColumns.forEach(columnId => {
           const key = this.buildHideKey(columnId)
-          Vue.set(hiddenColumns, columnId, localStorage.getItem(key) === 'true')
+          hiddenColumns[columnId] = localStorage.getItem(key) === 'true'
         })
       }
     },
@@ -150,7 +166,6 @@ export const entityListMixin = {
         isColumnHidden = false
       }
       localStorage.setItem(key, isColumnHidden)
-      Vue.set(this.hiddenColumns, columnId, isColumnHidden)
       this.hiddenColumns[columnId] = isColumnHidden
       return isColumnHidden
     },
@@ -169,6 +184,7 @@ export const entityListMixin = {
 
     getValidationStyle(columnId) {
       const taskType = this.taskTypeMap.get(columnId)
+      if (!taskType) return {}
       return {
         'border-left': `1px solid ${taskType.color}`,
         background: this.getBackground(taskType.color)
@@ -413,6 +429,7 @@ export const entityListMixin = {
     validationColumnsIsInDepartmentFilter(columnId) {
       return (
         this.departmentFilter.length === 0 ||
+        this.taskTypeMap.get(columnId)?.department_id === null ||
         this.departmentFilter.includes(
           this.taskTypeMap.get(columnId).department_id
         )
@@ -458,9 +475,9 @@ export const entityListMixin = {
         ...this.stickedColumns,
         [columnId]: sticked
       }
-      localStorage.setItem(
+      preferences.setObjectPreference(
         this.localStorageStickKey,
-        JSON.stringify(this.stickedColumns)
+        this.stickedColumns
       )
     },
 
@@ -507,25 +524,81 @@ export const entityListMixin = {
       const taskId = this.$route.query.task_id
       const task = this.taskMap.get(taskId)
       if (task) {
-        const entityMap = this[`${this.type}Map`]
+        const entityMap = entityMaps[this.type]
         const entity = entityMap.get(task.entity_id)
-        const taskType = this.taskTypeMap.get(task.task_type_id)
 
-        let list = this[`displayed${stringHelpers.capitalize(this.type)}s`]
-        if (['asset', 'shot'].includes(this.type)) {
-          list = list.flat()
+        if (entity) {
+          const taskType = this.taskTypeMap.get(task.task_type_id)
+
+          let list = this[`displayed${stringHelpers.capitalize(this.type)}s`]
+          if (['asset', 'shot'].includes(this.type)) {
+            list = list.flat()
+          }
+          const x = list.findIndex(e => e.id === entity.id)
+          const y = this.validationColumns.indexOf(task.task_type_id)
+
+          this.$store.commit('ADD_SELECTED_TASK', {
+            task,
+            entity,
+            column: taskType,
+            x,
+            y
+          })
         }
-        const x = list.findIndex(e => e.id === entity.id)
-        const y = this.validationColumns.indexOf(task.task_type_id)
-
-        this.$store.commit('ADD_SELECTED_TASK', {
-          task,
-          entity,
-          column: taskType,
-          x,
-          y
-        })
       }
+    },
+
+    startBrowsing(event) {
+      document.body.style.cursor = 'grabbing'
+      this.isBrowsingX = true
+      this.isBrowsingY = true
+      this.initialClientX = this.getClientX(event)
+      this.initialClientY = this.getClientY(event)
+    },
+
+    startBrowsingX(event) {
+      document.body.style.cursor = 'grabbing'
+      this.isBrowsingX = true
+      this.initialClientX = this.getClientX(event)
+    },
+
+    startBrowsingY(event) {
+      document.body.style.cursor = 'grabbing'
+      this.isBrowsingY = true
+      this.initialClientY = this.getClientY(event)
+    },
+
+    stopBrowsing(event) {
+      document.body.style.cursor = 'default'
+      this.isBrowsingX = false
+      this.isBrowsingY = false
+      this.initialClientX = null
+      this.initialClientY = null
+    },
+
+    onMouseMove(event) {
+      if (this.isBrowsingX) this.scrollTableLeft(event)
+      if (this.isBrowsingY) this.scrollTableTop(event)
+    },
+
+    scrollTableLeft(event) {
+      const tableWrapper = this.$refs.body
+      const previousLeft = tableWrapper.scrollLeft
+      const movementX =
+        event.movementX || this.getClientX(event) - this.initialClientX
+      const newLeft = previousLeft - movementX
+      this.initialClientX = this.getClientX(event)
+      tableWrapper.scrollLeft = newLeft
+    },
+
+    scrollTableTop(event) {
+      const tableWrapper = this.$refs.body
+      const previousTop = tableWrapper.scrollTop
+      const movementY =
+        event.movementY || this.getClientY(event) - this.initialClientY
+      const newTop = previousTop - movementY
+      this.initialClientY = this.getClientY(event)
+      tableWrapper.scrollTop = newTop
     }
   },
 

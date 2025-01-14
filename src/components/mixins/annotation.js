@@ -3,11 +3,13 @@
  * widgets.
  */
 import { fabric } from 'fabric'
-import { v4 as uuidv4 } from 'uuid'
 import moment from 'moment'
+import { v4 as uuidv4 } from 'uuid'
+import { markRaw } from 'vue'
 
 import clipboard from '@/lib/clipboard'
 import { formatFullDate } from '@/lib/time'
+import localPreferences from '@/lib/preferences'
 
 /* Monkey patch needed to have text background including the padding. */
 if (fabric) {
@@ -28,6 +30,8 @@ if (fabric) {
 }
 
 export const annotationMixin = {
+  emits: ['annotation-changed'],
+
   data() {
     return {
       fabricCanvas: null,
@@ -38,7 +42,10 @@ export const annotationMixin = {
       updates: [],
       isShowingPalette: false,
       isShowingPencilPalette: false,
-      notSave: false
+      notSave: false,
+      pencilColor: '#ff3860',
+      pencilWidth: 'big',
+      textColor: '#ff3860'
     }
   },
 
@@ -256,7 +263,7 @@ export const annotationMixin = {
     addToAdditions(obj) {
       this.markLastAnnotationTime()
       const currentTime = this.getCurrentTime()
-      const currentFrame = this.getCurrentFrame()
+      const currentFrame = this.getCurrentFrame() // this is different, depending if it is called in PreviewPlayer or player.js
       const additions = this.findAnnotation(this.additions, currentTime)
       if (additions) {
         additions.drawing.objects.push(obj.serialize())
@@ -382,6 +389,7 @@ export const annotationMixin = {
      * Debug helper.
      */
     printModificationStats(prefix) {
+      // eslint-disable-next-line no-console
       console.log(
         prefix,
         this.additions.length > 0
@@ -451,17 +459,16 @@ export const annotationMixin = {
         }
       } else {
         if (!this.annotations || !this.annotations.push) this.annotations = []
-        this.annotations.push({
-          time: Math.max(currentTime, 0),
-          frame: Math.max(currentFrame, 0),
-          drawing: {
-            objects: this.fabricCanvas._objects.map(obj => obj.serialize())
+        this.$store.commit('ADD_ANNOTATION', {
+          annotations: this.annotations,
+          annotation: {
+            time: Math.max(currentTime, 0),
+            frame: Math.max(currentFrame, 0),
+            drawing: {
+              objects: this.fabricCanvas._objects.map(obj => obj.serialize())
+            }
           }
         })
-        this.annotations =
-          this.annotations.sort((a, b) => {
-            return a.time < b.time
-          }) || []
       }
       const annotations = []
       this.annotations.forEach(a => annotations.push({ ...a }))
@@ -609,55 +616,85 @@ export const annotationMixin = {
     /*
      * Enable / disabl showing pencil palette flag.
      */
-    onPickPencil() {
+    onPickPencilWidth() {
       this.isShowingPencilPalette = !this.isShowingPencilPalette
     },
 
     /*
-     * Enable / disabl showing color palette flag.
+     * Enable / disable showing color palette flag.
      */
-    onPickColor() {
+    onPickPencilColor() {
       this.isShowingPalette = !this.isShowingPalette
     },
 
     /*
-     * When a drawing color is changed, store it in local state.
+     * Enable / disable showing color palette flag.
      */
-    onChangeColor(color) {
-      this.color = color
+    onPickTextColor() {
+      this.isShowingPalette = !this.isShowingPalette
+    },
+
+    /*
+     * When a drawing color is changed, change fabric configuration and save
+     * the new color in the local preferences.
+     */
+    onChangePencilColor(color) {
+      this.pencilColor = color
       this._resetColor()
       this.isShowingPalette = false
+      localPreferences.setPreference('player:pencil-color', this.pencilColor)
     },
 
     /*
-     * When a text color is changed, store it in local state.
+     * When a pencil width is changed, change fabric configuration and save
+     * the new width in the local preferences.
      */
-    onChangeTextColor(color) {
-      this.textColor = color
-      this.isShowingPalette = false
-    },
-
-    /*
-     * When a pencil is changed, store it in local state.
-     */
-    onChangePencil(pencil) {
-      this.pencil = pencil
+    onChangePencilWidth(pencil) {
+      this.pencilWidth = pencil
       this._resetPencil()
       this.isShowingPalette = false
+      localPreferences.setPreference('player:pencil-width', this.pencilWidth)
+    },
+
+    /*
+     * When a text color is changed, change fabric configuration and save
+     * the new color in the local preferences.
+     */
+    onChangeTextColor(newValue) {
+      this.textColor = newValue
+      this.isShowingPalette = false
+      localPreferences.setPreference('player:text-color', this.textColor)
     },
 
     _resetColor() {
-      this.fabricCanvas.freeDrawingBrush.color = this.color
+      if (!this.fabricCanvas) return
+      this.fabricCanvas.freeDrawingBrush.color = this.pencilColor
     },
 
     _resetPencil() {
+      if (!this.fabricCanvas) return
       const converter = {
         big: 4,
         medium: 2,
         small: 1
       }
-      const strokeWidth = converter[this.pencil]
+      const strokeWidth = converter[this.pencilWidth]
       this.fabricCanvas.freeDrawingBrush.width = strokeWidth
+    },
+
+    /*
+     * Reset pencil configuration to the last saved preferences.
+     */
+    resetPencilConfiguration() {
+      this.pencilColor =
+        localPreferences.getPreference('player:pencil-color') || '#ff3860'
+      this.textColor =
+        localPreferences.getPreference('player:text-color') || '#ff3860'
+      this.pencilWidth =
+        localPreferences.getPreference('player:pencil-width') || 'big'
+
+      this._resetColor()
+      this._resetPencil()
     },
 
     /*
@@ -943,9 +980,12 @@ export const annotationMixin = {
       if (!this.annotationCanvas) return
 
       const canvasId = this.annotationCanvas.id
-      this.fabricCanvas = new fabric.Canvas(canvasId, {
-        fireRightClick: true
-      })
+      // Use markRaw() to avoid reactivity on Fabric Canvas
+      this.fabricCanvas = markRaw(
+        new fabric.Canvas(canvasId, {
+          fireRightClick: true
+        })
+      )
       this.fabricCanvas.setDimensions({
         width: 100,
         height: 100
@@ -981,7 +1021,7 @@ export const annotationMixin = {
       this.fabricCanvas.on('mouse:move', this.onCanvasMouseMoved)
       this.fabricCanvas.on('mouse:down', this.onCanvasClicked)
       this.fabricCanvas.on('mouse:up', this.onCanvasReleased)
-      this.fabricCanvas.freeDrawingBrush.color = this.color
+      this.fabricCanvas.freeDrawingBrush.color = this.pencilColor
       this.fabricCanvas.freeDrawingBrush.width = 4
 
       fabric.Group.prototype._controlsVisibility = {
@@ -1137,6 +1177,9 @@ export const annotationMixin = {
         clearTimeout(this.$options.annotationToSave)
         this.notSaved = false
         this.$emit('annotation-changed', this.$options.changesToSave)
+        if (this.onAnnotationChanged) {
+          this.onAnnotationChanged(this.$options.changesToSave)
+        }
       }
     },
 

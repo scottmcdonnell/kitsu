@@ -84,6 +84,16 @@ export default {
     }
   },
 
+  emits: [
+    'entity-change',
+    'frame-update',
+    'max-duration-update',
+    'metadata-loaded',
+    'play-next',
+    'repeat',
+    'video-loaded'
+  ],
+
   data() {
     return {
       currentPlayer: undefined,
@@ -114,7 +124,7 @@ export default {
     this.player2.addEventListener('error', this.hideLoading)
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('resize', this.resetHeight)
     this.player1.removeEventListener('loadedmetadata', this.emitLoadedEvent)
 
@@ -138,7 +148,7 @@ export default {
     },
 
     fps() {
-      return parseFloat(this.currentProduction?.fps) || 24
+      return parseFloat(this.currentProduction?.fps) || 25
     },
 
     frameDuration() {
@@ -327,8 +337,16 @@ export default {
         )
         const rate = this.$options.rate || 1
 
-        this.currentPlayer.src = this.getMoviePath(entity)
-        this.nextPlayer.src = this.getMoviePath(nextEntity)
+        if (entity.preview_file_extension === 'mp4' && this.currentPlayer) {
+          this.currentPlayer.src = this.getMoviePath(entity)
+        } else if (this.currentPlayer) {
+          this.currentPlayer.src = ''
+        }
+        if (nextEntity.preview_file_extension === 'mp4' && this.nextPlayer) {
+          this.nextPlayer.src = this.getMoviePath(nextEntity)
+        } else if (this.nextPlayer) {
+          this.nextPlayer.src = ''
+        }
         this.currentPlayer.style.display = 'block'
         this.nextPlayer.style.display = 'none'
         this.resetHeight()
@@ -367,7 +385,9 @@ export default {
         entity = this.entities[this.currentIndex]
         if (entity.preview_file_id) {
           if (this.currentPlayer) {
-            this.runEmitTimeUpdateLoop()
+            if (this.name === 'main') {
+              this.runEmitTimeUpdateLoop()
+            }
             this.currentPlayer.play()
           }
           this.isPlaying = true
@@ -507,7 +527,9 @@ export default {
 
     updateTime(time) {
       const frameNumber = Math.round(time / this.frameDuration)
-      this.$emit('frame-update', frameNumber)
+      if (this.name === 'main') {
+        this.$emit('frame-update', frameNumber)
+      }
     },
 
     updateMaxDuration() {
@@ -544,18 +566,20 @@ export default {
       }
     },
 
-    entities() {
-      if (this.entities.length > 0) {
-        this.loadEntity(0)
-        this.pause()
-        this._setCurrentTime(0)
+    entities: {
+      handler() {
+        if (this.entities.length > 0) {
+          this.loadEntity(0)
+          this.pause()
+          this._setCurrentTime(0)
 
-        const entity = this.entities[this.currentIndex]
-        if (entity && !entity.preview_file_id) this.loadNextEntity()
+          const entity = this.entities[this.currentIndex]
+          if (entity && !entity.preview_file_id) this.loadNextEntity()
+        }
+        setTimeout(() => {
+          this.resetHeight()
+        }, 300)
       }
-      setTimeout(() => {
-        this.resetHeight()
-      }, 300)
     },
 
     isHd() {

@@ -1,7 +1,7 @@
 <template>
   <div class="columns fixed-page">
     <div class="column main-column">
-      <div class="notifications page" v-scroll="onBodyScroll" ref="body">
+      <div class="notifications page" @scroll.passive="onBodyScroll" ref="body">
         <div class="flexrow">
           <combobox-task-type
             class="flexrow-item selector"
@@ -44,9 +44,9 @@
           <span class="filler"></span>
           <button-simple
             class="flexrow-item"
-            @click="markAllNotificationsRead"
-            :loading="loading.markAll"
+            :is-loading="loading.markAll"
             :text="$t('notifications.mark_all_as_read')"
+            @click="markAllNotificationsRead"
           />
         </div>
         <div
@@ -137,8 +137,8 @@
                   class="selector"
                   :label="$t('notifications.read')"
                   is-small
-                  @input="value => toggleNotificationRead(notification, value)"
-                  :value="notification.read ? 'true' : 'false'"
+                  @click="value => toggleNotificationRead(notification, value)"
+                  :model-value="notification.read ? 'true' : 'false'"
                 />
               </div>
             </div>
@@ -264,7 +264,7 @@ import {
   ImageIcon,
   MessageSquareIcon,
   UserIcon
-} from 'lucide-vue'
+} from 'lucide-vue-next'
 import moment from 'moment-timezone'
 
 import { parametersMixin } from '@/components/mixins/parameters'
@@ -467,7 +467,8 @@ export default {
         })
     },
 
-    onBodyScroll(event, position) {
+    onBodyScroll(event) {
+      const position = event.target
       const maxHeight =
         this.$refs.body.scrollHeight - this.$refs.body.offsetHeight
       if (maxHeight < position.scrollTop + 100) {
@@ -543,8 +544,8 @@ export default {
     onNotificationSelected(event, notification) {
       if (
         event.target.classList.contains('bool-field') ||
-        event.target.parentElement.classList.contains('bool-field') ||
-        event.target.parentElement.parentElement.classList.contains(
+        event.target.parentElement?.classList.contains('bool-field') ||
+        event.target.parentElement?.parentElement?.classList.contains(
           'bool-field'
         )
       ) {
@@ -611,7 +612,7 @@ export default {
     async markAllNotificationsRead() {
       this.loading.markAll = true
       await this.markAllNotificationsAsRead()
-      this.loading.markAll = true
+      this.loading.markAll = false
     }
   },
 
@@ -653,9 +654,7 @@ export default {
     }
   },
 
-  beforeDestroy() {},
-
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('notifications.title')} - Kitsu`
     }
@@ -712,6 +711,7 @@ a {
   margin-bottom: 0.5em;
   padding: 1rem;
   transition: all 0.2s ease-in-out;
+  overflow-x: auto;
 
   &.unread {
     border: 4px solid #f0c5d1;

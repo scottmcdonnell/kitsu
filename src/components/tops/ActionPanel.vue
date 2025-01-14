@@ -367,7 +367,6 @@
               ref="assignation-field"
               :people="currentTeam"
               :placeholder="$t('tasks.assign_explaination')"
-              big
               wide
               v-model="person"
             />
@@ -772,8 +771,8 @@
                 <li
                   class="tag"
                   :key="link.id"
-                  v-for="link in linkGroup.links"
                   @click="onSelectLink(link)"
+                  v-for="link in linkGroup.links"
                 >
                   {{ link.name }}
                 </li>
@@ -801,7 +800,12 @@
 </template>
 
 <script>
-import { CheckSquareIcon, LinkIcon, PlayCircleIcon, XIcon } from 'lucide-vue'
+import {
+  CheckSquareIcon,
+  LinkIcon,
+  PlayCircleIcon,
+  XIcon
+} from 'lucide-vue-next'
 import { mapGetters, mapActions } from 'vuex'
 
 import { intersection } from '@/lib/array'
@@ -858,6 +862,8 @@ export default {
     ViewPlaylistModal,
     XIcon
   },
+
+  emits: ['export-task', 'set-frame-thumbnail'],
 
   data() {
     return {
@@ -923,7 +929,7 @@ export default {
     this.customAction = this.defaultCustomAction
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('keydown', this.onKeyDown)
   },
 
@@ -1825,10 +1831,6 @@ export default {
 
 .change-status-item {
   margin-right: 0.5em;
-}
-
-.assignation-field :deep(.v-autocomplete) {
-  z-index: 501; // +1 relative to the z-index of canvas-wrapper
 }
 
 .status-item {

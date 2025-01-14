@@ -48,10 +48,10 @@
               :is-light="light"
               :is-muted="isMuted"
               :is-object-background="isObjectBackground"
-              :is-ordering="isOrdering"
               :is-repeating="isRepeating"
               :is-wireframe="isWireframe"
               :margin-bottom="marginBottom"
+              name="main"
               :nb-frames="nbFrames"
               :object-background-url="objectBackgroundUrl"
               :preview="currentPreview"
@@ -60,6 +60,7 @@
               }"
               @duration-changed="changeMaxDuration"
               @frame-update="setVideoFrameContext"
+              @model-loaded="onModelLoaded"
               @play-ended="pause"
               @size-changed="fixCanvasSize"
               @video-end="onVideoEnd"
@@ -78,7 +79,6 @@
               :is-light="light"
               :is-hd="isHd"
               :is-muted="true"
-              :is-ordering="isOrdering"
               :is-repeating="isRepeating"
               :margin-bottom="marginBottom"
               :preview="previewToCompare"
@@ -100,11 +100,12 @@
           :entity-type="entityType"
           :extendable="false"
           :is-preview="false"
+          :root="false"
           :silent="isCommentsHidden"
           :task="task"
           @comment-added="$emit('comment-added')"
           @time-code-clicked="timeCodeClicked"
-          v-show="!isCommentsHidden"
+          v-if="!isCommentsHidden"
         />
       </div>
     </div>
@@ -129,7 +130,7 @@
       />
 
       <div class="buttons flexrow pull-bottom" ref="buttons">
-        <div class="left flexrow" v-if="isMovie || isSound">
+        <div class="left flexrow" v-if="isMovie || isSound || is3DAnimation">
           <button-simple
             class="flexrow-item"
             :title="$t('playlists.actions.play')"
@@ -143,6 +144,15 @@
             icon="pause"
             @click="onPlayPauseClicked"
             v-else
+          />
+
+          <combobox-styled
+            class="flexrow-item"
+            :options="available3DAnimations"
+            :is-dark="true"
+            :thin="true"
+            v-model="current3DAnimation"
+            v-if="is3DAnimation"
           />
         </div>
 
@@ -283,9 +293,8 @@
                 v-show="isTyping && (!light || fullScreen)"
               >
                 <color-picker
-                  :is-open="isShowingPalette"
                   :color="textColor"
-                  @TogglePalette="onPickColor"
+                  @toggle-palette="onPickTextColor"
                   @change="onChangeTextColor"
                 />
               </div>
@@ -306,18 +315,15 @@
                 v-show="isDrawing && (!light || fullScreen)"
               >
                 <pencil-picker
-                  :is-open="isShowingPencilPalette"
-                  :pencil="pencil"
+                  :pencil="pencilWidth"
                   :sizes="pencilPalette"
-                  @toggle-palette="onPickPencil"
-                  @change="onChangePencil"
+                  @toggle-palette="onPickPencilWidth"
+                  @change="onChangePencilWidth"
                 />
-
                 <color-picker
-                  :is-open="isShowingPalette"
-                  :color="color"
-                  @TogglePalette="onPickColor"
-                  @change="onChangeColor"
+                  :color="pencilColor"
+                  @toggle-palette="onPickPencilColor"
+                  @change="onChangePencilColor"
                 />
               </div>
             </transition>
@@ -437,15 +443,18 @@
             v-if="currentPreview && !isConcept"
           />
 
-          <div class="flexrow" v-if="fullScreen && !isConcept">
+          <div
+            class="flexrow"
+            v-if="fullScreen && !isConcept && lastPreviewFileOptions.length"
+          >
             <combobox-styled
               class="preview-combo flexrow-item"
               :options="lastPreviewFileOptions"
               is-reversed
               is-preview
               thin
-              :value="currentPreview?.id"
-              @input="changeCurrentPreviewFile"
+              :model-value="currentPreview?.id"
+              @update:model-value="changeCurrentPreviewFile"
             />
           </div>
 
@@ -470,7 +479,7 @@
             :title="$t('playlists.actions.download_file')"
             v-if="
               !isCurrentUserArtist ||
-              currentProduction.is_preview_download_allowed
+              currentProduction?.is_preview_download_allowed
             "
           >
             <download-icon class="icon is-small" />
@@ -531,7 +540,13 @@
 
 <script>
 import { fabric } from 'fabric'
-import { ArrowUpRightIcon, DownloadIcon, GlobeIcon, LinkIcon } from 'lucide-vue'
+import {
+  ArrowUpRightIcon,
+  DownloadIcon,
+  GlobeIcon,
+  LinkIcon
+} from 'lucide-vue-next'
+import { defineAsyncComponent, markRaw } from 'vue'
 import { mapGetters, mapActions } from 'vuex'
 
 import {
@@ -555,8 +570,8 @@ import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
 import PencilPicker from '@/components/widgets/PencilPicker.vue'
 import PreviewViewer from '@/components/previews/PreviewViewer.vue'
 import RevisionPreview from '@/components/previews/RevisionPreview.vue'
-import VideoProgress from '@/components/previews/VideoProgress.vue'
 const TaskInfo = () => import('@/components/sides/TaskInfo.vue')
+import VideoProgress from '@/components/previews/VideoProgress.vue'
 
 let lastIndex = 1
 
@@ -578,7 +593,7 @@ export default {
     PencilPicker,
     PreviewViewer,
     RevisionPreview,
-    TaskInfo,
+    TaskInfo: defineAsyncComponent(TaskInfo),
     VideoProgress
   },
 
@@ -635,16 +650,28 @@ export default {
     }
   },
 
+  emits: [
+    'add-extra-preview',
+    'add-preview',
+    'change-current-preview',
+    'comment-added',
+    'frame-updated',
+    'previews-order-changed',
+    'remove-extra-preview'
+  ],
+
   data() {
     return {
       annotations: [],
+      availableAnimations: [],
+      current3DAnimation: null,
       currentFrame: 0,
       currentIndex: 1,
       fullScreen: false,
-      color: '#ff3860',
       currentBackground: null,
       currentTime: '00:00:00:00',
       currentTimeRaw: 0,
+      is3DAnimation: false,
       isObjectBackground: false,
       isAnnotationsDisplayed: true,
       isEnvironmentSkybox: false,
@@ -724,9 +751,10 @@ export default {
         this.productionBackgrounds.find(this.isDefaultBackground) || null
       this.onObjectBackgroundSelected()
     }
+    this.resetPencilConfiguration()
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.endAnnotationSaving()
     this.removeEvents()
   },
@@ -734,10 +762,11 @@ export default {
   computed: {
     ...mapGetters([
       'assetMap',
-      'currentProduction',
       'getProductionBackgrounds',
       'isCurrentUserArtist',
+      'isTVShow',
       'organisation',
+      'productionMap',
       'selectedConcepts',
       'user'
     ]),
@@ -801,6 +830,10 @@ export default {
       }
     },
 
+    currentProduction() {
+      return this.productionMap.get(this.task.project_id)
+    },
+
     marginBottom() {
       let margin = 32 // buttons bar
       if (this.isMovie) margin += 28 // progress bar
@@ -821,7 +854,7 @@ export default {
     },
 
     fps() {
-      return parseFloat(this.currentProduction?.fps) || 24
+      return parseFloat(this.currentProduction?.fps) || 25
     },
 
     frameDuration() {
@@ -1113,10 +1146,10 @@ export default {
 
     getCurrentFrame() {
       if (this.currentFrame) {
-        return this.currentFrame
+        return this.currentFrame + 1 //match offset in player.js
       } else {
         const time = roundToFrame(this.currentTimeRaw, this.fps) || 0
-        return Math.round(time / this.frameDuration)
+        return Math.round(time / this.frameDuration) + 1 //match offset in player.js
       }
     },
 
@@ -1124,14 +1157,18 @@ export default {
       this.isPlaying = true
       this.isDrawing = false
       if (this.previewViewer) {
-        this.clearCanvas()
-        if (this.currentFrame >= this.nbFrames - 1) {
-          this.previewViewer.setCurrentFrame(0)
-          this.comparisonViewer.setCurrentFrame(0)
-        }
-        this.previewViewer.play()
-        if (this.comparisonViewer && this.isComparing) {
-          this.comparisonViewer.play()
+        if (this.is3DModel) {
+          this.previewViewer.playModelAnimation(this.current3DAnimation)
+        } else {
+          this.clearCanvas()
+          if (this.currentFrame >= this.nbFrames - 1) {
+            this.previewViewer.setCurrentFrame(0)
+            this.comparisonViewer.setCurrentFrame(0)
+          }
+          this.previewViewer.play()
+          if (this.comparisonViewer && this.isComparing) {
+            this.comparisonViewer.play()
+          }
         }
       }
     },
@@ -1139,11 +1176,16 @@ export default {
     pause() {
       if (this.isPlaying) {
         this.isPlaying = false
-        if (this.previewViewer) this.previewViewer.pause()
-        if (this.comparisonViewer) this.comparisonViewer.pause()
-        this.$nextTick(() => {
-          this.syncComparisonViewer()
-        })
+
+        if (this.is3DModel) {
+          this.previewViewer.pauseModelAnimation()
+        } else {
+          if (this.previewViewer) this.previewViewer.pause()
+          if (this.comparisonViewer) this.comparisonViewer.pause()
+          this.$nextTick(() => {
+            this.syncComparisonViewer()
+          })
+        }
       }
     },
 
@@ -1219,11 +1261,14 @@ export default {
       const dimensions = this.getDimensions()
       const width = dimensions.width
       const height = dimensions.height
-      this.fabricCanvas = new fabric.Canvas(this.canvasId, {
-        fireRightClick: true,
-        width,
-        height
-      })
+      // Use markRaw() to avoid reactivity on Fabric Canvas
+      this.fabricCanvas = markRaw(
+        new fabric.Canvas(this.canvasId, {
+          fireRightClick: true,
+          width,
+          height
+        })
+      )
       if (!this.fabricCanvas.freeDrawingBrush) {
         this.fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(
           this.fabricCanvas
@@ -1435,7 +1480,7 @@ export default {
 
     isDefaultBackground(background) {
       const defaultId =
-        this.currentProduction.default_preview_background_file_id
+        this.currentProduction?.default_preview_background_file_id
       return defaultId ? background.id === defaultId : background.is_default
     },
 
@@ -1444,12 +1489,6 @@ export default {
     onDeleteClicked() {
       this.clearFocus()
       this.deleteSelection()
-    },
-
-    onChangeColor(newValue) {
-      this.color = newValue
-      this.fabricCanvas.freeDrawingBrush.color = this.color
-      this.isShowingPalette = false
     },
 
     onPencilAnnotateClicked() {
@@ -1772,6 +1811,21 @@ export default {
       })
     },
 
+    onModelLoaded() {
+      this.is3DAnimation = this.previewViewer.get3DAnimations().length > 0
+      if (this.is3DAnimation) {
+        this.available3DAnimations = this.previewViewer
+          .get3DAnimations()
+          .map(animation => ({
+            label: animation,
+            value: animation
+          }))
+        this.current3DAnimation = this.available3DAnimations[0].value
+        this.isPlaying = true
+        this.previewViewer.playModelAnimation(this.current3DAnimation)
+      }
+    },
+
     onVideoLoaded() {
       if (this.isMovie) {
         this.movieDimensions = {
@@ -1953,6 +2007,13 @@ export default {
   },
 
   watch: {
+    current3DAnimation() {
+      if (this.is3DModel) {
+        this.isPlaying = true
+        this.previewViewer.playModelAnimation(this.current3DAnimation)
+      }
+    },
+
     currentPreview() {
       this.endAnnotationSaving()
       this.reloadAnnotations()
@@ -1963,9 +2024,11 @@ export default {
         this.maxDuration = '00:00:00:00'
         this.isDrawing = false
         setTimeout(() => {
-          this.movieDimensions = this.previewViewer.getNaturalDimensions()
-          this.previewViewer.resize()
-          this.comparisonViewer.resize()
+          if (this.previewViewer) {
+            this.movieDimensions = this.previewViewer.getNaturalDimensions()
+            this.previewViewer.resize()
+            this.comparisonViewer.resize()
+          }
         }, 500)
       } else if (this.isPicture) {
         this.pause()
@@ -1975,7 +2038,10 @@ export default {
           this.previewViewer.resize()
           this.comparisonViewer.resize()
         }, 500)
-      } else if (this.isSound || this.isFile || this.is3DModel) {
+      } else if (this.is3DModel) {
+        this.fixCanvasSize({ width: 0, height: 0, left: 0, top: 0 })
+        this.previewViewer?.resize()
+      } else if (this.isSound || this.isFile) {
         // hide canvas
         this.fixCanvasSize({ width: 0, height: 0, left: 0, top: 0 })
       }

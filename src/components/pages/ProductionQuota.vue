@@ -96,7 +96,7 @@
         :max-quota="maxQuota"
       />
     </div>
-    <div class="column side-column" v-if="showInfo">
+    <div class="column side-column" v-if="showInfo && currentPerson">
       <people-quota-info
         :person="currentPerson"
         :year="currentYear"
@@ -460,6 +460,13 @@ export default {
 
     $route() {
       this.loadRoute()
+    }
+  },
+
+  head() {
+    const prodName = this.currentProduction.name
+    return {
+      title: `${prodName} | ${this.$t('quota.title')} - Kitsu`
     }
   }
 }

@@ -139,8 +139,6 @@
     <manage-shots-modal
       :active="modals.isManageDisplayed"
       :is-loading="loading.manage"
-      :is-error="false"
-      :is-success="false"
       @add-episode="addEpisode"
       @add-sequence="addSequence"
       @add-shot="addShot"
@@ -256,7 +254,6 @@
     <add-metadata-modal
       :active="modals.isAddMetadataDisplayed"
       :is-loading="loading.addMetadata"
-      :is-loading-stay="loading.addMetadata"
       :is-error="errors.addMetadata"
       :descriptor-to-edit="descriptorToEdit"
       entity-type="Shot"
@@ -302,6 +299,8 @@
 <script>
 import moment from 'moment'
 import { mapGetters, mapActions } from 'vuex'
+
+import shotStore from '@/store/modules/shots'
 
 import csv from '@/lib/csv'
 import func from '@/lib/func'
@@ -393,6 +392,7 @@ export default {
       selectedDepartment: 'ALL',
       shotToDelete: null,
       shotToEdit: null,
+      shotToRestore: null,
       taskTypeForTaskDeletion: null,
       departmentFilter: [],
       modals: {
@@ -440,7 +440,7 @@ export default {
     }
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.clearSelectedShots()
   },
 
@@ -489,6 +489,7 @@ export default {
       this.$nextTick(() => {
         this.$refs['shot-list']?.selectTaskFromQuery()
       })
+      this.reloadEpisodeShotsIfNeeded()
     }
   },
 
@@ -524,7 +525,6 @@ export default {
       'productionShotTaskTypes',
       'selectedShots',
       'sequences',
-      'shotMap',
       'shotFilledColumns',
       'shotsCsvFormData',
       'shotSearchQueries',
@@ -537,6 +537,10 @@ export default {
       'taskTypeMap',
       'user'
     ]),
+
+    shotMap() {
+      return shotStore.cache.shotMap
+    },
 
     searchField() {
       return this.$refs['shot-search-field']
@@ -612,6 +616,23 @@ export default {
       'uploadShotFile',
       'uploadEdlFile'
     ]),
+
+    reloadEpisodeShotsIfNeeded() {
+      if (
+        (this.isTVShow && this.displayedSequences.length === 0) ||
+        this.displayedSequences[0]?.episode_id !== this.currentEpisode?.id ||
+        this.displayedShots[0]?.episode_id !== this.currentEpisode?.id
+      ) {
+        this.$refs['shot-search-field'].setValue('')
+        this.$store.commit('SET_SHOT_LIST_SCROLL_POSITION', 0)
+        this.initialLoading = true
+        this.loadShots(() => {
+          this.initialLoading = false
+          this.setSearchFromUrl()
+          this.onSearchChange()
+        })
+      }
+    },
 
     addEpisode(episode, callback) {
       this.newEpisode(episode).then(callback).catch(console.error)
@@ -1096,14 +1117,14 @@ export default {
       const shot = this.shotMap.get(entry.id)
       if (
         descriptor.field_name === 'frame_in' &&
-        shot.data.frame_out &&
+        shot.data?.frame_out &&
         parseInt(shot.data.frame_out) > parseInt(value)
       ) {
         data.nb_frames = parseInt(shot.data.frame_out) - parseInt(value) + 1
       }
       if (
         descriptor.field_name === 'frame_out' &&
-        shot.data.frame_in &&
+        shot.data?.frame_in &&
         parseInt(shot.data.frame_in) < parseInt(value)
       ) {
         data.nb_frames = parseInt(value) - parseInt(shot.data.frame_in) + 1
@@ -1171,21 +1192,7 @@ export default {
     },
 
     currentSection() {
-      if (
-        (this.isTVShow && this.displayedSequences.length === 0) ||
-        this.displayedSequences[0]?.episode_id !== this.currentEpisode?.id ||
-        this.displayedShots[0]?.episode_id !== this.currentEpisode?.id
-      ) {
-        this.$refs['shot-search-field'].setValue('')
-        this.$store.commit('SET_SHOT_LIST_SCROLL_POSITION', 0)
-
-        this.initialLoading = true
-        this.loadShots(() => {
-          this.initialLoading = false
-          this.setSearchFromUrl()
-          this.onSearchChange()
-        })
-      }
+      this.reloadEpisodeShotsIfNeeded()
     },
 
     currentProduction() {
@@ -1244,17 +1251,22 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     if (this.isTVShow) {
       return {
         title:
-          `${this.currentProduction ? this.currentProduction.name : ''}` +
-          ` - ${this.currentEpisode ? this.currentEpisode.name : ''}` +
+          `${this.currentProduction?.name || ''}` +
+          ` - ${this.currentEpisode?.name || ''}` +
           ` | ${this.$t('shots.title')} - Kitsu`
       }
     }
+    if (!this.currentProduction) {
+      return {
+        title: `${this.$t('shots.title')} - Kitsu`
+      }
+    }
     return {
-      title: `${this.currentProduction.name} ${this.$t('shots.title')} - Kitsu`
+      title: `${this.currentProduction.name} | ${this.$t('shots.title')} - Kitsu`
     }
   }
 }

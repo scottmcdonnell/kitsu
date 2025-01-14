@@ -76,6 +76,7 @@
             >
               <option value="zh_Hans_CN">Chinese</option>
               <option value="zh_Hant_TW">Chinese (TW)</option>
+              <option value="da_DA">Dannish</option>
               <option value="nl_NL">Dutch</option>
               <option value="en_US">English</option>
               <option value="fr_FR">French</option>
@@ -542,8 +543,8 @@
 
         <ul class="pa1">
           <li
-            v-for="(device, index) in user.fido_devices"
             :key="`${device}-${index}`"
+            v-for="(device, index) in user.fido_devices"
           >
             {{ device }}
             <trash-icon
@@ -589,8 +590,10 @@ import {
   XCircleIcon,
   KeyIcon,
   TrashIcon
-} from 'lucide-vue'
+} from 'lucide-vue-next'
 import { mapGetters, mapActions } from 'vuex'
+
+import lang from '@/lib/lang'
 
 import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
 import ChangeAvatarModal from '@/components/modals/ChangeAvatarModal.vue'
@@ -811,15 +814,7 @@ export default {
     ]),
 
     localeChanged() {
-      this.$i18n.locale = this.form.locale.substring(0, 2)
-      if (this.form.locale === 'zh_Hans_CN') {
-        moment.locale('zh_CN')
-      } else if (this.form.locale === 'zh_Hant_TW') {
-        moment.locale('zh_TW')
-        this.$i18n.locale = 'zw'
-      } else {
-        moment.locale(this.form.locale.substring(0, 2))
-      }
+      lang.setLocale(this.form.locale)
     },
 
     passwordChangeRequested() {
@@ -1172,7 +1167,7 @@ export default {
     window.addEventListener('keydown', this.onKeyDown, false)
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('profile.title')} - Kitsu`
     }

@@ -45,8 +45,8 @@
           <template v-else>
             <div
               class="pb1"
-              v-for="(group, index) in sortedSharedAssetsByType"
               :key="index"
+              v-for="(group, index) in sortedSharedAssetsByType"
             >
               <h2 class="mt0">
                 {{ group[0].asset_type_name }} ({{ group.length }})
@@ -59,8 +59,8 @@
                     'selected-item': isSelected(entity)
                   }"
                   :key="entity.id"
-                  v-for="entity in group"
                   @click="isCurrentUserManager && toggleEntity(entity)"
+                  v-for="entity in group"
                 >
                   <div class="card" :title="entity.full_name">
                     <entity-preview
@@ -247,7 +247,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('library.asset_library')} - Kitsu`
     }
@@ -277,6 +277,7 @@ export default {
     background-color: var(--background);
     border: 5px solid transparent;
     border-radius: 1em;
+    height: fit-content;
     transition: border-color 0.2s ease-in-out;
 
     &.selectable-item {
@@ -310,6 +311,7 @@ export default {
 
       .entity-name {
         margin-left: 0.5em;
+        word-break: break-word;
       }
     }
   }

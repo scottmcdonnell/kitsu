@@ -91,8 +91,8 @@
                     :options="previewOptions"
                     is-preview
                     thin
-                    :value="previewOptions[currentPreviewIndex]?.value"
-                    @input="onPreviewChanged"
+                    :model-value="previewOptions[currentPreviewIndex]?.value"
+                    @update:model-value="onPreviewChanged"
                   />
                 </div>
                 <div class="filler"></div>
@@ -313,7 +313,7 @@
 </template>
 
 <script>
-import { CornerRightUpIcon, XIcon } from 'lucide-vue'
+import { CornerRightUpIcon, XIcon } from 'lucide-vue-next'
 import moment from 'moment'
 import { mapGetters, mapActions } from 'vuex'
 
@@ -398,11 +398,31 @@ export default {
     withActions: {
       type: Boolean,
       default: false
+    },
+    player: {
+      type: Object,
+      default: null
+    },
+    root: {
+      type: Boolean,
+      default: true
     }
+  },
+
+  emits: ['comment-added', 'task-removed', 'time-code-clicked'],
+
+  provide() {
+    if (this.root) {
+      return {
+        draftComment: this.draftComment
+      }
+    }
+    return {}
   },
 
   data() {
     return {
+      draftComment: {},
       addExtraPreviewFormData: null,
       animOn: false,
       previewForms: [],
@@ -410,11 +430,14 @@ export default {
       currentPreviewIndex: 0,
       currentPreviewPath: '',
       currentPreviewDlPath: '',
+      currentTask: null,
       commentToEdit: null,
       isWide: false,
       isExtraWide: false,
       otherPreviews: [],
       panelWidth: 800,
+      selectedEpisodes: null,
+      selectedSequences: null,
       taskComments: [],
       taskPreviews: [],
       domEvents: [
@@ -464,7 +487,7 @@ export default {
     }
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.removeEvents(this.domEvents)
   },
 
@@ -484,10 +507,8 @@ export default {
       'isCurrentUserSupervisor',
       'isSingleEpisode',
       'isTVShow',
-      'lastCommentDraft',
       'nbSelectedTasks',
       'personMap',
-      'previewFormData',
       'productionMap',
       'selectedAssets',
       'selectedConcepts',
@@ -529,12 +550,18 @@ export default {
         production.team.map(personId => this.personMap.get(personId))
       )
     },
+
+    // get current task types for this project filtered by current task entity type (Shot or Asset)
     currentTaskTypes() {
-      // get current task types for this project filtered by current task entity type (Shot or Asset)
-      if (!this.task) return []
-      const production = this.productionMap.get(this.task.project_id)
-      if (!production) return []
-      const task_types = production.task_types
+      if (!this.task || !this.currentProduction) return []
+
+      // task types for this project
+      const task_types = this.currentProduction.task_types
+
+      // get the current task entity type eg. 'Shot' or 'Asset'
+      const current_task_type = this.taskTypeMap.get(this.task.task_type_id)
+      const task_type_entity = current_task_type.for_entity
+      const task_type_entity_slug = task_type_entity.toLowerCase() + 's'
 
       // lets get a map of all tasks that are the same entity
       // where the key is the task type id
@@ -545,24 +572,22 @@ export default {
           entity_tasks[task.task_type_id] = task
       }
 
-      return (
-        task_types
-          // get all task type objects
-          .map(taskTypeId => this.taskTypeMap.get(taskTypeId))
+      const filtered = task_types
+        // get all task type objects
+        .map(taskTypeId => this.taskTypeMap.get(taskTypeId))
 
-          // filter down to just those that match this task entity type Shot, Asset etc.
-          .filter(
-            taskType => taskType.for_entity === this.task.entity_type_name
-          )
+        // filter down to just those that match this task entity type Shot, Asset etc.
+        .filter(taskType => taskType.for_entity === task_type_entity)
 
-          // add a url that points to the task
-          .map(taskType => {
-            const task = entity_tasks[taskType.id]
-            if (task)
-              taskType.url = `/productions/${task.project_id}/episodes/${task.episode_id}/shots/tasks/${task.id}`
-            return taskType
-          })
-      )
+        // add a url that points to the task
+        .map(taskType => {
+          const task = entity_tasks[taskType.id]
+          if (task)
+            taskType.url = `/productions/${task.project_id}/episodes/${task.episode_id || 'all'}/${task_type_entity_slug}/tasks/${task.id}`
+          return taskType
+        })
+      console.log('filtered', filtered)
+      return filtered
     },
 
     title() {
@@ -858,6 +883,7 @@ export default {
           .dispatch(action, params)
           .then(() => {
             drafts.clearTaskDraft(this.task.id)
+            this.$refs['add-comment']?.reset()
             this.reset()
             this.loading.addComment = false
             this.$emit('comment-added')
@@ -869,7 +895,6 @@ export default {
             this.errors.addCommentMaxRetakes = isRetakeError
             this.loading.addComment = false
           })
-          .finally(() => {})
       })
     },
 
@@ -1228,7 +1253,7 @@ export default {
 
     async extractAnnotationSnapshots() {
       let previewPlayer = this.$refs['preview-player']
-      if (!previewPlayer) previewPlayer = this.$parent
+      if (!previewPlayer) previewPlayer = this.player
       this.$refs['add-comment'].showAnnotationLoading()
       const files = await previewPlayer.extractAnnotationSnapshots()
       this.$refs['add-comment'].hideAnnotationLoading()
@@ -1332,7 +1357,7 @@ export default {
         this.loading.setFrameThumbnail = true
         let frame = null
         if (isUseCurrentFrame) {
-          frame = this.currentFrameRaw
+          frame = this.currentFrameRaw + 1
         }
         return this.setCurrentPreviewAsEntityThumbnail(frame)
       }
@@ -1523,6 +1548,12 @@ export default {
             }
           })
         }
+      }
+    },
+
+    head() {
+      return {
+        title: this.title
       }
     }
   }
