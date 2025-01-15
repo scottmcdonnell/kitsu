@@ -745,6 +745,7 @@ export default {
         'estimation',
         'duration',
         'retake_count',
+        'assignees',
         'start_date',
         'due_date',
         'real_start_date',
