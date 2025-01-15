@@ -31,7 +31,6 @@
             <previews-per-task-type
               ref="previews-per-task-type"
               :entity="currentEntity"
-              :entity-map="editMap"
               @preview-changed="onPreviewChanged"
             />
           </div>
@@ -40,11 +39,10 @@
         <div class="flexrow-item block mt0">
           <preview-room
             :ref="previewRoomRef"
-            :roomId="
-              currentEdit && isValidRoomId(currentEdit.id) ? currentEdit.id : ''
-            "
-            :joinRoom="joinRoom"
-            :leaveRoom="leaveRoom"
+            :room="room"
+            @open-room="openRoom"
+            @join-room="joinRoom"
+            @leave-room="leaveRoom"
             v-if="
               currentEdit &&
               isValidRoomId(currentEdit.id) &&
@@ -257,7 +255,7 @@
               :title="$t('playlists.actions.see_original_file')"
               target="blank"
             >
-              <arrow-up-right-icon class="icon is-small" />
+              <arrow-up-right-icon class="icon" />
             </a>
           </div>
 
@@ -365,9 +363,8 @@
             <transition name="slide">
               <div class="annotation-tools" v-show="isTyping">
                 <color-picker
-                  :isOpen="isShowingPalette"
-                  :color="this.textColor"
-                  @TogglePalette="onPickColor"
+                  :color="textColor"
+                  @toggle-palette="onPickColor"
                   @change="onChangeTextColor"
                 />
               </div>
@@ -386,17 +383,15 @@
             <transition name="slide">
               <div class="annotation-tools" v-show="isDrawing">
                 <pencil-picker
-                  :isOpen="isShowingPencilPalette"
                   :pencil="pencil"
-                  :sizes="this.pencilPalette"
+                  :sizes="pencilPalette"
                   @toggle-palette="onPickPencil"
                   @change="onChangePencil"
                 />
 
                 <color-picker
-                  :isOpen="isShowingPalette"
-                  :color="this.color"
-                  @TogglePalette="onPickColor"
+                  :color="color"
+                  @toggle-palette="onPickColor"
                   @change="onChangeColor"
                 />
               </div>
@@ -585,7 +580,13 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
-import { CornerLeftUpIcon, DownloadIcon } from 'vue-feather-icons'
+import {
+  ArrowUpRightIcon,
+  CornerLeftUpIcon,
+  DownloadIcon
+} from 'lucide-vue-next'
+
+import editStore from '@/store/modules/edits'
 
 import { annotationMixin } from '@/components/mixins/annotation'
 import { domMixin } from '@/components/mixins/dom'
@@ -607,6 +608,7 @@ import EntityTimeLogs from '@/components/pages/entities/EntityTimeLogs.vue'
 import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
 import ColorPicker from '@/components/widgets/ColorPicker.vue'
 import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
+import ObjectViewer from '@/components/previews/ObjectViewer.vue'
 import PageSubtitle from '@/components/widgets/PageSubtitle.vue'
 import PencilPicker from '@/components/widgets/PencilPicker.vue'
 import PreviewRoom from '@/components/widgets/PreviewRoom.vue'
@@ -614,11 +616,13 @@ import PreviewsPerTaskType from '@/components/previews/PreviewsPerTaskType.vue'
 import RawVideoPlayer from '@/components/pages/playlists/RawVideoPlayer.vue'
 import Schedule from '@/components/widgets/Schedule.vue'
 import Spinner from '@/components/widgets/Spinner.vue'
+import SoundViewer from '@/components/previews/SoundViewer.vue'
 import TaskInfo from '@/components/sides/TaskInfo.vue'
 import VideoProgress from '@/components/previews/VideoProgress.vue'
 
 export default {
   name: 'edit',
+
   mixins: [
     annotationMixin,
     domMixin,
@@ -627,7 +631,9 @@ export default {
     previewRoomMixin,
     playerMixin
   ],
+
   components: {
+    ArrowUpRightIcon,
     ButtonSimple,
     CornerLeftUpIcon,
     ColorPicker,
@@ -641,11 +647,13 @@ export default {
     EntityTaskList,
     EntityTimeLogs,
     EntityThumbnail,
+    ObjectViewer,
     PageSubtitle,
     PencilPicker,
     PreviewRoom,
     PreviewsPerTaskType,
     RawVideoPlayer,
+    SoundViewer,
     Schedule,
     Spinner,
     TaskInfo,
@@ -654,6 +662,7 @@ export default {
 
   data() {
     return {
+      type: 'edit',
       currentEdit: null,
       currentSection: 'infos',
       isLoading: true,
@@ -661,6 +670,11 @@ export default {
       movieDimensions: { width: 0, height: 0 },
       previewRoomRef: 'edits-preview-room',
       previewFileMap: new Map(),
+      room: {
+        id: null,
+        people: [],
+        newComer: true
+      },
       tempMode: false,
       errors: {
         edit: false
@@ -680,12 +694,8 @@ export default {
 
   mounted() {
     this.resetData()
-    this.$on('annotation-changed', this.onAnnotationChanged)
-
     this.$options.scrubbing = false
-    this.isHd = this.organisation
-      ? this.organisation.hd_by_default === 'true'
-      : false
+    this.isHd = Boolean(this.organisation.hd_by_default)
     if (this.picturePlayer) {
       this.picturePlayer.addEventListener('load', async () => {
         const wasPlaying = this.isPlaying
@@ -701,10 +711,6 @@ export default {
     })
   },
 
-  beforeDestroy() {
-    this.$off('annotation-changed', this.onAnnotationChanged)
-  },
-
   computed: {
     ...mapGetters([
       'currentEpisode',
@@ -714,7 +720,6 @@ export default {
       'isCurrentUserManager',
       'isTVShow',
       'route',
-      'editMap',
       'editMetadataDescriptors',
       'taskMap',
       'taskTypeMap',
@@ -830,7 +835,7 @@ export default {
     },
 
     getCurrentEdit() {
-      return this.editMap.get(this.route.params.edit_id) || null
+      return editStore.cache.editMap.get(this.route.params.edit_id) || null
     },
 
     confirmEditEdit(form) {
@@ -906,6 +911,7 @@ export default {
       this.$nextTick(() => {
         this.loadEdits().then(() => {
           this.currentEdit = this.getCurrentEdit()
+          this.room.id = this.currentEdit ? this.currentEdit.id : null
           if (!this.currentEdit) {
             return
           }
@@ -942,13 +948,17 @@ export default {
   },
 
   watch: {
+    currentEdit() {
+      this.room.id = this.currentEdit ? this.currentEdit.id : null
+    },
+
     // Needed when reloading the page with F5
     currentProduction() {
       if (!this.isTVShow) this.resetData()
     },
 
     currentEpisode() {
-      if (this.isTVShow && this.editMap.size === 0) {
+      if (this.isTVShow && editStore.cache.editMap.size === 0) {
         this.resetData()
       }
     },
@@ -1011,7 +1021,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.title} - Kitsu`
     }
@@ -1068,7 +1078,7 @@ h2.subtitle {
 
 .page {
   background: #f9f9f9;
-  padding: 0em;
+  padding: 0;
 }
 
 .page-header {
@@ -1225,11 +1235,6 @@ h2.subtitle {
   min-width: 450px;
   max-width: 450px;
   overflow-y: auto;
-}
-
-.icon {
-  margin-top: -4px;
-  height: 20px;
 }
 
 .smaller {

@@ -1,13 +1,7 @@
 ---
 name: 'Kitsu CI'
 
-on:
-  pull_request:
-    branches:
-      - master
-  push:
-    branches:
-      - master
+on: [push, pull_request]
 
 jobs:
   ci:
@@ -15,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [18, 20, current]
+        node: [18, 20, 22, current]
     steps:
       - uses: actions/checkout@v4
       - name: Setup node
@@ -25,6 +19,7 @@ jobs:
           cache: 'npm'
       - name: Run tests
         env:
+          HUSKY: 0
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           echo "Node.js $(node -v)"

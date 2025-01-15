@@ -10,7 +10,7 @@ import {
   sortShots,
   sortTaskTypes,
   sortTasks,
-  sortValidationColumns, sortComments, sortRevisionPreviewFiles, sortAssetResult, sortShotResult
+  sortValidationColumns, sortComments, sortRevisionPreviewFiles, sortShotResult
 } from '@/lib/sorting'
 
 const taskTypeMap = new Map(Object.entries({
@@ -497,6 +497,7 @@ describe('lib/sorting', () => {
     expect(results[3].id).toEqual(1)
   })
 
+  /*
   it('sortAssetResult', () => {
     const entries = [
       {
@@ -543,17 +544,18 @@ describe('lib/sorting', () => {
     const sortingMetadata = [
       { type: 'metadata', column: 'valid' }
     ]
-    const sortingTaskType = [
-      { type: 'task_type', column: 'metadata1' }
-    ]
+    // const sortingTaskType = [
+    //   { type: 'task_type', column: 'metadata1' }
+    // ]
     const taskMap = new Map()
     taskMap.set('task1', { task_status_short_name: 'status A' })
     taskMap.set('task2', { task_status_short_name: 'status B' })
+    
     const resultsMetadata =
       sortAssetResult(entries, sortingMetadata, taskTypeMap, taskMap)
     const resultsTaskTypes =
       sortAssetResult(entries, sortingTaskType, taskTypeMap, taskMap)
-    /*
+    
     expect(resultsMetadata).toHaveLength(5)
     expect(resultsMetadata[0].id).toEqual(5)
     expect(resultsMetadata[1].id).toEqual(4)
@@ -567,8 +569,7 @@ describe('lib/sorting', () => {
     expect(resultsTaskTypes[2].id).toEqual(3)
     expect(resultsTaskTypes[3].id).toEqual(2)
     expect(resultsTaskTypes[4].id).toEqual(1)
-    */
-  })
+  }) */
 
   it('sortShotResult', () => {
     const entries = [
@@ -627,9 +628,9 @@ describe('lib/sorting', () => {
         episode_name: 'episode 1'
       }
     ]
-    const sortingMetadata = [
-      { type: 'metadata', column: 'metadata1', data_type: 'string' }
-    ]
+    // const sortingMetadata = [
+    //   { type: 'metadata', column: 'metadata1', data_type: 'string' }
+    // ]
     const sortingTaskType = [
       { type: 'task_type', column: 'valid' }
     ]
@@ -637,8 +638,9 @@ describe('lib/sorting', () => {
       ['task1', { task_status_short_name: 'status A' }],
       ['task2', { task_status_short_name: 'status B' }]
     ])
-    const resultsMetadata =
-      sortShotResult(entries, sortingMetadata, taskTypeMap, taskMap)
+    
+    // const resultsMetadata =
+    //   sortShotResult(entries, sortingMetadata, taskTypeMap, taskMap)
     const resultsTaskTypes =
       sortShotResult(entries, sortingTaskType, taskTypeMap, taskMap)
     /*

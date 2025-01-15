@@ -65,6 +65,14 @@
           :label="$t('settings.fields.timesheets_locked')"
           v-model="form.timesheets_locked"
         />
+        <combobox-boolean
+          :label="$t('settings.fields.format_duration_in_hours')"
+          v-model="form.format_duration_in_hours"
+        />
+        <combobox-boolean
+          :label="$t('settings.fields.dark_theme_by_default')"
+          v-model="form.dark_theme_by_default"
+        />
         <h2>
           {{ $t('settings.integrations') }}
         </h2>
@@ -83,7 +91,7 @@
           />
           <div
             class="error has-text-centered"
-            v-if="this.errors.webhook_error === true"
+            v-if="errors.webhook_error === true"
           >
             <em>{{ $t('settings.webhook_error') }}</em>
           </div>
@@ -93,7 +101,7 @@
           :class="{
             'is-loading': loading.save
           }"
-          :disabled="loading.save || !this.$refs.form?.checkValidity()"
+          :disabled="loading.save || !$refs.form?.checkValidity()"
         >
           {{ $t('settings.save.button') }}
         </button>
@@ -117,9 +125,9 @@
 <script>
 import { mapGetters, mapActions } from 'vuex'
 
-import ChangeAvatarModal from '@/components/modals/ChangeAvatarModal'
-import ComboboxBoolean from '@/components/widgets/ComboboxBoolean'
-import TextField from '@/components/widgets/TextField'
+import ChangeAvatarModal from '@/components/modals/ChangeAvatarModal.vue'
+import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
+import TextField from '@/components/widgets/TextField.vue'
 
 export default {
   name: 'settings',
@@ -142,7 +150,9 @@ export default {
         hours_by_day: 0,
         name: '',
         timesheets_locked: 'false',
-        use_original_file_name: 'false'
+        use_original_file_name: 'false',
+        format_duration_in_hours: 'false',
+        dark_theme_by_default: 'false'
       },
       errors: {
         save: false,
@@ -200,7 +210,16 @@ export default {
       if (this.checkWebhook()) {
         this.loading.save = true
         this.errors.save = false
-        this.saveOrganisation(this.form)
+        const organisation = {
+          ...this.form,
+          hd_by_default: this.form.hd_by_default === 'true',
+          timesheets_locked: this.form.timesheets_locked === 'true',
+          use_original_file_name: this.form.use_original_file_name === 'true',
+          format_duration_in_hours:
+            this.form.format_duration_in_hours === 'true',
+          dark_theme_by_default: this.form.dark_theme_by_default === 'true'
+        }
+        this.saveOrganisation(organisation)
           .catch(err => {
             console.error(err)
             this.errors.save = true
@@ -262,13 +281,19 @@ export default {
             : 'false',
           use_original_file_name: this.organisation.use_original_file_name
             ? 'true'
+            : 'false',
+          format_duration_in_hours: this.organisation.format_duration_in_hours
+            ? 'true'
+            : 'false',
+          dark_theme_by_default: this.organisation.dark_theme_by_default
+            ? 'true'
             : 'false'
         }
       }
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('settings.title')} - Kitsu`
     }
@@ -297,7 +322,7 @@ export default {
 .mattermost_integrations {
   margin-bottom: 4em;
   .field {
-    margin-bottom: 0em;
+    margin-bottom: 0;
   }
 }
 
@@ -313,7 +338,7 @@ export default {
   margin-top: 2em;
   margin-bottom: 2em;
   padding: 2em;
-  box-shadow: rgba(0, 0, 0, 0.15) 0px 1px 4px 2px;
+  box-shadow: rgba(0, 0, 0, 0.15) 0 1px 4px 2px;
   border-radius: 1em;
 }
 
@@ -324,7 +349,7 @@ span.select {
 }
 
 h2:first-child {
-  margin-top: 0em;
+  margin-top: 0;
 }
 
 .save-button {

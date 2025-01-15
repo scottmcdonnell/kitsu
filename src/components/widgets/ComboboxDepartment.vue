@@ -1,16 +1,17 @@
 <template>
   <div>
-    <label class="label" v-if="label.length > 0">
+    <label class="label" v-if="label.length">
       {{ label }}
     </label>
     <div
+      class="department-combo"
       :class="{
-        'department-combo': true,
         opened: showDepartmentList,
-        rounded: rounded
+        rounded,
+        top
       }"
-      v-bind:style="{
-        width: width + 'px'
+      :style="{
+        width: `${width}px`
       }"
     >
       <div class="flexrow" @click="toggleDepartmentList">
@@ -25,20 +26,16 @@
       <div
         class="select-input"
         ref="select"
-        v-bind:style="{
-          'max-height': maxHeightSelectInput + 'px',
-          width: width + 'px',
-          top: rounded ? '30px' : '37px'
-        }"
+        :style="listStyle"
         v-if="showDepartmentList"
       >
         <div
           class="department-line"
-          v-for="department in departmentList.filter(
-            ({ id }) => id !== this.value
-          )"
-          @click="selectDepartment(department)"
           :key="department.id"
+          @click="selectDepartment(department)"
+          v-for="department in departmentList.filter(
+            ({ id }) => id !== modelValue
+          )"
         >
           <department-name :department="department" />
         </div>
@@ -52,19 +49,22 @@
 </template>
 
 <script>
+import { ChevronDownIcon } from 'lucide-vue-next'
 import { mapGetters } from 'vuex'
-import { ChevronDownIcon } from 'vue-feather-icons'
 
-import ComboboxMask from '@/components/widgets/ComboboxMask'
-import DepartmentName from '@/components/widgets/DepartmentName'
+import ComboboxMask from '@/components/widgets/ComboboxMask.vue'
+import DepartmentName from '@/components/widgets/DepartmentName.vue'
 
 export default {
   name: 'combobox-department',
+
   components: {
     ChevronDownIcon,
     ComboboxMask,
     DepartmentName
   },
+
+  emits: ['update:modelValue'],
 
   data() {
     return {
@@ -73,7 +73,7 @@ export default {
   },
 
   props: {
-    dispayAllAndMyDepartments: {
+    displayAllAndMyDepartments: {
       default: false,
       type: Boolean
     },
@@ -93,7 +93,7 @@ export default {
       type: Array,
       required: false
     },
-    value: {
+    modelValue: {
       default: '',
       type: String
     },
@@ -104,10 +104,12 @@ export default {
     withEmptyChoice: {
       default: true,
       type: Boolean
+    },
+    top: {
+      default: false,
+      type: Boolean
     }
   },
-
-  mounted() {},
 
   computed: {
     ...mapGetters([
@@ -130,7 +132,7 @@ export default {
     },
 
     departmentList() {
-      if (this.dispayAllAndMyDepartments) {
+      if (this.displayAllAndMyDepartments) {
         const departmentFilter = [
           {
             name: this.$t('tasks.combobox_departments.all_departments'),
@@ -166,22 +168,43 @@ export default {
     },
 
     currentDepartment() {
-      if (this.value) {
-        const departmentMapped = this.departmentMap.get(this.value)
+      if (this.modelValue) {
+        const departmentMapped = this.departmentMap.get(this.modelValue)
         if (departmentMapped) {
           return departmentMapped
         } else {
-          return this.departmentList.find(d => d.id === this.value)
+          return this.departmentList.find(d => d.id === this.modelValue)
         }
       } else {
         return this.departmentList[0]
       }
+    },
+
+    listStyle() {
+      const data = {
+        'max-height': `${this.maxHeightSelectInput}px`,
+        width: `${this.width}px`,
+        top: this.rounded ? '31px' : '37px',
+        left: '0'
+      }
+      if (this.top) {
+        Object.assign(data, {
+          top: '-200px',
+          bottom: '-90px',
+          'border-top-left-radius': '10px',
+          'border-top-right-radius': '10px',
+          'border-bottom-left-radius': '0',
+          'border-bottom-right-radius': '0'
+        })
+      }
+
+      return data
     }
   },
 
   methods: {
     selectDepartment(department) {
-      this.$emit('input', department.id)
+      this.$emit('update:modelValue', department.id)
       this.showDepartmentList = false
     },
 
@@ -216,6 +239,17 @@ export default {
   margin: 0;
   padding: 0.15em;
   position: relative;
+
+  &.opened {
+    &.top {
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+    }
+    &:not(.top) {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+  }
 }
 
 .department-combo:hover {
@@ -268,14 +302,13 @@ export default {
   border-radius: 10px;
 
   &.opened {
-    border-bottom-left-radius: 0px;
-    border-bottom-right-radius: 0px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
   }
 
   .selected-department-line {
-    padding-top: 0px;
-
-    padding-bottom: 0px;
+    padding-top: 0;
+    padding-bottom: 0;
     border-radius: 50px;
   }
 }

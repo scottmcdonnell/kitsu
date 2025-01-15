@@ -56,7 +56,6 @@
           </div>
 
           <text-field
-            ref="addChoiceField"
             v-model.trim="valueToAdd"
             :button-label="$t('main.add')"
             @enter="addValue"
@@ -141,33 +140,36 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
+import { mapGetters } from 'vuex'
+
 import { modalMixin } from '@/components/modals/base_modal'
 import { descriptorMixin } from '@/components/mixins/descriptors'
+
 import { remove } from '@/lib/models'
 
-import Combobox from '@/components/widgets/Combobox'
-import ComboboxBoolean from '@/components/widgets/ComboboxBoolean'
-import ModalFooter from '@/components/modals/ModalFooter'
-import TextField from '@/components/widgets/TextField'
-import ComboboxDepartment from '@/components/widgets/ComboboxDepartment'
-import DepartmentName from '@/components/widgets/DepartmentName'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import Checklist from '@/components/widgets/Checklist'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import Checklist from '@/components/widgets/Checklist.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
+import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
+import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
+import DepartmentName from '@/components/widgets/DepartmentName.vue'
+import ModalFooter from '@/components/modals/ModalFooter.vue'
+import TextField from '@/components/widgets/TextField.vue'
 
 export default {
   name: 'add-metadata-modal',
+
   mixins: [descriptorMixin, modalMixin],
 
   components: {
+    ButtonSimple,
+    Checklist,
     Combobox,
     ComboboxBoolean,
     ComboboxDepartment,
     DepartmentName,
     ModalFooter,
-    TextField,
-    ButtonSimple,
-    Checklist
+    TextField
   },
 
   props: {
@@ -187,15 +189,13 @@ export default {
       type: Boolean,
       default: false
     },
-    errorText: {
-      type: String,
-      default: ''
-    },
     entityType: {
       type: String,
       default: 'Asset'
     }
   },
+
+  emits: ['cancel', 'confirm'],
 
   data() {
     return {
@@ -244,11 +244,10 @@ export default {
 
   computed: {
     ...mapGetters([
-      'departments',
-      'departmentMap',
       'currentProduction',
-      'taskTypeMap',
+      'departmentMap',
       'isCurrentUserSupervisor',
+      'taskTypeMap',
       'user'
     ]),
 
@@ -262,7 +261,7 @@ export default {
       let departments = this.currentProduction.task_types
         .map(taskTypeId => {
           const taskType = this.taskTypeMap.get(taskTypeId)
-          return taskType.for_entity === this.entityType
+          return taskType && taskType.for_entity === this.entityType
             ? this.departmentMap.get(taskType.department_id)
             : false
         })
@@ -302,10 +301,8 @@ export default {
   },
 
   methods: {
-    ...mapActions([]),
-
-    addValue() {
-      const newValue = this.$refs.addChoiceField.value
+    addValue(value) {
+      const newValue = value
       if (!this.form.values.find(v => v === newValue) && newValue) {
         this.form.values.push(newValue)
         if (this.form.data_type === 'taglist') {
@@ -469,11 +466,5 @@ export default {
 
 .checklist-wrapper .button {
   margin: 0.5em 0.2em;
-}
-</style>
-
-<style lang="scss">
-.checklist-entry.checked .checklist-text {
-  text-decoration: none !important;
 }
 </style>

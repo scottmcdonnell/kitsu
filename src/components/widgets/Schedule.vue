@@ -139,53 +139,54 @@
               <div class="flexrow" v-if="rootElement.loading">
                 <spinner class="child-spinner" :size="20" />
               </div>
-              <div
-                class="child-name"
-                :key="'entity-' + childElement.id"
-                v-for="(childElement, j) in rootElement.children"
-                v-if="!multiline"
-              >
+              <template v-if="!multiline">
                 <div
-                  class="entity-line entity-name child-line flexrow"
-                  :style="childNameStyle(rootElement, j)"
+                  class="child-name"
+                  :key="'entity-' + childElement.id"
+                  v-for="(childElement, j) in rootElement.children"
                 >
-                  <router-link
-                    :to="childElement.route"
-                    class="filler flexrow-item child-element-name"
-                    v-if="childElement.route"
+                  <div
+                    class="entity-line entity-name child-line flexrow"
+                    :style="childNameStyle(rootElement, j)"
                   >
-                    {{ childElement.name }}
-                  </router-link>
-                  <span class="filler flexrow-item" v-else>
-                    {{ childElement.name }}
-                  </span>
-                  <span
-                    class="flexrow flexrow-item man-days-unit-wrapper"
-                    v-if="childElement.editable && !hideManDays"
-                  >
-                    <input
-                      class="flexrow-item man-days-unit"
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      step="any"
-                      @input="
-                        onChildEstimationChanged(
-                          $event,
-                          childElement,
-                          rootElement
-                        )
-                      "
-                      :value="formatDuration(childElement.man_days, false)"
-                    />
-                    {{ $t('schedule.md') }}
-                  </span>
-                  <span class="man-days-unit flexrow-item" v-else>
-                    {{ formatDuration(childElement.man_days) }}
-                    {{ $t('schedule.md') }}
-                  </span>
+                    <router-link
+                      :to="childElement.route"
+                      class="filler flexrow-item child-element-name"
+                      v-if="childElement.route"
+                    >
+                      {{ childElement.name }}
+                    </router-link>
+                    <span class="filler flexrow-item" v-else>
+                      {{ childElement.name }}
+                    </span>
+                    <span
+                      class="flexrow flexrow-item man-days-unit-wrapper"
+                      v-if="childElement.editable && !hideManDays"
+                    >
+                      <input
+                        class="flexrow-item man-days-unit"
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        step="any"
+                        @input="
+                          onChildEstimationChanged(
+                            $event,
+                            childElement,
+                            rootElement
+                          )
+                        "
+                        :value="formatDuration(childElement.man_days, false)"
+                      />
+                      {{ $t('schedule.md') }}
+                    </span>
+                    <span class="man-days-unit flexrow-item" v-else>
+                      {{ formatDuration(childElement.man_days) }}
+                      {{ $t('schedule.md') }}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </template>
             </div>
           </div>
         </div>
@@ -202,20 +203,21 @@
           <div
             class="day"
             :class="{
-              'without-milestones': !withMilestones
+              'without-milestones': !withMilestones,
+              'new-week': day.newWeek
             }"
             :key="'header-' + day.text + '-' + index"
             v-for="(day, index) in daysAvailable"
           >
             <div
-              class="milestone"
+              class="milestone pointer"
               @click="showEditMilestoneModal(day, currentMilestones[day.text])"
               v-if="currentMilestones[day.text] && withMilestones"
             >
               <div class="milestone-tooltip">
                 {{ currentMilestones[day.text].name }}
               </div>
-              <div class="bull pointer">&bull;</div>
+              <div class="bull">&bull;</div>
             </div>
             <div class="milestone" v-else-if="withMilestones">
               <div class="bull">&nbsp;</div>
@@ -227,19 +229,6 @@
                 'date-widget': true
               }"
             >
-              <div
-                class="add-milestone"
-                :title="addMilestoneTitle(day)"
-                @click="
-                  showEditMilestoneModal(day, currentMilestones[day.text])
-                "
-                v-if="withMilestones && isCurrentUserManager"
-              >
-                <span class="button">
-                  <edit-icon size="10" v-if="currentMilestones[day.text]" />
-                  <plus-icon size="12" stroke-width="3" v-else />
-                </span>
-              </div>
               <div class="date-name">
                 <span class="month-name" v-if="day.newMonth">
                   {{ day.monthText }}
@@ -252,12 +241,25 @@
                   <span class="day-number">
                     <briefcase-icon
                       class="day-off-icon"
-                      size="14"
+                      :size="14"
                       v-if="day.off"
                     />
                     {{ day.dayNumber }}
                   </span>
                 </div>
+              </div>
+              <div
+                class="add-milestone"
+                :title="addMilestoneTitle(day)"
+                @click="
+                  showEditMilestoneModal(day, currentMilestones[day.text])
+                "
+                v-if="withMilestones && isCurrentUserManager"
+              >
+                <span class="button">
+                  <edit-icon :size="10" v-if="currentMilestones[day.text]" />
+                  <plus-icon :size="12" :stroke-width="3" v-else />
+                </span>
               </div>
             </div>
           </div>
@@ -302,7 +304,7 @@
         <div
           ref="timeline-content-wrapper"
           class="timeline-content-wrapper"
-          v-scroll="onTimelineScroll"
+          @scroll.passive="onTimelineScroll"
         >
           <div
             ref="timeline-content"
@@ -336,13 +338,14 @@
               :style="timelinePositionStyle"
               v-show="!isChangeDates"
             ></div>
-            <div
-              class="milestone-vertical-line"
-              :style="milestoneLineStyle(milestone)"
-              :key="'milestone-' + milestone.date"
-              v-for="milestone in Object.values(currentMilestones)"
-              v-if="!isWeekMode"
-            ></div>
+            <template v-if="withMilestones && !isWeekMode">
+              <div
+                class="milestone-vertical-line"
+                :style="milestoneLineStyle(milestone)"
+                :key="`milestone-${milestone.date}`"
+                v-for="milestone in Object.values(currentMilestones)"
+              ></div>
+            </template>
             <div
               class="timeline-element"
               :data-id="rootElement.id"
@@ -356,7 +359,7 @@
                 :title="dayOff.description"
                 v-for="(dayOff, index) in getDayOffRange(rootElement.daysOff)"
               >
-                <briefcase-icon class="day-off-icon" size="14" />
+                <briefcase-icon class="day-off-icon" :size="14" />
               </div>
               <div
                 class="entity-line root-element"
@@ -487,13 +490,14 @@
     </div>
 
     <edit-milestone-modal
-      :active="modals.edit"
+      active
       :is-loading="loading.edit"
       :is-error="errors.edit"
       :milestone-to-edit="milestoneToEdit"
       @confirm="confirmEditMilestone"
       @cancel="hideEditMilestoneModal"
       @remove-milestone="removeMilestone"
+      v-if="withMilestones && modals.edit"
     />
   </div>
 </template>
@@ -502,14 +506,14 @@
 /*
  * Component to facilitate the build of schedule pages.
  */
-import moment from 'moment-timezone'
 import {
   BriefcaseIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   EditIcon,
   PlusIcon
-} from 'vue-feather-icons'
+} from 'lucide-vue-next'
+import moment from 'moment-timezone'
 import { mapGetters, mapActions } from 'vuex'
 
 import { domMixin } from '@/components/mixins/dom'
@@ -562,7 +566,6 @@ export default {
       milestoneToEdit: {
         date: moment()
       },
-      timelineDisplayedDaysIndex: {},
       errors: {
         edit: false
       },
@@ -655,26 +658,35 @@ export default {
     }
   },
 
+  emits: [
+    'estimation-changed',
+    'item-assign',
+    'item-changed',
+    'item-drop',
+    'item-unassign',
+    'root-element-expanded'
+  ],
+
   mounted() {
     this.resetScheduleSize()
     this.addEvents(this.domEvents)
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.removeEvents(this.domEvents)
     document.body.style.cursor = 'default'
   },
 
   computed: {
     ...mapGetters([
+      'currentProduction',
       'departmentMap',
       'isCurrentUserManager',
       'isDarkTheme',
+      'milestones',
       'openProductions',
       'organisation',
-      'milestones',
-      'taskMap',
-      'taskTypeMap'
+      'taskMap'
     ]),
 
     currentMilestones() {
@@ -694,66 +706,37 @@ export default {
 
     daysAvailable() {
       const days = []
-      const startDate = parseDate(this.startDate.format('YYYY-MM-DD'))
-      const day = startDate.clone().add(-1, 'days')
-      let dayDate = day.toDate()
-      const endDate = parseDate(this.endDate.format('YYYY-MM-DD'))
-      const endDayDate = endDate.toDate()
-      dayDate.isoweekday = day.isoWeekday()
-      dayDate.monthday = day.month()
-
+      let day = this.startDate.clone().utc().startOf('day')
+      const endDate = this.endDate.clone().utc().startOf('day')
       const daysOff = this.getDayOffRange(this.daysOff).map(
         dayOff => dayOff.date
       )
 
-      while (dayDate < endDayDate) {
-        const nextDay = new Date(Number(dayDate))
-        nextDay.setDate(dayDate.getDate() + 1) // Add 1 day
-
-        nextDay.isoweekday = dayDate.isoweekday + 1
-        if (nextDay.isoweekday > 7) {
-          nextDay.isoweekday = 1
-          nextDay.newWeek = true
-        }
-        nextDay.monthday = dayDate.monthday + 1
-        if (nextDay.getMonth() !== dayDate.getMonth()) {
-          nextDay.newMonth = true
-          nextDay.monthday = 1
-        }
-        if ([6, 7].includes(nextDay.isoweekday)) {
-          nextDay.weekend = true
-        }
-        if (daysOff.includes(nextDay.toISOString().slice(0, 10))) {
-          nextDay.off = true
-        }
-
-        const momentDay = parseDate(moment(nextDay).format('YYYY-MM-DD'))
-        momentDay.off = nextDay.off
-        momentDay.newWeek = nextDay.newWeek
-        momentDay.newMonth = nextDay.newMonth
-        momentDay.weekend = nextDay.weekend
-        momentDay.weekNumber = momentDay.week()
-        momentDay.text = momentDay.format('YYYY-MM-DD')
-        momentDay.monthText = momentDay.format('MMMM YY')
-        momentDay.dayNumber = momentDay.format('DD')
-        momentDay.dayText = momentDay.format('ddd')[0]
-        days.push(momentDay)
-        dayDate = nextDay
+      while (day.isSameOrBefore(endDate)) {
+        day.off = daysOff.includes(day.toISOString().slice(0, 10))
+        day.newWeek = day.isoWeekday() === 1
+        day.newMonth = day.date() === 1
+        day.weekend = [6, 7].includes(day.isoWeekday())
+        day.weekNumber = day.week()
+        day.text = day.format('YYYY-MM-DD')
+        day.monthText = day.format('MMMM YY')
+        day.dayNumber = day.format('DD')
+        day.dayText = day.format('ddd')[0]
+        days.push(day)
+        day = day.clone().add(1, 'days')
       }
 
-      if (days.length > 1 && days[0].weekend === true) {
-        days[0].newMonth = false
-        days[1].newMonth = true
-        if (days.length > 2 && days[1].weekend === true) {
-          days[1].newMonth = false
-          days[2].newMonth = true
-        } else if (days.length > 2) {
-          days[1].newMonth = true
+      // always show month and week number at start of schedule
+      if (days.length) {
+        const indexNextMonth = days.findIndex(day => day.newMonth)
+        if (indexNextMonth >= 5 || indexNextMonth === -1) {
+          days[0].newMonth = true
         }
-      } else if (days.length > 0) {
-        days[0].newMonth = true
+        const indexNextWeek = days.findIndex(day => day.newWeek)
+        if (indexNextWeek === -1) {
+          days[0].newWeek = true
+        }
       }
-
       return days
     },
 
@@ -894,7 +877,7 @@ export default {
     },
 
     timelineTodayPositionStyle() {
-      const today = moment()
+      const today = moment().utc(true)
       const isVisible =
         today.isAfter(this.startDate) && today.isBefore(this.endDate)
       return {
@@ -933,7 +916,7 @@ export default {
   },
 
   methods: {
-    ...mapActions(['deleteMilestone', 'saveMilestone']),
+    ...mapActions(['deleteMilestone', 'loadMilestones', 'saveMilestone']),
 
     getDayOffRange,
 
@@ -1359,7 +1342,9 @@ export default {
       }
     },
 
-    onTimelineScroll(event, position) {
+    onTimelineScroll(event) {
+      if (!event) return
+      const position = event.target
       const newTop = position.scrollTop
       this.entityList.scrollTop = newTop
       const newLeft = position.scrollLeft
@@ -1488,8 +1473,8 @@ export default {
       ) {
         return 0
       }
-      const first = startDate.clone().startOf('day')
-      const last = endDate.clone().endOf('day')
+      const first = startDate.clone().utc().startOf('day')
+      const last = endDate.clone().utc().endOf('day')
       const diff = last.diff(first, 'days')
       return diff
     },
@@ -1513,7 +1498,7 @@ export default {
     },
 
     getDayOffLeft(dayOff) {
-      const startDate = moment(dayOff.date)
+      const startDate = moment.utc(dayOff.date)
       let startDiff = this.dateDiff(this.startDate, startDate) || 0
       if (this.zoomLevel === 0) startDiff = Math.round(startDiff / 7 - 1)
       return startDiff * this.cellWidth + 1
@@ -1816,6 +1801,14 @@ export default {
           })
         }
       }
+    },
+    currentProduction: {
+      immediate: true,
+      handler() {
+        if (this.withMilestones) {
+          this.loadMilestones(this.currentProduction)
+        }
+      }
     }
   }
 }
@@ -1916,6 +1909,7 @@ const setItemPositions = (items, attributeName, unitOfTime = 'days') => {
         }
 
         .month-name {
+          background: $dark-grey-2;
           border-left: 2px solid white;
           color: white;
         }
@@ -2053,6 +2047,7 @@ const setItemPositions = (items, attributeName, unitOfTime = 'days') => {
     margin-left: 2px;
     padding-bottom: 0;
     overflow: hidden;
+    z-index: 0;
 
     .day {
       display: inline-block;
@@ -2063,6 +2058,10 @@ const setItemPositions = (items, attributeName, unitOfTime = 'days') => {
       }
 
       &.week {
+        margin-top: 8px;
+      }
+
+      &.without-milestones.week {
         margin-top: 20px;
       }
 
@@ -2100,11 +2099,8 @@ const setItemPositions = (items, attributeName, unitOfTime = 'days') => {
         z-index: 10000;
       }
 
-      .weekday-number {
-        color: var(--text);
-      }
-
       .month-name {
+        background: white;
         border-left: 2px solid black;
         bottom: 0;
         color: black;
@@ -2114,6 +2110,7 @@ const setItemPositions = (items, attributeName, unitOfTime = 'days') => {
         top: 10px;
         text-transform: uppercase;
         position: absolute;
+        z-index: -1;
       }
     }
   }
@@ -2392,10 +2389,12 @@ const setItemPositions = (items, attributeName, unitOfTime = 'days') => {
 }
 
 .milestone {
-  margin-bottom: 0;
   min-height: 48px;
-  position: relative;
   text-align: center;
+
+  .day.new-week & {
+    transform: translateY(16.5px);
+  }
 
   .flexrow-item {
     margin-left: 5px;
@@ -2495,17 +2494,12 @@ const setItemPositions = (items, attributeName, unitOfTime = 'days') => {
   }
 
   &.with-milestones:hover {
-    background: $light-green-light;
-
     .add-milestone {
+      background: $light-green-light;
       display: block;
     }
 
     .day-name {
-      display: none;
-    }
-
-    .week-number {
       display: none;
     }
   }

@@ -33,11 +33,14 @@
             <th class="duration number-cell" ref="th-duration">
               {{ $t('tasks.fields.duration').substring(0, 3) }}.
             </th>
-            <th class="start-date" ref="th-estimation">
+            <th class="start-date" ref="th-date">
               {{ $t('tasks.fields.start_date') }}
             </th>
-            <th class="due-date" ref="th-estimation">
+            <th class="due-date" ref="th-date">
               {{ $t('tasks.fields.due_date') }}
+            </th>
+            <th class="done-date" ref="th-date">
+              {{ $t('tasks.fields.done_date') }}
             </th>
             <th class="empty" ref="">&nbsp;</th>
           </tr>
@@ -122,6 +125,9 @@
             <td class="due-date">
               {{ formatDate(task.due_date) }}
             </td>
+            <td class="done-date">
+              {{ formatDate(task.done_date) }}
+            </td>
             <td class="empty"></td>
           </tr>
         </tbody>
@@ -146,23 +152,23 @@
 </template>
 
 <script>
-import Vue from 'vue/dist/vue'
 import { mapGetters, mapActions } from 'vuex'
 import moment from 'moment-timezone'
 
 import { formatListMixin } from '@/components/mixins/format'
 import { domMixin } from '@/components/mixins/dom'
 
-import EntityThumbnail from '@/components/widgets/EntityThumbnail'
-import PeopleAvatarWithMenu from '@/components/widgets/PeopleAvatarWithMenu'
-import ProductionNameCell from '@/components/cells/ProductionNameCell'
-import Spinner from '@/components/widgets/Spinner'
-import TableInfo from '@/components/widgets/TableInfo'
-import TaskTypeCell from '@/components/cells/TaskTypeCell'
-import ValidationCell from '@/components/cells/ValidationCell'
+import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
+import PeopleAvatarWithMenu from '@/components/widgets/PeopleAvatarWithMenu.vue'
+import ProductionNameCell from '@/components/cells/ProductionNameCell.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
+import TableInfo from '@/components/widgets/TableInfo.vue'
+import TaskTypeCell from '@/components/cells/TaskTypeCell.vue'
+import ValidationCell from '@/components/cells/ValidationCell.vue'
 
 export default {
   name: 'all-task-list',
+
   mixins: [domMixin, formatListMixin],
 
   components: {
@@ -174,6 +180,8 @@ export default {
     TaskTypeCell,
     ValidationCell
   },
+
+  emits: ['more-clicked', 'task-selected'],
 
   data() {
     return {
@@ -214,7 +222,7 @@ export default {
     window.addEventListener('keydown', this.onKeyDown, false)
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('keydown', this.onKeyDown)
   },
 
@@ -338,11 +346,11 @@ export default {
 
       if (this.selectionGrid[task.id]) {
         this.removeSelectedTask({ task })
-        Vue.set(this.selectionGrid, task.id, undefined)
+        this.selectionGrid[task.id] = undefined
       } else if (!isSelected || isManySelection) {
         this.addSelectedTask({ task })
         this.$emit('task-selected', task)
-        Vue.set(this.selectionGrid, task.id, true)
+        this.selectionGrid[task.id] = true
         this.lastSelection = index
       }
     },
@@ -483,7 +491,7 @@ td.due-date {
 }
 
 .list-wrapper div:first-child h2 {
-  margin-top: 0em;
+  margin-top: 0;
 }
 
 .datatable-body {

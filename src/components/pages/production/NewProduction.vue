@@ -20,7 +20,7 @@
         >
           <text-field
             ref="nameField"
-            input-class="w600 is-inline"
+            input-class=" is-inline"
             :placeholder="$t('productions.creation.placeholder_name')"
             v-model="productionToCreate.name"
           />
@@ -36,7 +36,7 @@
               class="flexrow-item"
               :options="productionTypeOptions"
               :label="$t('productions.fields.type')"
-              localeKeyPrefix="productions.type."
+              locale-key-prefix="productions.type."
               v-model="productionToCreate.settings.type"
               thin
               is-inline
@@ -45,7 +45,7 @@
               class="flexrow-item"
               :options="productionStyleOptions"
               :label="$t('productions.fields.style')"
-              localeKeyPrefix="productions.style."
+              locale-key-prefix="productions.style."
               v-model="productionToCreate.settings.style"
               thin
               is-inline
@@ -120,27 +120,19 @@
               {{ $t('productions.creation.start_and_end_dates') }}
             </label>
             <div class="date-picker-wrapper">
-              <datepicker
-                wrapper-class="datepicker"
-                input-class="is-small date-input input"
-                label="Start date"
+              <date-field
+                :can-delete="false"
+                :label="$t('main.start_date')"
+                :max-date="productionToCreate.settings.dateEnd"
                 :placeholder="startDatePlaceholder"
-                :language="locale"
-                :disabled-dates="{ days: [6, 0] }"
-                :monday-first="true"
-                format="yyyy-MM-dd"
                 v-model="productionToCreate.settings.dateStart"
               />
               <span class="input-separator">-</span>
-              <datepicker
-                wrapper-class="datepicker"
-                input-class="is-small date-input input"
-                :language="locale"
-                :disabled-dates="{ days: [6, 0] }"
+              <date-field
+                :can-delete="false"
+                :label="$t('main.end_date')"
+                :min-date="productionToCreate.settings.dateStart"
                 :placeholder="endDatePlaceholder"
-                :monday-first="true"
-                :disabledDates="{ to: productionToCreate.settings.dateStart }"
-                format="yyyy-MM-dd"
                 v-model="productionToCreate.settings.dateEnd"
               />
             </div>
@@ -158,29 +150,27 @@
           :is-completed="hasValidAssetTaskTypes"
           v-if="!isShotsOnly"
         >
-          <draggable
-            v-model="productionToCreate.assetTaskTypes"
-            draggable=".task-type"
-          >
-            <task-type-name
-              class="task-type"
-              :task-type="taskType"
-              :key="taskType.id"
-              deletable
-              @delete="deleteFromList(taskType, 'assetTaskTypes')"
-              v-for="taskType in productionToCreate.assetTaskTypes"
-            />
-            <combobox-task-type
-              slot="footer"
-              class="is-inline inline-task-type-combo"
-              :task-type-list="availableAssetTaskTypes"
-              add-placeholder
-              @input="
-                id =>
-                  productionToCreate.assetTaskTypes.push(taskTypeMap.get(id))
-              "
-              v-if="availableAssetTaskTypes.length > 0"
-            />
+          <draggable item-key="id" v-model="productionToCreate.assetTaskTypes">
+            <template #item="{ element: taskType }">
+              <task-type-name
+                class="task-type"
+                deletable
+                :task-type="taskType"
+                @delete="deleteFromList(taskType, 'assetTaskTypes')"
+              />
+            </template>
+            <template #footer>
+              <combobox-task-type
+                class="is-inline inline-task-type-combo"
+                :task-type-list="availableAssetTaskTypes"
+                add-placeholder
+                @update:model-value="
+                  id =>
+                    productionToCreate.assetTaskTypes.push(taskTypeMap.get(id))
+                "
+                v-if="availableAssetTaskTypes.length"
+              />
+            </template>
           </draggable>
         </timeline-item>
         <timeline-item
@@ -192,28 +182,27 @@
           :is-completed="hasValidShotTaskTypes"
           v-if="!isAssetsOnly"
         >
-          <draggable
-            v-model="productionToCreate.shotTaskTypes"
-            draggable=".task-type"
-          >
-            <task-type-name
-              class="task-type"
-              :task-type="taskType"
-              :key="taskType.id"
-              @delete="deleteFromList(taskType, 'shotTaskTypes')"
-              deletable
-              v-for="taskType in productionToCreate.shotTaskTypes"
-            />
-            <combobox-task-type
-              slot="footer"
-              class="is-inline inline-task-type-combo"
-              :task-type-list="availableShotTaskTypes"
-              add-placeholder
-              @input="
-                id => productionToCreate.shotTaskTypes.push(taskTypeMap.get(id))
-              "
-              v-if="availableShotTaskTypes.length > 0"
-            />
+          <draggable item-key="id" v-model="productionToCreate.shotTaskTypes">
+            <template #item="{ element: taskType }">
+              <task-type-name
+                class="task-type"
+                deletable
+                :task-type="taskType"
+                @delete="deleteFromList(taskType, 'shotTaskTypes')"
+              />
+            </template>
+            <template #footer>
+              <combobox-task-type
+                class="is-inline inline-task-type-combo"
+                :task-type-list="availableShotTaskTypes"
+                add-placeholder
+                @update:model-value="
+                  id =>
+                    productionToCreate.shotTaskTypes.push(taskTypeMap.get(id))
+                "
+                v-if="availableShotTaskTypes.length"
+              />
+            </template>
           </draggable>
         </timeline-item>
         <timeline-item
@@ -233,12 +222,11 @@
               v-for="taskStatus in productionToCreate.taskStatuses"
             />
             <combobox-status
-              slot="footer"
               class="flexrow-item"
               :task-status-list="availableTaskStatuses"
               :with-margin="false"
               add-placeholder
-              @input="
+              @update:model-value="
                 id =>
                   productionToCreate.taskStatuses.push(taskStatusMap.get(id))
               "
@@ -266,7 +254,7 @@
               class="flexrow-item"
               :options="availableAssetTypes"
               :with-margin="false"
-              @input="
+              @update:model-value="
                 id => {
                   assetTypeMap.get(id) &&
                     productionToCreate.assetTypes.push(assetTypeMap.get(id))
@@ -425,9 +413,7 @@
 
 <script>
 import draggable from 'vuedraggable'
-import Datepicker from 'vuejs-datepicker'
 import moment from 'moment'
-import { en, fr } from 'vuejs-datepicker/dist/locale'
 import { mapActions, mapGetters } from 'vuex'
 
 import csv from '@/lib/csv'
@@ -440,28 +426,30 @@ import {
   PRODUCTION_TYPE_OPTIONS
 } from '@/lib/productions'
 
-import Combobox from '@/components/widgets/Combobox'
-import ComboboxStyled from '@/components/widgets/ComboboxStyled'
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-import ComboboxStatus from '@/components/widgets/ComboboxStatus'
-import ImportModal from '@/components/modals/ImportModal'
-import ImportRenderModal from '@/components/modals/ImportRenderModal'
-import ManageShotsModal from '@/components/modals/ManageShotsModal'
-import Spinner from '@/components/widgets/Spinner'
-import TaskTypeName from '@/components/widgets/TaskTypeName'
-import TextField from '@/components/widgets/TextField'
-import TimelineItem from '@/components/pages/production/TimelineItem'
-import ValidationTag from '@/components/widgets/ValidationTag'
+import Combobox from '@/components/widgets/Combobox.vue'
+import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
+import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import DateField from '@/components/widgets/DateField.vue'
+import ImportModal from '@/components/modals/ImportModal.vue'
+import ImportRenderModal from '@/components/modals/ImportRenderModal.vue'
+import ManageShotsModal from '@/components/modals/ManageShotsModal.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
+import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
+import TextField from '@/components/widgets/TextField.vue'
+import TimelineItem from '@/components/pages/production/TimelineItem.vue'
+import ValidationTag from '@/components/widgets/ValidationTag.vue'
 
 export default {
   name: 'new-production',
+
   components: {
     draggable,
     Combobox,
     ComboboxStyled,
     ComboboxTaskType,
     ComboboxStatus,
-    Datepicker,
+    DateField,
     ImportModal,
     ImportRenderModal,
     ManageShotsModal,
@@ -471,6 +459,7 @@ export default {
     TimelineItem,
     ValidationTag
   },
+
   data() {
     return {
       errors: {
@@ -506,9 +495,9 @@ export default {
         settings: {
           dateStart: null,
           dateEnd: null,
-          fps: 25, // eg: '24'
-          ratio: [16, 9], // eg: [4, 3]
-          resolution: [1920, 1080], // eg: [1440, 1080]
+          fps: 25,
+          ratio: [16, 9],
+          resolution: [1920, 1080],
           style: PRODUCTION_STYLE_OPTIONS[0].value,
           type: PRODUCTION_TYPE_OPTIONS[0].value
         },
@@ -545,14 +534,12 @@ export default {
       'assetTaskTypes',
       'assetTypeMap',
       'assetTypes',
-      'productions',
       'productionStatus',
       'shotsCsvFormData',
       'shotTaskTypes',
       'taskStatus',
       'taskStatusMap',
-      'taskTypeMap',
-      'user'
+      'taskTypeMap'
     ]),
 
     isTVShow() {
@@ -603,14 +590,6 @@ export default {
       return this.isTVShow
         ? ['Episode', 'Sequence', 'Name']
         : ['Sequence', 'Name']
-    },
-
-    locale() {
-      if (this.user.locale === 'fr_FR') {
-        return fr
-      } else {
-        return en
-      }
     },
 
     allowedProductionTypes() {
@@ -711,7 +690,8 @@ export default {
     availableAssetTaskTypes() {
       return this.assetTaskTypes.filter(
         assetTaskType =>
-          !this.productionToCreate.assetTaskTypes.includes(assetTaskType)
+          !this.productionToCreate.assetTaskTypes.includes(assetTaskType) &&
+          !assetTaskType.archived
       )
     },
 
@@ -738,7 +718,8 @@ export default {
     availableShotTaskTypes() {
       return this.shotTaskTypes.filter(
         shotTaskType =>
-          !this.productionToCreate.shotTaskTypes.includes(shotTaskType)
+          !this.productionToCreate.shotTaskTypes.includes(shotTaskType) &&
+          !shotTaskType.archived
       )
     },
 
@@ -792,6 +773,7 @@ export default {
       'uploadAssetFile',
       'uploadShotFile'
     ]),
+
     removeModelFromList,
 
     deleteFromList(object, listName) {
@@ -926,12 +908,11 @@ export default {
         }
         await this.loadContext()
         await this.$router.push(this.createProductionRoute(createdProduction))
-      } catch (error) {
-        console.error(error, error.response)
+      } catch (err) {
+        console.error(err)
         this.errors.creatingProduction = true
-        this.errors.creatingProductionError = error.response
-          ? ': ' + error.response.body.message.substring(0, 165)
-          : ''
+        this.errors.creatingProductionError =
+          err.body?.message?.substring(0, 165) ?? ''
       }
       this.loading.createProduction = false
     },
@@ -1035,7 +1016,7 @@ export default {
 
 <style lang="scss" scoped>
 .new-production {
-  font-family: 'Lato';
+  font-family: Lato;
 }
 
 .hero {

@@ -55,7 +55,6 @@
       :default-height="defaultHeight"
       :full-screen="isFullScreen"
       :is-comparing="isComparing"
-      :is-comparison-overlay="isComparisonOverlay"
       :light="isLight"
       :margin-bottom="marginBottom"
       :panzoom="true"
@@ -65,6 +64,7 @@
     />
 
     <object-viewer
+      ref="object-viewer"
       class="model-viewer"
       :background-url="backgroundUrl"
       :default-height="defaultHeight"
@@ -74,6 +74,7 @@
       :is-wireframe="isWireframe"
       :light="isLight"
       :preview-url="originalPath"
+      @model-loaded="$emit('model-loaded')"
       v-if="is3DModel"
     />
 
@@ -85,13 +86,6 @@
       @play-ended="$emit('play-ended')"
       v-show="isSound"
     />
-
-    <!--pdf
-      class="pdf-viewer"
-      :height="defaultHeight"
-      :src="originalPath"
-      v-if="isPdf"
-    /-->
 
     <div class="center" :style="{ height: defaultHeight + 'px' }" v-if="isFile">
       <a
@@ -110,27 +104,25 @@
 </template>
 
 <script>
-// import pdf from 'vue-pdf'
-import { mapGetters, mapActions } from 'vuex'
-import { formatFrame, formatTime } from '@/lib/video'
+import { DownloadIcon } from 'lucide-vue-next'
 
+import { formatFrame, formatTime } from '@/lib/video'
 import { domMixin } from '@/components/mixins/dom'
 
-import { DownloadIcon } from 'vue-feather-icons'
-import ObjectViewer from '@/components/previews/ObjectViewer'
-import PictureViewer from '@/components/previews/PictureViewer'
-import SoundViewer from '@/components/previews/SoundViewer'
-import Spinner from '@/components/widgets/Spinner'
-import VideoViewer from '@/components/previews/VideoViewer'
+import ObjectViewer from '@/components/previews/ObjectViewer.vue'
+import PictureViewer from '@/components/previews/PictureViewer.vue'
+import SoundViewer from '@/components/previews/SoundViewer.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
+import VideoViewer from '@/components/previews/VideoViewer.vue'
 
 export default {
   name: 'preview-viewer',
+
   mixins: [domMixin],
 
   components: {
-    ObjectViewer,
-    // pdf,
     DownloadIcon,
+    ObjectViewer,
     PictureViewer,
     SoundViewer,
     Spinner,
@@ -212,17 +204,17 @@ export default {
     }
   },
 
-  data() {
-    return {}
-  },
-
-  mounted() {},
-
-  beforeDestroy() {},
+  emits: [
+    'duration-changed',
+    'frame-update',
+    'model-loaded',
+    'play-ended',
+    'size-changed',
+    'video-end',
+    'video-loaded'
+  ],
 
   computed: {
-    ...mapGetters(['currentProduction']),
-
     // Elements
 
     container() {
@@ -239,6 +231,10 @@ export default {
 
     soundViewer() {
       return this.$refs['sound-viewer']
+    },
+
+    objectViewer() {
+      return this.$refs['object-viewer']
     },
 
     //  Utils
@@ -327,7 +323,6 @@ export default {
   },
 
   methods: {
-    ...mapActions(['updateRevisionPreviewPosition']),
     formatFrame,
     formatTime,
 
@@ -371,6 +366,14 @@ export default {
       }
     },
 
+    playModelAnimation(animationName) {
+      this.objectViewer.play(animationName)
+    },
+
+    pauseModelAnimation() {
+      this.objectViewer.pause()
+    },
+
     goPreviousFrame() {
       return this.videoViewer.goPreviousFrame()
     },
@@ -385,6 +388,10 @@ export default {
       } else {
         this.pause()
       }
+    },
+
+    get3DAnimations() {
+      return this.$refs['object-viewer'].getAnimations()
     },
 
     // Sizing
@@ -406,14 +413,10 @@ export default {
       return dimensions
     },
 
-    resetPicture() {
-      if (this.pictureViewer) this.pictureViewer.resetPicture()
-    },
-
     resize() {
-      if (this.isPicture) this.pictureViewer.resetPicture()
-      if (this.isMovie) this.videoViewer.mountVideo()
-      if (this.isSound) this.soundViewer.redraw()
+      if (this.isPicture) this.pictureViewer?.resetPicture()
+      else if (this.isMovie) this.videoViewer?.mountVideo()
+      else if (this.isSound) this.soundViewer?.redraw()
     },
 
     setCurrentFrame(frameNumber) {

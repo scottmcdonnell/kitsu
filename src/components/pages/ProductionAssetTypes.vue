@@ -45,12 +45,14 @@
 <script>
 import moment from 'moment'
 import { mapGetters, mapActions } from 'vuex'
+
 import csv from '@/lib/csv'
 import stringHelpers from '@/lib/string'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import Combobox from '@/components/widgets/Combobox'
+
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
 import ProductionAssetTypeList from '@/components/lists/ProductionAssetTypeList.vue'
-import SearchField from '@/components/widgets/SearchField'
+import SearchField from '@/components/widgets/SearchField.vue'
 
 export default {
   name: 'production-asset-types',
@@ -90,8 +92,6 @@ export default {
       'taskTypeMap'
     ])
   },
-
-  created() {},
 
   mounted() {
     this.setDefaultSearchText()
@@ -153,20 +153,19 @@ export default {
         this.taskTypeMap,
         this.taskStatusMap,
         this.assetTypeMap,
-        this.countMode
+        this.countMode,
+        this.currentProduction
       )
     },
 
     reset() {
       this.initialLoading = true
       this.$refs['asset-type-search-field'].setValue('')
-      this.loadAssets()
-        .then(this.handleModalsDisplay)
-        .then(() => {
-          this.computeAssetTypeStats()
-          this.setAssetTypeListScrollPosition(0)
-          this.initialLoading = false
-        })
+      this.loadAssets().then(() => {
+        this.computeAssetTypeStats()
+        this.setAssetTypeListScrollPosition(0)
+        this.initialLoading = false
+      })
     }
   },
 
@@ -180,7 +179,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.currentProduction.name} | ${this.$t(
         'asset_types.production_title'
@@ -189,5 +188,3 @@ export default {
   }
 }
 </script>
-
-<style lang="scss" scoped></style>

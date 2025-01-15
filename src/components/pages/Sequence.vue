@@ -26,7 +26,7 @@
       <div class="sequence-data block">
         <route-section-tabs
           class="section-tabs"
-          :activeTab="currentSection"
+          :active-tab="currentSection"
           :route="$route"
           :tabs="entityNavOptions"
         />
@@ -151,6 +151,7 @@
                   >
                     <entity-thumbnail
                       class="entity-thumbnail"
+                      :class="{ shared: asset.shared }"
                       :entity="asset"
                       :square="true"
                       :empty-width="103"
@@ -250,7 +251,9 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
-import { CornerLeftUpIcon } from 'vue-feather-icons'
+import { CornerLeftUpIcon } from 'lucide-vue-next'
+
+import sequenceStore from '@/store/modules/sequences'
 
 import { episodifyRoute, getEntitiesPath } from '@/lib/path'
 import { entityMixin } from '@/components/mixins/entity'
@@ -276,7 +279,9 @@ import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
 
 export default {
   name: 'sequence',
+
   mixins: [entityMixin, formatListMixin],
+
   components: {
     ButtonSimple,
     ComboboxNumber,
@@ -303,6 +308,7 @@ export default {
       type: 'sequence',
       currentSequence: null,
       currentTask: null,
+      currentSection: 'infos',
       casting: {
         isLoading: false,
         isError: false
@@ -423,7 +429,8 @@ export default {
               return this.loadSequencesWithTasks()
             })
             .then(() => {
-              const sequence = this.sequenceMap.get(sequenceId) || null
+              const sequence =
+                sequenceStore.cache.sequenceMap.get(sequenceId) || null
               return resolve(sequence)
             })
         } else {
@@ -481,7 +488,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.title} - Kitsu`
     }
@@ -576,11 +583,16 @@ h2.subtitle {
 
 .asset-link {
   color: inherit;
-  margin-right: 1em;
+  margin-left: 0.5em;
+  margin-right: 0.5em;
   display: flex;
   flex-direction: column;
   align-items: center;
   font-size: 0.8em;
+
+  .entity-thumbnail.shared {
+    box-shadow: 0 0 3px 2px var(--shared-color);
+  }
 
   .ready-for .no-link {
     cursor: inherit;

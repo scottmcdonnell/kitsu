@@ -48,8 +48,8 @@
 </template>
 
 <script>
+import { ChevronDownIcon } from 'lucide-vue-next'
 import { mapGetters } from 'vuex'
-import { ChevronDownIcon } from 'vue-feather-icons'
 
 import { getProductionPath } from '@/lib/path'
 

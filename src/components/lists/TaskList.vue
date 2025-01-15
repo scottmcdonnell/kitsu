@@ -3,7 +3,7 @@
     <div
       ref="body"
       class="datatable-wrapper"
-      v-scroll="onBodyScroll"
+      @scroll.passive="onBodyScroll"
       v-if="!isContactSheet"
     >
       <table class="datatable">
@@ -13,7 +13,11 @@
             <th class="asset-type" ref="th-type" v-if="isAssets">
               {{ $t('tasks.fields.asset_type') }}
             </th>
-            <th class="sequence" ref="th-type" v-else-if="!isEpisodes">
+            <th
+              class="sequence"
+              ref="th-type"
+              v-else-if="!isEpisodes && !isSequences"
+            >
               {{ $t('tasks.fields.sequence') }}
             </th>
             <th class="name" ref="th-name">
@@ -27,6 +31,9 @@
             </th>
             <th class="frames number-cell" ref="th-frames" v-if="isShots">
               {{ $t('tasks.fields.frames') }}
+            </th>
+            <th class="difficulty number-cell" ref="th-difficulty">
+              {{ $t('tasks.fields.difficulty') }}
             </th>
             <th
               ref="th-estimation"
@@ -52,6 +59,9 @@
             </th>
             <th class="real-end-date" ref="th-status">
               {{ $t('tasks.fields.real_end_date') }}
+            </th>
+            <th class="done-date" ref="th-status">
+              {{ $t('tasks.fields.done_date') }}
             </th>
             <th class="last-comment-date" ref="th-status">
               {{ $t('tasks.fields.last_comment_date') }}
@@ -86,7 +96,7 @@
             <td class="asset-type" v-if="isAssets">
               {{ getEntity(task.entity.id).asset_type_name }}
             </td>
-            <td class="sequence" v-else-if="!isEpisodes">
+            <td class="sequence" v-else-if="!isEpisodes && !isSequences">
               {{ getEntity(task.entity.id).sequence_name }}
             </td>
             <td class="name">
@@ -113,8 +123,28 @@
                 />
               </div>
             </td>
-            <td class="frames" v-if="isShots">
+            <td class="frames number-cell" v-if="isShots">
               {{ getEntity(task.entity.id).nb_frames }}
+            </td>
+            <td class="difficulty number-cell">
+              <combobox
+                class="difficulty-combobox"
+                :options="difficultyOptions"
+                :with-margin="false"
+                :value="task.difficulty"
+                @update:model-value="updateDifficulty($event)"
+                v-if="isInDepartment(task) && selectionGrid[task.id]"
+                v-model="task.difficulty"
+              />
+              <template v-else>
+                <span
+                  class="difficulty number-cell"
+                  v-for="index in task.difficulty"
+                  :key="task.id + 'difficulty' + index"
+                >
+                  &bull;
+                </span>
+              </template>
             </td>
             <td class="estimation number-cell">
               <input
@@ -149,9 +179,9 @@
               <date-field
                 class="flexrow-item"
                 :with-margin="false"
-                :value="getDate(task.start_date)"
-                :disabled-dates="disabledDates"
-                @input="updateStartDate"
+                :min-date="disabledDates.to"
+                :model-value="getDate(task.start_date)"
+                @update:model-value="updateStartDate"
                 v-if="isInDepartment(task) && selectionGrid[task.id]"
               />
               <span v-else>
@@ -162,9 +192,9 @@
               <date-field
                 class="flexrow-item"
                 :with-margin="false"
-                :value="getDate(task.due_date)"
-                :disabled-dates="disabledDates"
-                @input="updateDueDate"
+                :model-value="getDate(task.due_date)"
+                :max-date="disabledDates.from"
+                @update:model-value="updateDueDate"
                 v-if="isInDepartment(task) && selectionGrid[task.id]"
               />
               <span v-else>
@@ -177,6 +207,9 @@
             <td class="real-end-date">
               {{ formatDate(task.end_date) }}
             </td>
+            <td class="done-date">
+              {{ formatDate(task.done_date) }}
+            </td>
             <td class="last-comment-date">
               {{ formatDate(task.last_comment_date) }}
             </td>
@@ -188,7 +221,7 @@
     </div>
     <div
       class="list-wrapper"
-      v-else-if="tasksByParent && tasksByParent.length > 0 && this.isGrouped"
+      v-else-if="tasksByParent && tasksByParent.length > 0 && isGrouped"
     >
       <div :key="'task-section-' + i" v-for="(taskGroup, i) in tasksByParent">
         <h2>
@@ -278,9 +311,16 @@
       {{ tasks.length }} {{ $tc('tasks.number', tasks.length) }} ({{
         formatDuration(timeEstimated)
       }}
-      {{ $tc('main.days_estimated', isTimeEstimatedPlural) }},
+      {{
+        isDurationInHours()
+          ? $tc('main.hours_estimated', isTimeEstimatedPlural)
+          : $tc('main.days_estimated', isTimeEstimatedPlural)
+      }},
       {{ formatDuration(timeSpent) }}
-      {{ $tc('main.days_spent', isTimeSpentPlural)
+      {{
+        isDurationInHours()
+          ? $tc('main.hours_spent', isTimeSpentPlural)
+          : $tc('main.days_spent', isTimeSpentPlural)
       }}<span v-if="!isAssets"
         >, {{ nbFrames }} {{ $tc('main.nb_frames', nbFrames) }}</span
       >)
@@ -289,7 +329,6 @@
 </template>
 
 <script>
-import Vue from 'vue/dist/vue'
 import { mapGetters, mapActions } from 'vuex'
 import moment from 'moment-timezone'
 import {
@@ -304,19 +343,36 @@ import {
 import { formatListMixin } from '@/components/mixins/format'
 import { domMixin } from '@/components/mixins/dom'
 
-import DateField from '@/components/widgets/DateField'
-import EntityPreview from '@/components/widgets/EntityPreview'
-import EntityThumbnail from '@/components/widgets/EntityThumbnail'
-import PeopleAvatarWithMenu from '@/components/widgets/PeopleAvatarWithMenu'
-import TableInfo from '@/components/widgets/TableInfo'
-import ValidationCell from '@/components/cells/ValidationCell'
-import ValidationTag from '@/components/widgets/ValidationTag'
+import Combobox from '@/components/widgets/Combobox.vue'
+import DateField from '@/components/widgets/DateField.vue'
+import EntityPreview from '@/components/widgets/EntityPreview.vue'
+import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
+import PeopleAvatarWithMenu from '@/components/widgets/PeopleAvatarWithMenu.vue'
+import TableInfo from '@/components/widgets/TableInfo.vue'
+import ValidationCell from '@/components/cells/ValidationCell.vue'
+import ValidationTag from '@/components/widgets/ValidationTag.vue'
+
+import assetStore from '@/store/modules/assets'
+import editStore from '@/store/modules/edits'
+import episodeStore from '@/store/modules/episodes'
+import shotStore from '@/store/modules/shots'
+import sequenceStore from '@/store/modules/sequences'
+
+const stores = {
+  assetStore,
+  episodeStore,
+  shotStore,
+  sequenceStore,
+  editStore
+}
 
 export default {
   name: 'task-list',
+
   mixins: [domMixin, formatListMixin],
 
   components: {
+    Combobox,
     DateField,
     EntityPreview,
     EntityThumbnail,
@@ -326,8 +382,17 @@ export default {
     ValidationTag
   },
 
+  emits: ['task-selected'],
+
   data() {
     return {
+      difficultyOptions: [
+        { label: '•', value: 1 },
+        { label: '••', value: 2 },
+        { label: '•••', value: 3 },
+        { label: '••••', value: 4 },
+        { label: '•••••', value: 5 }
+      ],
       lastSelection: null,
       page: 1,
       selectionGrid: {},
@@ -374,7 +439,7 @@ export default {
     window.addEventListener('keydown', this.onKeyDown, false)
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('keydown', this.onKeyDown)
   },
 
@@ -401,6 +466,10 @@ export default {
 
     isEpisodes() {
       return this.entityType === 'Episode'
+    },
+
+    isSequences() {
+      return this.entityType === 'Sequence'
     },
 
     isShots() {
@@ -454,7 +523,7 @@ export default {
             const entity = this.shotMap.get(task.entity.id)
             if (previousTask) {
               const previousEntity = this.shotMap.get(previousTask.entity.id)
-              if (previousEntity.sequence_id !== entity.sequence_id) {
+              if (previousEntity?.sequence_id !== entity?.sequence_id) {
                 result.push(currentTasks)
                 currentTasks = {
                   name: task.sequence_name,
@@ -476,7 +545,7 @@ export default {
             const entity = this.assetMap.get(task.entity.id)
             if (previousTask) {
               const previousEntity = this.assetMap.get(previousTask.entity.id)
-              if (previousEntity.asset_type_id !== entity.asset_type_id) {
+              if (previousEntity?.asset_type_id !== entity?.asset_type_id) {
                 result.push(currentTasks)
                 currentTasks = {
                   name: task.entity_type_name,
@@ -517,7 +586,9 @@ export default {
       return (
         (data.start_date !== undefined && taskStart !== data.start_date) ||
         (data.due_date !== undefined && taskDue !== data.due_date) ||
-        (data.estimation !== undefined && task.estimation !== data.estimation)
+        (data.estimation !== undefined &&
+          task.estimation !== data.estimation) ||
+        (data.difficulty !== undefined && task.difficulty !== data.difficulty)
       )
     },
 
@@ -525,8 +596,11 @@ export default {
       return date ? moment(date, 'YYYY-MM-DD').toDate() : null
     },
 
-    updateEstimation(days) {
-      const estimation = daysToMinutes(this.organisation, days)
+    updateEstimation(duration) {
+      const estimation = this.organisation.format_duration_in_hours
+        ? duration * 60
+        : daysToMinutes(this.organisation, duration)
+
       this.updateTasksEstimation({ estimation })
     },
 
@@ -543,7 +617,8 @@ export default {
       Object.keys(this.selectionGrid).forEach(taskId => {
         let data = {
           start_date: null,
-          due_date: null
+          due_date: null,
+          difficulty: null
         }
         const task = this.taskMap.get(taskId)
         const dueDate = task.due_date ? parseSimpleDate(task.due_date) : null
@@ -555,6 +630,7 @@ export default {
           )
             return
           data = getDatesFromStartDate(
+            this.organisation,
             startDate,
             dueDate,
             minutesToDays(this.organisation, task.estimation)
@@ -564,6 +640,9 @@ export default {
             start_date: null,
             due_date: dueDate
           }
+        }
+        if (task.difficulty) {
+          data.difficulty = task.difficulty
         }
         if (this.isTaskChanged(task, data)) {
           this.updateTask({ taskId, data }).catch(console.error)
@@ -589,6 +668,7 @@ export default {
           )
             return
           data = getDatesFromEndDate(
+            this.organisation,
             startDate,
             dueDate,
             minutesToDays(this.organisation, task.estimation)
@@ -613,12 +693,27 @@ export default {
           const startDate = moment(task.start_date)
           const dueDate = task.due_date ? moment(task.due_date) : null
           data = getDatesFromStartDate(
+            this.organisation,
             startDate,
             dueDate,
             minutesToDays(this.organisation, estimation)
           )
           data.estimation = estimation
         }
+        if (this.isTaskChanged(task, data)) {
+          this.updateTask({ taskId, data }).catch(console.error)
+        }
+      })
+    },
+
+    updateDifficulty(difficulty) {
+      this.updateTasksDifficulty({ difficulty })
+    },
+
+    updateTasksDifficulty({ difficulty }) {
+      Object.keys(this.selectionGrid).forEach(taskId => {
+        const task = this.taskMap.get(taskId)
+        const data = { difficulty }
         if (this.isTaskChanged(task, data)) {
           this.updateTask({ taskId, data }).catch(console.error)
         }
@@ -638,8 +733,8 @@ export default {
       )
     },
 
-    onBodyScroll(event, position) {
-      this.$emit('scroll', position.scrollTop)
+    onBodyScroll(event) {
+      const position = event.target
       const maxHeight =
         this.$refs.body.scrollHeight - this.$refs.body.offsetHeight
       if (maxHeight < position.scrollTop + 100) {
@@ -648,7 +743,9 @@ export default {
     },
 
     getEntity(entityId) {
-      return this[`${this.entityType.toLowerCase()}Map`].get(entityId) || {}
+      const store = stores[`${this.entityType.toLowerCase()}Store`]
+      const map = store.cache[`${this.entityType.toLowerCase()}Map`]
+      return map.get(entityId) || {}
     },
 
     onKeyDown(event) {
@@ -672,6 +769,16 @@ export default {
         event.target &&
         // Dirty hack needed to make date picker and inputs work properly
         (['INPUT'].includes(event.target.nodeName) ||
+          // Combo box should not trigger selection
+          event.target.className.indexOf('selected-line') >= 0 ||
+          event.target.className.indexOf('down-icon') >= 0 ||
+          event.target.className.indexOf('flexrow') >= 0 ||
+          event.target.className.indexOf('c-mask') >= 0 ||
+          event.target.className.indexOf('option-line') >= 0 ||
+          event.target.className.indexOf('combobox') >= 0 ||
+          event.target.className === '' ||
+          (event.target.parentNode &&
+            ['difficulty'].includes(event.target.className)) ||
           (event.target.parentNode &&
             ['HEADER'].includes(event.target.parentNode.nodeName)) ||
           ['cell day selected'].includes(event.target.className))
@@ -680,18 +787,18 @@ export default {
       const isSelected = this.selectionGrid[task.id]
       const isManySelection = Object.keys(this.selectionGrid).length > 1
       if (!(event.ctrlKey || event.metaKey) && !event.shiftKey) {
-        this.clearSelectedTasks({ task })
+        this.clearSelectedTasks()
         this.resetSelection()
       }
 
       if (!event.shiftKey) {
-        if (this.selectionGrid[task.id]) {
+        if (isSelected && !isManySelection) {
           this.removeSelectedTask({ task })
-          Vue.set(this.selectionGrid, task.id, undefined)
+          this.selectionGrid[task.id] = undefined
         } else if (!isSelected || isManySelection) {
           this.addSelectedTask({ task })
           this.$emit('task-selected', task)
-          Vue.set(this.selectionGrid, task.id, true)
+          this.selectionGrid[task.id] = true
           this.lastSelection = index
         }
       } else {
@@ -704,7 +811,7 @@ export default {
         }
         const selection = taskIndices.map(i => ({ task: this.tasks[i] }))
         selection.forEach(task => {
-          Vue.set(this.selectionGrid, task.task.id, true)
+          this.selectionGrid[task.task.id] = true
         })
         this.addSelectedTasks(selection)
       }
@@ -772,6 +879,7 @@ export default {
         this.$t('tasks.fields.due_date'),
         this.$t('tasks.fields.real_start_date'),
         this.$t('tasks.fields.real_end_date'),
+        this.$t('tasks.fields.done_date'),
         this.$t('tasks.fields.last_comment_date')
       ]
       if (!this.isAssets) {
@@ -802,6 +910,7 @@ export default {
           this.formatDate(task.due_date),
           this.formatDate(task.real_start_date),
           this.formatDate(task.end_date),
+          this.formatDate(task.done_date),
           this.formatDate(task.last_comment_date)
         ]
         if (!this.isAssets) {
@@ -875,7 +984,8 @@ export default {
 
 .last-comment-date,
 .real-start-date,
-.real-end-date {
+.real-end-date,
+.done-date {
   min-width: 110px;
   max-width: 110px;
   width: 110px;
@@ -961,7 +1071,7 @@ td.retake-count {
 }
 
 .list-wrapper div:first-child h2 {
-  margin-top: 0em;
+  margin-top: 0;
 }
 
 .task-grid {
@@ -992,12 +1102,13 @@ td.retake-count {
       margin-bottom: 0.5em;
       margin-top: 0.3em;
       padding: 0 0.5em;
+      word-break: break-word;
     }
     .task-data {
       padding: 0 0.1em 0 0.3em;
 
       .avatar-wrapper:last-child {
-        margin-right: 0em;
+        margin-right: 0;
       }
     }
   }
@@ -1052,5 +1163,9 @@ input[type='number'] {
 
 .datatable-row:hover {
   background: var(--background-selectable);
+}
+
+.frames {
+  padding-right: 10px;
 }
 </style>

@@ -29,7 +29,7 @@
               <combobox-department
                 class="combobox-department flexrow-item"
                 :selectable-departments="selectableDepartments('Shot')"
-                :dispay-all-and-my-departments="true"
+                :display-all-and-my-departments="true"
                 rounded
                 v-model="selectedDepartment"
                 v-if="departments.length > 0"
@@ -44,6 +44,13 @@
                 :title="$t('entities.thumbnails.title')"
                 icon="import-files"
                 @click="showAddThumbnailsModal"
+              />
+              <button-simple
+                class="flexrow-item"
+                icon="file-digit"
+                :title="$t('shots.get_frames_from_previews')"
+                @click="() => (modals.isSetFramesDisplayed = true)"
+                v-if="isCurrentUserManager"
               />
               <button-simple
                 class="flexrow-item"
@@ -86,10 +93,9 @@
         </div>
 
         <sorting-info
-          :label="$t('main.sorted_by')"
           :sorting="shotSorting"
           @clear-sorting="onChangeSortClicked(null)"
-          v-if="shotSorting && shotSorting.length > 0"
+          v-if="shotSorting?.length"
         />
         <shot-list
           ref="shot-list"
@@ -133,8 +139,6 @@
     <manage-shots-modal
       :active="modals.isManageDisplayed"
       :is-loading="loading.manage"
-      :is-error="false"
-      :is-success="false"
       @add-episode="addEpisode"
       @add-sequence="addSequence"
       @add-shot="addShot"
@@ -204,7 +208,7 @@
       :parsed-csv="parsedCSV"
       :form-data="shotsCsvFormData"
       :columns="renderColumns"
-      :dataMatchers="dataMatchers"
+      :data-matchers="dataMatchers"
       :database="filteredShots"
       @reupload="resetImport"
       @cancel="hideImportRenderModal"
@@ -250,12 +254,19 @@
     <add-metadata-modal
       :active="modals.isAddMetadataDisplayed"
       :is-loading="loading.addMetadata"
-      :is-loading-stay="loading.addMetadata"
       :is-error="errors.addMetadata"
       :descriptor-to-edit="descriptorToEdit"
       entity-type="Shot"
       @cancel="closeMetadataModal"
       @confirm="confirmAddMetadata"
+    />
+
+    <set-frames-from-task-type-previews-modal
+      :active="modals.isSetFramesDisplayed"
+      :is-loading="loading.getFrames"
+      :is-error="errors.getFrames"
+      @cancel="modals.isSetFramesDisplayed = false"
+      @confirm="confirmSetFrames"
     />
 
     <add-thumbnails-modal
@@ -288,6 +299,9 @@
 <script>
 import moment from 'moment'
 import { mapGetters, mapActions } from 'vuex'
+
+import shotStore from '@/store/modules/shots'
+
 import csv from '@/lib/csv'
 import func from '@/lib/func'
 import { sortByName } from '@/lib/sorting'
@@ -296,32 +310,34 @@ import stringHelpers from '@/lib/string'
 import { searchMixin } from '@/components/mixins/search'
 import { entitiesMixin } from '@/components/mixins/entities'
 
-import AddMetadataModal from '@/components/modals/AddMetadataModal'
-import AddThumbnailsModal from '@/components/modals/AddThumbnailsModal'
-import BigThumbnailsButton from '@/components/widgets/BigThumbnailsButton'
-import BuildFilterModal from '@/components/modals/BuildFilterModal'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import ComboboxDepartment from '@/components/widgets/ComboboxDepartment'
-import CreateTasksModal from '@/components/modals/CreateTasksModal'
-import DeleteModal from '@/components/modals/DeleteModal'
-import EditShotModal from '@/components/modals/EditShotModal'
-import ImportRenderModal from '@/components/modals/ImportRenderModal'
-import ImportModal from '@/components/modals/ImportModal'
-import ImportEdlModal from '@/components/modals/ImportEdlModal'
-import InfoQuestionMark from '@/components/widgets/InfoQuestionMark'
-import HardDeleteModal from '@/components/modals/HardDeleteModal'
-import ManageShotsModal from '@/components/modals/ManageShotsModal'
-import SearchField from '@/components/widgets/SearchField'
-import SearchQueryList from '@/components/widgets/SearchQueryList'
-import SortingInfo from '@/components/widgets/SortingInfo'
-import ShowAssignationsButton from '@/components/widgets/ShowAssignationsButton'
-import ShowInfosButton from '@/components/widgets/ShowInfosButton'
-import ShotHistoryModal from '@/components/modals/ShotHistoryModal'
+import AddMetadataModal from '@/components/modals/AddMetadataModal.vue'
+import AddThumbnailsModal from '@/components/modals/AddThumbnailsModal.vue'
+import BigThumbnailsButton from '@/components/widgets/BigThumbnailsButton.vue'
+import BuildFilterModal from '@/components/modals/BuildFilterModal.vue'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
+import CreateTasksModal from '@/components/modals/CreateTasksModal.vue'
+import DeleteModal from '@/components/modals/DeleteModal.vue'
+import EditShotModal from '@/components/modals/EditShotModal.vue'
+import ImportRenderModal from '@/components/modals/ImportRenderModal.vue'
+import ImportModal from '@/components/modals/ImportModal.vue'
+import ImportEdlModal from '@/components/modals/ImportEdlModal.vue'
+import InfoQuestionMark from '@/components/widgets/InfoQuestionMark.vue'
+import HardDeleteModal from '@/components/modals/HardDeleteModal.vue'
+import ManageShotsModal from '@/components/modals/ManageShotsModal.vue'
+import SearchField from '@/components/widgets/SearchField.vue'
+import SearchQueryList from '@/components/widgets/SearchQueryList.vue'
+import SetFramesFromTaskTypePreviewsModal from '@/components/modals/SetFramesFromTaskTypePreviewsModal.vue'
+import SortingInfo from '@/components/widgets/SortingInfo.vue'
+import ShowAssignationsButton from '@/components/widgets/ShowAssignationsButton.vue'
+import ShowInfosButton from '@/components/widgets/ShowInfosButton.vue'
+import ShotHistoryModal from '@/components/modals/ShotHistoryModal.vue'
 import ShotList from '@/components/lists/ShotList.vue'
 import TaskInfo from '@/components/sides/TaskInfo.vue'
 
 export default {
   name: 'shots',
+
   mixins: [searchMixin, entitiesMixin],
 
   components: {
@@ -342,6 +358,7 @@ export default {
     InfoQuestionMark,
     SearchField,
     SearchQueryList,
+    SetFramesFromTaskTypePreviewsModal,
     SortingInfo,
     ShotHistoryModal,
     ShowAssignationsButton,
@@ -375,6 +392,7 @@ export default {
       selectedDepartment: 'ALL',
       shotToDelete: null,
       shotToEdit: null,
+      shotToRestore: null,
       taskTypeForTaskDeletion: null,
       departmentFilter: [],
       modals: {
@@ -385,6 +403,7 @@ export default {
         isDeleteDisplayed: false,
         isDeleteMetadataDisplayed: false,
         isDeleteAllTasksDisplayed: false,
+        isSetFramesDisplayed: false,
         isImportRenderDisplayed: false,
         isImportDisplayed: false,
         isEDLImportDisplayed: false,
@@ -402,6 +421,7 @@ export default {
         deleteMetadata: false,
         edit: false,
         del: false,
+        getFrames: false,
         importing: false,
         restore: false,
         savingSearch: false,
@@ -413,18 +433,15 @@ export default {
         deleteMetadata: false,
         creatingTasks: false,
         deleteAllTasks: false,
+        getFrames: false,
         importing: false,
         importingError: null
       }
     }
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.clearSelectedShots()
-  },
-
-  created() {
-    this.setLastProductionScreen('shots')
   },
 
   mounted() {
@@ -432,9 +449,20 @@ export default {
     if (this.$route.query.search && this.$route.query.search.length > 0) {
       searchQuery = `${this.$route.query.search}`
     }
-    this.$refs['shot-search-field'].setValue(searchQuery)
+    this.$refs['shot-search-field']?.setValue(searchQuery)
     const finalize = () => {
-      this.loadShots(() => {})
+      this.$nextTick(() => {
+        // Needed to be sure the current production is set
+        this.loadShots(() => {
+          this.$nextTick(() => {
+            // Needed to be sure the shots are loaded
+            this.onSearchChange()
+            this.$nextTick(() => {
+              this.$refs['shot-list']?.selectTaskFromQuery()
+            })
+          })
+        })
+      })
     }
 
     if (
@@ -443,23 +471,25 @@ export default {
         (!this.shotMap.get(this.shotMap.keys().next().value) ||
           !this.shotMap.get(this.shotMap.keys().next().value).validations))
     ) {
-      setTimeout(() => {
-        if (
-          this.currentProduction &&
-          this.episodes.length > 0 &&
-          this.episodes[0].project_id !== this.currentProduction.id
-        ) {
-          this.loadEpisodes()
-            .then(() => finalize())
-            .catch(console.error)
-        } else {
-          finalize()
-        }
-      }, 100)
+      if (
+        this.currentProduction &&
+        this.episodes.length > 0 &&
+        this.episodes[0].project_id !== this.currentProduction.id
+      ) {
+        this.loadEpisodes()
+          .then(() => finalize())
+          .catch(console.error)
+      } else {
+        finalize()
+      }
     } else {
       if (!this.isShotsLoading) this.initialLoading = false
       this.onSearchChange()
       this.$refs['shot-list'].setScrollPosition(this.shotListScrollPosition)
+      this.$nextTick(() => {
+        this.$refs['shot-list']?.selectTaskFromQuery()
+      })
+      this.reloadEpisodeShotsIfNeeded()
     }
   },
 
@@ -467,7 +497,10 @@ export default {
     ...mapGetters([
       'currentEpisode',
       'currentProduction',
+      'currentSection',
       'departmentMap',
+      'displayedSequences',
+      'displayedShots',
       'displayedShotsBySequence',
       'episodeMap',
       'episodes',
@@ -492,7 +525,6 @@ export default {
       'productionShotTaskTypes',
       'selectedShots',
       'sequences',
-      'shotMap',
       'shotFilledColumns',
       'shotsCsvFormData',
       'shotSearchQueries',
@@ -505,6 +537,10 @@ export default {
       'taskTypeMap',
       'user'
     ]),
+
+    shotMap() {
+      return shotStore.cache.shotMap
+    },
 
     searchField() {
       return this.$refs['shot-search-field']
@@ -556,6 +592,7 @@ export default {
       'createTasks',
       'changeShotSort',
       'clearSelectedShots',
+      'clearSelectedTasks',
       'commentTaskWithPreview',
       'deleteAllShotTasks',
       'deleteShot',
@@ -565,6 +602,7 @@ export default {
       'hideAssignations',
       'loadEpisodes',
       'loadShots',
+      'setNbFramesFromTaskTypePreviews',
       'newEpisode',
       'newSequence',
       'newShot',
@@ -578,6 +616,23 @@ export default {
       'uploadShotFile',
       'uploadEdlFile'
     ]),
+
+    reloadEpisodeShotsIfNeeded() {
+      if (
+        (this.isTVShow && this.displayedSequences.length === 0) ||
+        this.displayedSequences[0]?.episode_id !== this.currentEpisode?.id ||
+        this.displayedShots[0]?.episode_id !== this.currentEpisode?.id
+      ) {
+        this.$refs['shot-search-field'].setValue('')
+        this.$store.commit('SET_SHOT_LIST_SCROLL_POSITION', 0)
+        this.initialLoading = true
+        this.loadShots(() => {
+          this.initialLoading = false
+          this.setSearchFromUrl()
+          this.onSearchChange()
+        })
+      }
+    },
 
     addEpisode(episode, callback) {
       this.newEpisode(episode).then(callback).catch(console.error)
@@ -671,6 +726,7 @@ export default {
         .then(() => {
           this.loading.edit = false
           this.modals.isNewDisplayed = false
+          this.onSearchChange(false)
         })
         .catch(err => {
           console.error(err)
@@ -900,15 +956,19 @@ export default {
       this.onSearchChange()
     },
 
-    onSearchChange() {
+    onSearchChange(clearSelection = true) {
       if (!this.searchField) return
       this.isSearchActive = false
       const searchQuery = this.searchField.getValue() || ''
       if (searchQuery.length !== 1 && !this.isLongShotList) {
         this.applySearch(searchQuery)
-      }
-      if (searchQuery.length === 0 && this.isLongShotList) {
+      } else if (searchQuery.length === 0 && this.isLongShotList) {
         this.applySearch('')
+      } else {
+        this.setSearchInUrl()
+      }
+      if (clearSelection) {
+        this.clearSelection()
       }
     },
 
@@ -1036,39 +1096,41 @@ export default {
       this.applySearch(query)
     },
 
-    onFieldChanged({ entry, fieldName, value }) {
+    async onFieldChanged({ entry, fieldName, value }) {
       const data = {
         id: entry.id,
         nb_frames: entry.nb_frames,
         description: entry.description
       }
       data[fieldName] = value
-      this.editShot(data)
+      await this.editShot(data)
+      this.onSearchChange(false)
     },
 
-    onMetadataChanged({ entry, descriptor, value }) {
-      const metadata = {}
-      metadata[descriptor.field_name] = value
+    async onMetadataChanged({ entry, descriptor, value }) {
       const data = {
         id: entry.id,
-        data: metadata
+        data: {
+          [descriptor.field_name]: value
+        }
       }
       const shot = this.shotMap.get(entry.id)
       if (
         descriptor.field_name === 'frame_in' &&
-        shot.data.frame_out &&
+        shot.data?.frame_out &&
         parseInt(shot.data.frame_out) > parseInt(value)
       ) {
         data.nb_frames = parseInt(shot.data.frame_out) - parseInt(value) + 1
       }
       if (
         descriptor.field_name === 'frame_out' &&
-        shot.data.frame_in &&
+        shot.data?.frame_in &&
         parseInt(shot.data.frame_in) < parseInt(value)
       ) {
         data.nb_frames = parseInt(value) - parseInt(shot.data.frame_in) + 1
       }
-      this.editShot(data)
+      await this.editShot(data)
+      this.onSearchChange(false)
     },
 
     showEDLImportModal() {
@@ -1098,6 +1160,23 @@ export default {
         .finally(() => {
           this.loading.importing = false
         })
+    },
+
+    async confirmSetFrames(taskTypeId) {
+      this.loading.getFrames = true
+      try {
+        await this.setNbFramesFromTaskTypePreviews({
+          taskTypeId,
+          productionId: this.currentProduction.id,
+          episodeId: this.currentEpisode ? this.currentEpisode.id : null
+        })
+        this.modals.isSetFramesDisplayed = false
+      } catch (err) {
+        console.error(err)
+        this.errors.getFrames = true
+      } finally {
+        this.loading.getFrames = false
+      }
     }
   },
 
@@ -1105,15 +1184,19 @@ export default {
     $route() {
       if (!this.$route.query) return
       const search = this.$route.query.search
-      const actualSearch = this.$refs['shot-search-field'].getValue()
+      const actualSearch = this.$refs['shot-search-field']?.getValue()
       if (search !== actualSearch) {
         this.searchField.setValue(search)
         this.applySearch(search)
       }
     },
 
+    currentSection() {
+      this.reloadEpisodeShotsIfNeeded()
+    },
+
     currentProduction() {
-      this.$refs['shot-search-field'].setValue('')
+      this.$refs['shot-search-field']?.setValue('')
       this.$store.commit('SET_SHOT_LIST_SCROLL_POSITION', 0)
 
       this.initialLoading = true
@@ -1168,17 +1251,22 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     if (this.isTVShow) {
       return {
         title:
-          `${this.currentProduction ? this.currentProduction.name : ''}` +
-          ` - ${this.currentEpisode ? this.currentEpisode.name : ''}` +
+          `${this.currentProduction?.name || ''}` +
+          ` - ${this.currentEpisode?.name || ''}` +
           ` | ${this.$t('shots.title')} - Kitsu`
       }
     }
+    if (!this.currentProduction) {
+      return {
+        title: `${this.$t('shots.title')} - Kitsu`
+      }
+    }
     return {
-      title: `${this.currentProduction.name} ${this.$t('shots.title')} - Kitsu`
+      title: `${this.currentProduction.name} | ${this.$t('shots.title')} - Kitsu`
     }
   }
 }
@@ -1218,6 +1306,6 @@ export default {
 }
 
 .combobox-department {
-  margin-bottom: 0px;
+  margin-bottom: 0;
 }
 </style>

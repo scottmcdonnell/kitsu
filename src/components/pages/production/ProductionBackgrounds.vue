@@ -51,7 +51,7 @@
               class="ml05 mb0"
               :disabled="isGlobalDefaultBackground(background)"
               :label="$t('backgrounds.fields.is_default')"
-              :value="String(isCurrentDefaultBackground(background))"
+              :model-value="String(isCurrentDefaultBackground(background))"
               @click="setDefaultBackground(background, $event === 'true')"
             />
           </td>
@@ -69,8 +69,8 @@
 <script>
 import { mapGetters, mapActions } from 'vuex'
 
-import BooleanField from '@/components/widgets/BooleanField'
-import Combobox from '@/components/widgets/Combobox'
+import BooleanField from '@/components/widgets/BooleanField.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
 
 export default {
   name: 'production-backgrounds',
@@ -146,6 +146,7 @@ export default {
 
   watch: {
     remainingBackgrounds: {
+      deep: true,
       immediate: true,
       handler() {
         this.resetSelection()

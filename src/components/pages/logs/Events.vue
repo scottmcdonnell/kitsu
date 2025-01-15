@@ -4,7 +4,7 @@
       <date-field
         class="flexrow-item"
         :can-delete="false"
-        :disabled-dates="{ from: today }"
+        :max-date="today"
         :label="$t('logs.current_date_label')"
         v-model="currentDate"
       />
@@ -18,7 +18,7 @@
       </span>
     </div>
 
-    <div class="mt2" v-if="!isLoading && events.length === 0">
+    <div class="mt2 empty" v-if="!isLoading && events.length === 0">
       {{ $t('logs.empty_list') }}
     </div>
     <div class="has-text-centered" v-if="isLoading">
@@ -77,19 +77,19 @@
 <script>
 import { mapGetters, mapActions } from 'vuex'
 import moment from 'moment'
-import Vue from 'vue/dist/vue'
 
 import { formatFullDateWithRevertedTimezone } from '@/lib/time'
 import { timeMixin } from '@/components/mixins/time'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import DateField from '@/components/widgets/DateField'
-import PeopleAvatar from '@/components/widgets/PeopleAvatar'
-import PeopleName from '@/components/widgets/PeopleName'
-import Spinner from '@/components/widgets/Spinner'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import DateField from '@/components/widgets/DateField.vue'
+import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
+import PeopleName from '@/components/widgets/PeopleName.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
 
 export default {
   name: 'events',
+
   mixins: [timeMixin],
 
   components: {
@@ -148,7 +148,7 @@ export default {
     },
 
     selectLine(event) {
-      Vue.set(this.selectedEvents, event.id, !this.selectedEvents[event.id])
+      this.selectedEvents[event.id] = !this.selectedEvents[event.id]
     },
 
     isLink(key) {
@@ -174,7 +174,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('logs.title')} - Kitsu`
     }
@@ -192,6 +192,11 @@ export default {
   .nb-events {
     color: $white;
   }
+}
+
+.empty {
+  color: var(--text);
+  font-style: italic;
 }
 
 .log-list {

@@ -18,12 +18,19 @@
               icon="filter"
               @click="modals.isBuildFilterDisplayed = true"
             />
+            <button-simple
+              class="flexrow-item"
+              icon="assets"
+              :is-on="showSharedAssets"
+              :title="$t('breakdown.show_library')"
+              @click="showSharedAssets = !showSharedAssets"
+            />
             <div class="flexrow-item filler"></div>
             <div class="flexrow flexrow-item" v-if="!isCurrentUserClient">
               <combobox-department
                 class="combobox-department flexrow-item"
                 :selectable-departments="selectableDepartments('Asset')"
-                :dispay-all-and-my-departments="true"
+                :display-all-and-my-departments="true"
                 rounded
                 v-model="selectedDepartment"
                 v-if="departments.length > 0"
@@ -73,14 +80,17 @@
         </div>
 
         <sorting-info
-          :label="$t('main.sorted_by')"
           :sorting="assetSorting"
           @clear-sorting="onChangeSortClicked(null)"
-          v-if="assetSorting && assetSorting.length > 0"
+          v-if="assetSorting?.length"
         />
         <asset-list
           ref="asset-list"
-          :displayed-assets="displayedAssetsByType"
+          :displayed-assets="
+            showSharedAssets
+              ? displayedAssetsByType
+              : displayedAssetsByTypeWithoutShared
+          "
           :is-loading="isAssetsLoading || initialLoading"
           :is-error="isAssetsLoadingError"
           :validation-columns="assetValidationColumns"
@@ -126,7 +136,7 @@
       :is-success="success.edit"
       :asset-to-edit="assetToEdit"
       @confirm="confirmEditAsset"
-      @confirmAndStay="confirmNewAssetStay"
+      @confirm-and-stay="confirmNewAssetStay"
       @cancel="modals.isNewDisplayed = false"
     />
 
@@ -220,7 +230,6 @@
     <add-metadata-modal
       :active="modals.isAddMetadataDisplayed"
       :is-loading="loading.addMetadata"
-      :is-loading-stay="loading.addMetadata"
       :is-error="errors.addMetadata"
       :descriptor-to-edit="descriptorToEdit"
       entity-type="Asset"
@@ -251,35 +260,38 @@
 <script>
 import moment from 'moment'
 import { mapGetters, mapActions } from 'vuex'
+
 import csv from '@/lib/csv'
 import func from '@/lib/func'
 import { sortByName } from '@/lib/sorting'
 import stringHelpers from '@/lib/string'
+
 import { searchMixin } from '@/components/mixins/search'
 import { entitiesMixin } from '@/components/mixins/entities'
 
-import AssetList from '@/components/lists/AssetList'
-import AddMetadataModal from '@/components/modals/AddMetadataModal'
-import AddThumbnailsModal from '@/components/modals/AddThumbnailsModal'
-import BigThumbnailsButton from '@/components/widgets/BigThumbnailsButton'
-import BuildFilterModal from '@/components/modals/BuildFilterModal'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import ComboboxDepartment from '@/components/widgets/ComboboxDepartment'
-import CreateTasksModal from '@/components/modals/CreateTasksModal'
-import DeleteModal from '@/components/modals/DeleteModal'
-import EditAssetModal from '@/components/modals/EditAssetModal'
-import ImportModal from '@/components/modals/ImportModal'
-import ImportRenderModal from '@/components/modals/ImportRenderModal'
-import HardDeleteModal from '@/components/modals/HardDeleteModal'
-import SearchField from '@/components/widgets/SearchField'
-import SearchQueryList from '@/components/widgets/SearchQueryList'
-import SortingInfo from '@/components/widgets/SortingInfo'
-import ShowAssignationsButton from '@/components/widgets/ShowAssignationsButton'
-import ShowInfosButton from '@/components/widgets/ShowInfosButton'
+import AssetList from '@/components/lists/AssetList.vue'
+import AddMetadataModal from '@/components/modals/AddMetadataModal.vue'
+import AddThumbnailsModal from '@/components/modals/AddThumbnailsModal.vue'
+import BigThumbnailsButton from '@/components/widgets/BigThumbnailsButton.vue'
+import BuildFilterModal from '@/components/modals/BuildFilterModal.vue'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
+import CreateTasksModal from '@/components/modals/CreateTasksModal.vue'
+import DeleteModal from '@/components/modals/DeleteModal.vue'
+import EditAssetModal from '@/components/modals/EditAssetModal.vue'
+import ImportModal from '@/components/modals/ImportModal.vue'
+import ImportRenderModal from '@/components/modals/ImportRenderModal.vue'
+import HardDeleteModal from '@/components/modals/HardDeleteModal.vue'
+import SearchField from '@/components/widgets/SearchField.vue'
+import SearchQueryList from '@/components/widgets/SearchQueryList.vue'
+import SortingInfo from '@/components/widgets/SortingInfo.vue'
+import ShowAssignationsButton from '@/components/widgets/ShowAssignationsButton.vue'
+import ShowInfosButton from '@/components/widgets/ShowInfosButton.vue'
 import TaskInfo from '@/components/sides/TaskInfo.vue'
 
 export default {
   name: 'assets',
+
   mixins: [searchMixin, entitiesMixin],
 
   components: {
@@ -322,6 +334,10 @@ export default {
       deleteAllTasksLockText: null,
       descriptorToEdit: {},
       departmentFilter: [],
+      showSharedAssets: true,
+      optionalColumns: ['Description', 'Ready for'],
+      pageName: 'Assets',
+      parsedCSV: [],
       selectedDepartment: 'ALL',
       taskTypeForTaskDeletion: null,
       errors: {
@@ -367,9 +383,6 @@ export default {
         isImportRenderDisplayed: false,
         isNewDisplayed: false
       },
-      pageName: 'Assets',
-      optionalColumns: ['Description', 'Ready for'],
-      parsedCSV: [],
       success: {
         edit: false
       }
@@ -383,7 +396,7 @@ export default {
   mounted() {
     let searchQuery = ''
     if (this.assetSearchText.length > 0) {
-      this.searchField.setValue(this.assetSearchText)
+      this.$refs['asset-search-field']?.setValue(this.assetSearchText)
     }
     if (this.$route.query.search && this.$route.query.search.length > 0) {
       searchQuery = `${this.$route.query.search}`
@@ -396,13 +409,19 @@ export default {
         this.searchField.setValue(searchQuery)
         this.onSearchChange()
         this.$refs['asset-list'].setScrollPosition(this.assetListScrollPosition)
+        this.$nextTick(() => {
+          this.$refs['asset-list']?.selectTaskFromQuery()
+        })
       }
     }
 
     if (
       this.assetMap.size < 2 ||
+      this.assetValidationColumns.length === 0 ||
       (this.assetValidationColumns.length > 0 &&
-        !this.assetMap.get(this.assetMap.keys().next().value).validations)
+        (!this.assetMap.get(this.assetMap.keys().next().value).validations ||
+          this.assetMap.get(this.assetMap.keys().next().value).validations
+            .size === 0))
     ) {
       setTimeout(() => {
         this.loadAssets().then(() => {
@@ -418,7 +437,7 @@ export default {
     }
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.clearSelectedAssets()
   },
 
@@ -436,8 +455,10 @@ export default {
       'assetValidationColumns',
       'currentEpisode',
       'currentProduction',
+      'currentSection',
       'departmentMap',
       'departments',
+      'displayedAssets',
       'displayedAssetsByType',
       'episodeMap',
       'isAssetEstimation',
@@ -462,12 +483,22 @@ export default {
       return this.$refs['asset-search-field']
     },
 
+    displayedAssetsByTypeWithoutShared() {
+      return this.displayedAssetsByType.map(type =>
+        type.filter(asset => !asset.shared)
+      )
+    },
+
     filteredAssets() {
       const assets = {}
       this.displayedAssetsByType.forEach(type => {
         type.forEach(item => {
           let assetKey = ''
-          if (this.isTVShow && item.episode_id) {
+          if (
+            this.isTVShow &&
+            item.episode_id &&
+            this.episodeMap.has(item.episode_id)
+          ) {
             assetKey += this.episodeMap.get(item.episode_id).name
           }
           assetKey += `${item.asset_type_name}${item.name}`
@@ -502,7 +533,7 @@ export default {
 
     shortPageTitle() {
       const productionName = this.currentProduction?.name || ''
-      return `${productionName} ${this.$t('assets.title')} - Kitsu`
+      return `${productionName} | ${this.$t('assets.title')} - Kitsu`
     },
 
     dataMatchers() {
@@ -597,6 +628,7 @@ export default {
         .then(form => {
           this.loading.edit = false
           this.modals.isNewDisplayed = false
+          this.onSearchChange(false)
         })
         .catch(err => {
           console.error(err)
@@ -804,15 +836,18 @@ export default {
       this.showImportModal()
     },
 
-    onSearchChange() {
-      const searchQuery = this.searchField.getValue() || ''
+    onSearchChange(clearSelection = true) {
+      const searchQuery = this.searchField?.getValue() || ''
       if (
         searchQuery.length !== 1 &&
         searchQuery !== undefined &&
         searchQuery !== 'undefined'
       ) {
         this.setAssetSearch(searchQuery)
-        this.setSearchInUrl()
+      }
+      this.setSearchInUrl()
+      if (clearSelection) {
+        this.clearSelection()
       }
     },
 
@@ -953,24 +988,29 @@ export default {
       this.changeAssetSort(sortInfo)
     },
 
-    onFieldChanged({ entry, fieldName, value }) {
-      const data = { id: entry.id }
-      data[fieldName] = value
-      this.editAsset(data)
-    },
-
-    onMetadataChanged({ entry, descriptor, value }) {
-      const metadata = {}
-      metadata[descriptor.field_name] = value
+    async onFieldChanged({ entry, fieldName, value }) {
       const data = {
         id: entry.id,
-        data: metadata
+        [fieldName]: value
       }
-      this.editAsset(data)
+      await this.editAsset(data)
+      this.onSearchChange(false)
     },
 
-    onAssetChanged(asset) {
-      this.editAsset(asset)
+    async onMetadataChanged({ entry, descriptor, value }) {
+      const data = {
+        id: entry.id,
+        data: {
+          [descriptor.field_name]: value
+        }
+      }
+      await this.editAsset(data)
+      this.onSearchChange(false)
+    },
+
+    async onAssetChanged(asset) {
+      await this.editAsset(asset)
+      this.onSearchChange(false)
     },
 
     reset() {
@@ -987,7 +1027,7 @@ export default {
     $route() {
       if (!this.$route.query) return
       const search = this.$route.query.search
-      const actualSearch = this.searchField.getValue()
+      const actualSearch = this.$refs['asset-search-field']?.getValue()
       if (search !== actualSearch) {
         this.searchField.setValue(search)
         this.onSearchChange()
@@ -995,20 +1035,35 @@ export default {
     },
 
     currentProduction() {
-      this.searchField.setValue('')
+      this.$refs['asset-search-field']?.setValue('')
       this.$store.commit('SET_ASSET_LIST_SCROLL_POSITION', 0)
       this.initialLoading = true
       if (!this.isTVShow) this.reset()
     },
 
     currentEpisode() {
-      this.searchField.setValue('')
+      this.$refs['asset-search-field']?.setValue('')
       this.$store.commit('SET_ASSET_LIST_SCROLL_POSITION', 0)
       if (this.isTVShow && this.currentEpisode) this.reset()
+    },
+
+    currentSection() {
+      if (
+        this.isTVShow &&
+        this.currentEpisode?.id &&
+        !this.displayedAssets.find(
+          asset => asset.episode_id === this.currentEpisode.id
+        )
+      ) {
+        this.searchField.setValue('')
+        this.$store.commit('SET_ASSET_LIST_SCROLL_POSITION', 0)
+        this.initialLoading = true
+        this.reset()
+      }
     }
   },
 
-  metaInfo() {
+  head() {
     if (this.isTVShow) {
       return { title: this.tvShowPageTitle }
     }

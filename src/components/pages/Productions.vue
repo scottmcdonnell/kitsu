@@ -1,8 +1,7 @@
 <template>
   <div class="productions page fixed-page">
     <div class="flexrow page-header">
-      <page-title :text="$t('productions.title')" />
-      <div class="filler"></div>
+      <page-title class="filler" :text="$t('productions.title')" />
       <button-simple
         class="flexrow-item"
         :text="$t('productions.load_stats')"
@@ -27,13 +26,14 @@
     />
 
     <edit-production-modal
-      :active="modals.isNewDisplayed"
+      active
       :is-loading="loading.edit"
       :is-error="errors.edit"
       :production-to-edit="productionToEdit"
-      @cancel="modals.isNewDisplayed = false"
+      @cancel="modals.isEditDisplayed = false"
       @fileselected="onProductionPictureSelected"
       @confirm="confirmEditProduction"
+      v-if="modals.isEditDisplayed"
     />
 
     <hard-delete-modal
@@ -51,12 +51,13 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
-import ButtonLink from '@/components/widgets/ButtonLink'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import EditProductionModal from '@/components/modals/EditProductionModal'
-import HardDeleteModal from '@/components/modals/HardDeleteModal'
-import ProductionList from '@/components/lists/ProductionList'
-import PageTitle from '@/components/widgets/PageTitle'
+
+import ButtonLink from '@/components/widgets/ButtonLink.vue'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import EditProductionModal from '@/components/modals/EditProductionModal.vue'
+import HardDeleteModal from '@/components/modals/HardDeleteModal.vue'
+import ProductionList from '@/components/lists/ProductionList.vue'
+import PageTitle from '@/components/widgets/PageTitle.vue'
 
 export default {
   name: 'productions',
@@ -82,13 +83,12 @@ export default {
         stats: false
       },
       modals: {
-        isNewDisplayed: false,
+        isEditDisplayed: false,
         isDeleteDisplayed: false
       },
       productionStats: {},
       productionToDelete: null,
-      productionToEdit: null,
-      choices: []
+      productionToEdit: null
     }
   },
 
@@ -112,6 +112,7 @@ export default {
   methods: {
     ...mapActions([
       'deleteProduction',
+      'editProduction',
       'loadProductions',
       'loadProductionStats',
       'storeProductionPicture',
@@ -120,34 +121,23 @@ export default {
 
     // Actions
 
-    confirmEditProduction(form) {
-      let action = 'newProduction'
-      const isEditing = this.productionToEdit && this.productionToEdit.id
-      if (isEditing) {
-        action = 'editProduction'
-        form.id = this.productionToEdit.id
-      }
-
+    async confirmEditProduction(form) {
       this.loading.edit = true
       this.errors.edit = false
-      this.$store
-        .dispatch(action, form)
-        .then(() => {
-          if (isEditing && this.productionAvatarFormData) {
-            return this.uploadProductionAvatar(form.id)
-          } else {
-            return Promise.resolve()
-          }
+      try {
+        if (this.productionAvatarFormData) {
+          await this.uploadProductionAvatar(this.productionToEdit.id)
+        }
+        await this.editProduction({
+          ...form,
+          id: this.productionToEdit.id
         })
-        .then(() => {
-          this.modals.isNewDisplayed = false
-          this.loading.edit = false
-        })
-        .catch(err => {
-          console.error(err)
-          this.loading.edit = false
-          this.errors.edit = true
-        })
+        this.modals.isEditDisplayed = false
+      } catch (error) {
+        console.error(error)
+        this.errors.edit = true
+      }
+      this.loading.edit = false
     },
 
     confirmDeleteProduction() {
@@ -177,18 +167,14 @@ export default {
     // Events
 
     onEditClicked(production) {
+      this.storeProductionPicture(null)
       this.productionToEdit = production
-      this.modals.isNewDisplayed = true
+      this.modals.isEditDisplayed = true
     },
 
     onDeleteClicked(production) {
       this.productionToDelete = production
       this.modals.isDeleteDisplayed = true
-    },
-
-    onNewClicked(production) {
-      this.productionToEdit = {}
-      this.modals.isNewDisplayed = true
     },
 
     onProductionPictureSelected(formData) {
@@ -202,14 +188,10 @@ export default {
     }
   },
 
-  watch: {},
-
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('productions.title')} - Kitsu`
     }
   }
 }
 </script>
-
-<style lang="scss" scoped></style>

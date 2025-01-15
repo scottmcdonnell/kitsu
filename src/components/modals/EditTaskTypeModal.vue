@@ -16,7 +16,7 @@
           {{ $t('task_types.new_task_type') }}
         </h1>
 
-        <form v-on:submit.prevent>
+        <form @submit.prevent>
           <text-field
             ref="nameField"
             :label="$t('task_types.fields.name')"
@@ -29,12 +29,17 @@
             :label="$t('task_types.fields.short_name')"
             v-model="form.short_name"
             @enter="confirmClicked"
-            v-focus
           />
           <boolean-field
+            is-field
             :label="$t('task_types.fields.allow_timelog')"
             @enter="confirmClicked"
             v-model="form.allow_timelog"
+          />
+          <textarea-field
+            :label="$t('task_types.fields.description')"
+            v-model="form.description"
+            @enter="confirmClicked"
           />
           <combobox-simple
             class="field"
@@ -50,7 +55,6 @@
             v-model="form.department_id"
           />
           <color-field
-            ref="colorField"
             class="mt2"
             :label="$t('task_types.fields.color')"
             v-model="form.color"
@@ -76,20 +80,24 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
+import { mapGetters } from 'vuex'
+
 import { modalMixin } from '@/components/modals/base_modal'
 
-import BooleanField from '@/components/widgets/BooleanField'
-import ComboboxBoolean from '@/components/widgets/ComboboxBoolean'
-import ComboboxSimple from '@/components/widgets/ComboboxSimple'
-import ComboboxDepartment from '@/components/widgets/ComboboxDepartment'
-import ColorField from '@/components/widgets/ColorField'
-import ModalFooter from '@/components/modals/ModalFooter'
-import TextField from '@/components/widgets/TextField'
+import BooleanField from '@/components/widgets/BooleanField.vue'
+import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
+import ComboboxSimple from '@/components/widgets/ComboboxSimple.vue'
+import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
+import ColorField from '@/components/widgets/ColorField.vue'
+import ModalFooter from '@/components/modals/ModalFooter.vue'
+import TextField from '@/components/widgets/TextField.vue'
+import TextareaField from '@/components/widgets/TextareaField.vue'
 
 export default {
   name: 'edit-task-type-modal',
+
   mixins: [modalMixin],
+
   components: {
     BooleanField,
     ComboboxBoolean,
@@ -97,7 +105,8 @@ export default {
     ComboboxDepartment,
     ColorField,
     ModalFooter,
-    TextField
+    TextField,
+    TextareaField
   },
 
   props: {
@@ -119,12 +128,15 @@ export default {
     }
   },
 
+  emits: ['cancel', 'confirm'],
+
   watch: {
     taskTypeToEdit() {
       if (this.taskTypeToEdit) {
         this.form = {
           name: this.taskTypeToEdit.name,
           short_name: this.taskTypeToEdit.short_name,
+          description: this.taskTypeToEdit.description,
           color: this.taskTypeToEdit.color,
           for_entity: this.taskTypeToEdit.for_entity || 'Asset',
           allow_timelog: String(this.taskTypeToEdit.allow_timelog === true),
@@ -140,6 +152,7 @@ export default {
       form: {
         name: '',
         short_name: '',
+        description: '',
         color: '$grey',
         for_entity: 'Asset',
         allow_timelog: 'false',
@@ -164,8 +177,6 @@ export default {
   },
 
   methods: {
-    ...mapActions([]),
-
     newPriority(forEntity) {
       return (
         this.taskTypes.filter(taskType => taskType.for_entity === forEntity)

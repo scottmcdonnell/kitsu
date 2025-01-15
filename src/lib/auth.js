@@ -100,14 +100,6 @@ const auth = {
       } else {
         const user = res.body.user
         const organisation = res.body.organisation || {}
-        organisation.use_original_file_name =
-          organisation.use_original_file_name ? 'true' : 'false'
-        organisation.timesheets_locked = organisation.timesheets_locked
-          ? 'true'
-          : 'false'
-        organisation.hd_by_default = organisation.hd_by_default
-          ? 'true'
-          : 'false'
         store.commit(SET_ORGANISATION, organisation)
         store.commit(USER_LOGIN, user)
         callback(null)
@@ -120,17 +112,10 @@ const auth = {
   requireAuth(to, from, next) {
     const finalize = () => {
       if (!store.state.user.isAuthenticated) {
-        store
-          .dispatch('getOrganisation')
-          .catch(err => {
-            console.error(err)
-          })
-          .finally(() => {
-            next({
-              name: 'login',
-              query: { redirect: to.fullPath }
-            })
-          })
+        next({
+          name: 'login',
+          query: { redirect: to.fullPath }
+        })
       } else {
         store.commit(DATA_LOADING_START)
         next()

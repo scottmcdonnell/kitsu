@@ -1,6 +1,6 @@
 <template>
   <div class="open-productions page">
-    <div class="social-contributions flexcolumn" v-if="isContributions">
+    <div class="social-contributions" v-if="isContributions">
       <h1 class="subtitle has-text-centered">
         {{ $t('intro.title') }}
       </h1>
@@ -11,7 +11,7 @@
         />
         <div class="filler">
           <span class="close-contributions" @click="hideContributions">
-            <x-icon size="0.9x" />
+            <x-icon :size="14" />
           </span>
           <p>
             {{ $t('intro.main') }}
@@ -60,19 +60,17 @@
       class="flexrow open-productions-header"
       v-if="!isOpenProductionsLoading && openProductions.length > 0"
     >
-      <img class="flexrow-item" src="../../assets/kitsu.png" width="23" />
-      <h1 class="title flexrow-item">
+      <img class="logo" src="../../assets/kitsu.png" width="23" />
+      <h1 class="title filler">
         {{ $t('productions.home.title') }}
       </h1>
-      <div class="filler"></div>
-      <a
-        id="create-production-button"
-        class="button flexrow-item"
+      <button
+        class="button"
         @click="newProductionPage"
         v-if="isCurrentUserAdmin"
       >
         {{ $t('productions.home.create_new') }}
-      </a>
+      </button>
     </div>
     <div
       class="open-productions-box"
@@ -80,16 +78,16 @@
     >
       <div class="flexrow search-area" v-if="openProductions.length > 6">
         <search-field
-          ref="search-field"
-          class="search-field"
+          class="search-field ml1"
           @change="onSearchChange"
+          v-focus
         />
       </div>
 
       <div
         :class="{
           'open-productions-list': true,
-          'is-grid': openProductions && openProductions.length > 4
+          'is-grid': openProductions?.length > 4
         }"
       >
         <div
@@ -148,33 +146,24 @@
         </p>
       </div>
     </div>
-    <edit-production-modal
-      :active="modals.isNewDisplayed"
-      :is-loading="loading.edit"
-      :is-error="errors.edit"
-      @confirm="confirmEditProduction"
-      @cancel="hideNewModal"
-    />
   </div>
 </template>
 
 <script>
-import { XIcon } from 'vue-feather-icons'
-import { mapGetters, mapActions } from 'vuex'
+import { XIcon } from 'lucide-vue-next'
+import { mapGetters } from 'vuex'
 
 import { buildNameIndex } from '@/lib/indexing'
 import colors from '@/lib/colors'
 import preferences from '@/lib/preferences'
 
-import EditProductionModal from '@/components/modals/EditProductionModal'
-import SearchField from '@/components/widgets/SearchField'
-import Spinner from '@/components/widgets/Spinner'
+import SearchField from '@/components/widgets/SearchField.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
 
 export default {
   name: 'open-productions',
 
   components: {
-    EditProductionModal,
     SearchField,
     Spinner,
     XIcon
@@ -183,22 +172,11 @@ export default {
   data() {
     return {
       isContributions: true,
-      filteredProductions: [],
-      search: '',
-      errors: {
-        edit: false
-      },
-      loading: {
-        edit: false
-      },
-      modals: {
-        isNewDisplayed: false
-      }
+      filteredProductions: []
     }
   },
 
   mounted() {
-    this.$refs['search-field']?.focus()
     this.filteredProductions = this.openProductions
     this.productionIndex = buildNameIndex(this.openProductions)
     this.isContributions =
@@ -219,10 +197,8 @@ export default {
   },
 
   methods: {
-    ...mapActions(['newProduction']),
-
     generateAvatar(production) {
-      const firstLetter = production.name.length > 0 ? production.name[0] : 'P'
+      const firstLetter = production.name?.[0] || 'P'
       return firstLetter.toUpperCase()
     },
 
@@ -282,32 +258,15 @@ export default {
     },
 
     getThumbnailPath(production) {
-      return `/api/pictures/thumbnails/projects/${production.id}.png`
-    },
-
-    confirmEditProduction(form) {
-      this.errors.edit = false
-      this.loading.edit = true
-      this.newProduction(form)
-        .then(() => {
-          this.modals.isNewDisplayed = false
-          this.loading.edit = false
-        })
-        .catch(err => {
-          console.error(err)
-          this.loading.edit = false
-          this.errors.edit = true
-        })
+      const lastUpdate = production.updated_at || production.created_at
+      const timestamp = Date.parse(lastUpdate)
+      return `/api/pictures/thumbnails/projects/${production.id}.png?t=${timestamp}`
     },
 
     newProductionPage() {
       this.$router.push({
         name: 'new-production'
       })
-    },
-
-    hideNewModal() {
-      this.modals.isNewDisplayed = false
     },
 
     onSearchChange(search) {
@@ -324,9 +283,7 @@ export default {
     }
   },
 
-  watch: {},
-
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('productions.home.title')} - Kitsu`
     }
@@ -419,7 +376,7 @@ h1.title {
   .open-production:hover .production-name {
     transition: all 0.4s ease-in-out;
     transform: scale(1.15);
-    text-shadow: 0px 0px 3px var(--box-shadow);
+    text-shadow: 0 0 3px var(--box-shadow);
   }
 }
 
@@ -475,14 +432,15 @@ a.secondary:hover {
 }
 
 .open-productions-header {
+  gap: 0 1em;
   margin-top: 4em;
   margin-bottom: 1em;
   max-width: 800px;
   margin-left: auto;
   margin-right: auto;
 
-  img {
-    margin-left: 3px;
+  .logo {
+    margin: 0 3px;
   }
 }
 
@@ -500,7 +458,7 @@ a.secondary:hover {
   border-radius: 1em;
   font-size: 1.1rem;
   max-width: 800px;
-  margin-bottom: 0em;
+  margin-bottom: 0;
   margin-top: 2em;
   margin-left: auto;
   margin-right: auto;
@@ -583,10 +541,11 @@ a.secondary:hover {
   }
 
   .open-productions-box {
-    padding: 0;
+    padding: 1em 0;
   }
 
-  .flexrow {
+  .open-productions-header,
+  .social-contributions .flexrow {
     flex-direction: column;
   }
 }

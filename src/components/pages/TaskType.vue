@@ -5,7 +5,7 @@
         <div class="task-type-header page-header flexrow-item" ref="header">
           <div class="flexcolumn-item flexrow">
             <router-link class="back-link flexrow-item" :to="backPath">
-              <corner-left-up-icon size="1.4x" />
+              <corner-left-up-icon />
             </router-link>
             <div class="flexrow-item"></div>
             <task-type-name
@@ -71,28 +71,34 @@
                 placeholder="ex: retake chara"
               />
             </div>
-            <div class="flexrow-item" v-if="isActiveTab('tasks')">
+            <div class="flexrow-item flexrow" v-if="isActiveTab('tasks')">
               <combobox-styled
+                class="flexrow-item"
                 :label="$t('tasks.due_date')"
                 :options="dueDateOptions"
                 locale-key-prefix="tasks."
                 v-model="dueDateFilter"
               />
-            </div>
-            <div class="flexrow-item" v-if="isActiveTab('tasks')">
               <combobox-styled
+                class="flexrow-item"
                 :label="$t('tasks.late')"
                 :options="estimationOptions"
                 locale-key-prefix="tasks."
                 v-model="estimationFilter"
               />
-            </div>
-            <div class="flexrow-item" v-if="isActiveTab('tasks')">
               <combobox-styled
+                class="flexrow-item"
                 :label="$t('task_types.fields.priority')"
                 :options="priorityOptions"
                 locale-key-prefix="tasks."
                 v-model="priorityFilter"
+              />
+              <combobox-styled
+                class="flexrow-item"
+                :label="$t('tasks.fields.difficulty')"
+                :options="difficultyOptions"
+                locale-key-prefix="tasks."
+                v-model="difficultyFilter"
               />
             </div>
             <div class="filler"></div>
@@ -111,10 +117,13 @@
             >
               <date-field
                 class="flexrow-item"
-                :disabled-dates="startDisabledDates"
-                :with-margin="false"
-                :label="$t('main.start_date')"
                 :can-delete="false"
+                :min-date="startDisabledDates.to"
+                :max-date="startDisabledDates.from"
+                :label="$t('main.start_date')"
+                utc
+                week-days-disabled
+                :with-margin="false"
                 v-model="schedule.taskTypeStartDate"
               />
             </div>
@@ -124,10 +133,13 @@
             >
               <date-field
                 class="flexrow-item"
-                :disabled-dates="endDisabledDates"
-                :with-margin="false"
-                :label="$t('main.end_date')"
                 :can-delete="false"
+                :min-date="endDisabledDates.to"
+                :max-date="endDisabledDates.from"
+                :label="$t('main.end_date')"
+                utc
+                week-days-disabled
+                :with-margin="false"
                 v-model="schedule.taskTypeEndDate"
               />
             </div>
@@ -173,7 +185,7 @@
           :entity-type="entityType"
           :is-contact-sheet="contactSheetMode"
           :is-error="errors.entities"
-          :is-grouped="this.currentSort === 'entity_name'"
+          :is-grouped="currentSort === 'entity_name'"
           :is-loading="loading.entities"
           :tasks="tasks"
           @task-selected="onTaskSelected"
@@ -221,7 +233,7 @@
           :parsed-csv="parsedCSV"
           :form-data="importCsvFormData"
           :columns="[...dataMatchers, ...optionalColumns]"
-          :dataMatchers="dataMatchers"
+          :data-matchers="dataMatchers"
           :database="{}"
           :disable-update="true"
           @reupload="resetImport"
@@ -250,10 +262,16 @@
 </template>
 
 <script>
+import assetsStore from '@/store/modules/assets.js'
+import editsStore from '@/store/modules/edits.js'
+import episodesStore from '@/store/modules/episodes.js'
+import sequencesStore from '@/store/modules/sequences.js'
+import shotsStore from '@/store/modules/shots.js'
+import taskStatusStore from '@/store/modules/taskstatus.js'
+
+import { CornerLeftUpIcon } from 'lucide-vue-next'
 import moment from 'moment'
 import firstBy from 'thenby'
-import { CornerLeftUpIcon } from 'vue-feather-icons'
-import { en, fr } from 'vuejs-datepicker/dist/locale'
 import { mapGetters, mapActions } from 'vuex'
 
 import csv from '@/lib/csv'
@@ -427,8 +445,17 @@ export default {
       entityType: 'Asset',
       estimationFilter: 'all',
       priorityFilter: '-1',
+      difficultyFilter: '-1',
       tasks: [],
       selection: {},
+      difficultyOptions: [
+        { label: 'all_tasks', value: '-1' },
+        { label: 'difficulty.very_easy', value: '1' },
+        { label: 'difficulty.easy', value: '2' },
+        { label: 'difficulty.medium', value: '3' },
+        { label: 'difficulty.hard', value: '4' },
+        { label: 'difficulty.very_hard', value: '5' }
+      ],
       dueDateOptions: [
         { label: 'all_tasks', value: 'all' },
         { label: 'due_this_week', value: 'dueweek' },
@@ -506,7 +533,7 @@ export default {
   },
 
   mounted() {
-    this.searchField.setValue(this.$route.query.search || '')
+    this.searchField?.setValue(this.$route.query.search || '')
     this.clearSelectedTasks()
     const isAssets = this.$route.path.includes('assets')
     const isShots = this.$route.path.includes('shots')
@@ -529,22 +556,19 @@ export default {
     window.addEventListener('resize', this.resetScheduleHeight)
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.clearSelectedTasks()
     window.removeEventListener('resize', this.resetScheduleHeight)
   },
 
   computed: {
     ...mapGetters([
-      'assetMap',
       'assetsPath',
       'currentEpisode',
       'currentProduction',
       'currentTaskType',
       'editsPath',
       'episodesPath',
-      'editMap',
-      'episodeMap',
       'isCurrentUserManager',
       'isCurrentUserSupervisor',
       'isTVShow',
@@ -552,24 +576,21 @@ export default {
       'organisation',
       'personMap',
       'selectedTasks',
-      'sequenceMap',
       'sequencesPath',
       'sequenceSubscriptions',
       'shotsByEpisode',
-      'shotMap',
       'shotsPath',
       'taskSearchQueries',
-      'taskStatusMap',
       'taskMap',
       'user'
     ]),
 
     taskTypeStartDate() {
-      return moment(this.schedule.taskTypeStartDate)
+      return moment(this.schedule.taskTypeStartDate).utc()
     },
 
     taskTypeEndDate() {
-      return moment(this.schedule.taskTypeEndDate)
+      return moment(this.schedule.taskTypeEndDate).utc()
     },
 
     isSupervisorInDepartment() {
@@ -585,11 +606,28 @@ export default {
       return this[`${this.entityType.toLowerCase()}Map`]
     },
 
-    locale() {
-      if (this.user.locale === 'fr_FR') {
-        return fr
-      }
-      return en
+    assetMap() {
+      return assetsStore.cache.assetMap
+    },
+
+    editMap() {
+      return editsStore.cache.editMap
+    },
+
+    episodeMap() {
+      return episodesStore.cache.episodeMap
+    },
+
+    sequenceMap() {
+      return sequencesStore.cache.sequenceMap
+    },
+
+    shotMap() {
+      return shotsStore.cache.shotMap
+    },
+
+    taskStatusMap() {
+      return taskStatusStore.cache.taskStatusMap
     },
 
     productionStartDate() {
@@ -702,9 +740,12 @@ export default {
         'entity_name',
         'task_status_short_name',
         'priority',
+        'nb_frames',
+        'difficulty',
         'estimation',
         'duration',
         'retake_count',
+        'assignees',
         'start_date',
         'due_date',
         'real_start_date',
@@ -723,7 +764,7 @@ export default {
       return sortPeople(
         this.currentProduction.team
           .map(personId => this.personMap.get(personId))
-          .filter(person => !person.is_bot)
+          .filter(person => person && !person.is_bot)
       )
     },
 
@@ -738,6 +779,7 @@ export default {
 
   methods: {
     ...mapActions([
+      'addSelectedTask',
       'clearSelectedTasks',
       'initTaskType',
       'loadAggregatedPersonDaysOff',
@@ -782,6 +824,16 @@ export default {
             this.dueDateFilter = this.$route.query.duedate || 'all'
             this.estimationFilter = this.$route.query.late || 'all'
             this.priorityFilter = this.$route.query.priority || '-1'
+            this.difficultyFilter = this.$route.query.difficulty || '-1'
+
+            const taskId = this.$route.query.task_id
+            const task = this.taskMap.get(taskId)
+            if (task) {
+              const index = this.tasks.findIndex(t => t.id === taskId)
+              this.$nextTick(() => {
+                this.$refs['task-list'].selectTask({}, index, task)
+              })
+            }
           })
           .catch(err => {
             console.error(err)
@@ -928,6 +980,11 @@ export default {
           t => t.priority === parseInt(this.priorityFilter)
         )
       }
+      if (this.difficultyFilter !== '-1') {
+        this.tasks = this.tasks.filter(
+          t => t.difficulty === parseInt(this.difficultyFilter)
+        )
+      }
     },
 
     saveSearchQuery(searchQuery) {
@@ -952,8 +1009,9 @@ export default {
       const duedate = this.dueDateFilter
       const late = this.estimationFilter
       const priority = this.priorityFilter
+      const difficulty = this.difficultyFilter
       this.$router.push({
-        query: { search, duedate, late, priority }
+        query: { search, duedate, late, priority, difficulty }
       })
     },
 
@@ -969,6 +1027,27 @@ export default {
 
     onTaskSelected(task) {
       this.currentTask = task
+      this.updateTaskInQuery()
+    },
+
+    updateTaskInQuery() {
+      if (this.nbSelectedTasks === 1) {
+        const selectedTaskIds = Array.from(this.selectedTasks.keys())
+        const taskId = selectedTaskIds[0]
+        this.$router.push({
+          query: {
+            ...this.$route.query,
+            task_id: taskId
+          }
+        })
+      } else {
+        this.$router.push({
+          query: {
+            ...this.$route.query,
+            task_id: undefined
+          }
+        })
+      }
     },
 
     resetTasks() {
@@ -985,6 +1064,7 @@ export default {
     },
 
     resetTaskIndex() {
+      if (!this.entityTasks) return
       this.$options.taskIndex = buildSupervisorTaskIndex(
         this.entityTasks,
         this.personMap,
@@ -999,12 +1079,15 @@ export default {
     getTasks(entities) {
       const tasks = []
       entities.forEach(entity => {
-        ;(entity.tasks || []).forEach(taskId => {
+        const entityTasks = entity.tasks || []
+        entityTasks.forEach(taskId => {
           const task = this.taskMap.get(taskId.id || taskId)
           if (task && !entity.canceled) {
             // Hack to allow filtering on linked entity metadata.
-
-            task.data = entity.data
+            this.$store.commit('SET_TASK_EXTRA_DATA', {
+              task,
+              data: entity.data
+            })
             if (task.task_type_id === this.currentTaskType.id) {
               tasks.push(task)
             }
@@ -1021,7 +1104,13 @@ export default {
         'entity_name',
         'due_date'
       ].includes(this.currentSort)
-      if (this.currentSort !== name) {
+      if (this.currentSort === 'nb_frames') {
+        this.tasks = tasks.sort((ta, tb) => {
+          const nbFramesA = this.getEntity(ta.entity.id)?.nb_frames || 0
+          const nbFramesB = this.getEntity(tb.entity.id)?.nb_frames || 0
+          return nbFramesB - nbFramesA
+        })
+      } else if (this.currentSort !== name) {
         this.tasks = tasks.sort(
           firstBy(this.currentSort, isDesc ? 1 : -1).thenBy('entity_name')
         )
@@ -1029,6 +1118,10 @@ export default {
         this.tasks = tasks.sort(firstBy('entity_name'))
       }
       return tasks
+    },
+
+    getEntity(entityId) {
+      return this[`${this.entityType.toLowerCase()}Map`].get(entityId) || {}
     },
 
     onExportClick() {
@@ -1054,6 +1147,7 @@ export default {
       const startDate = parseDate(task.start_date)
       const dueDate = task.due_date ? parseDate(task.due_date) : null
       data = getDatesFromStartDate(
+        this.organisation,
         startDate,
         dueDate,
         minutesToDays(this.organisation, estimation),
@@ -1430,6 +1524,10 @@ export default {
       this.initData(true)
     },
 
+    nbSelectedTasks() {
+      this.updateTaskInQuery()
+    },
+
     // Quickfix for the edge case where the backPath is not properly set
     // because it was set when the episode was not fully loaded.
     currentEpisode() {
@@ -1453,10 +1551,15 @@ export default {
       this.applyTaskFilters()
     },
 
+    difficultyFilter() {
+      this.applyTaskFilters()
+    },
+
     currentSort() {
       this.sortTasks()
       this.$refs['task-list'].resetSelection()
       this.clearSelectedTasks()
+      this.updateTaskInQuery()
     },
 
     'schedule.currentColor'() {
@@ -1480,23 +1583,33 @@ export default {
     },
 
     'schedule.taskTypeStartDate'() {
-      const newDate = formatSimpleDate(this.schedule.taskTypeStartDate)
+      const newDate = moment(this.schedule.taskTypeStartDate)
+        .utc()
+        .format('YYYY-MM-DD')
       if (newDate !== this.currentScheduleItem.start_date) {
-        this.currentScheduleItem.startDate = moment(
-          this.schedule.taskTypeStartDate
-        )
-        this.currentScheduleItem.endDate = moment(this.schedule.taskTypeEndDate)
+        this.$store.commit('SET_SCHEDULE_ITEM_DATES', {
+          scheduleItem: this.currentScheduleItem,
+          dates: {
+            startDate: moment(this.schedule.taskTypeStartDate).utc(),
+            endDate: moment(this.schedule.taskTypeEndDate).utc()
+          }
+        })
         this.saveScheduleItem(this.currentScheduleItem)
       }
     },
 
     'schedule.taskTypeEndDate'() {
-      const newDate = formatSimpleDate(this.schedule.taskTypeEndDate)
+      const newDate = moment(this.schedule.taskTypeEndDate)
+        .utc()
+        .format('YYYY-MM-DD')
       if (newDate !== this.currentScheduleItem.end_date) {
-        this.currentScheduleItem.startDate = moment(
-          this.schedule.taskTypeStartDate
-        )
-        this.currentScheduleItem.endDate = moment(this.schedule.taskTypeEndDate)
+        this.$store.commit('SET_SCHEDULE_ITEM_DATES', {
+          scheduleItem: this.currentScheduleItem,
+          dates: {
+            startDate: moment(this.schedule.taskTypeStartDate).utc(),
+            endDate: moment(this.schedule.taskTypeEndDate).utc()
+          }
+        })
         this.saveScheduleItem(this.currentScheduleItem)
       }
     }
@@ -1522,7 +1635,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.title} - Kitsu`
     }

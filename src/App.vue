@@ -11,7 +11,8 @@
     <router-view v-else />
 
     <preview-modal
-      :active="previewFileIdToShow.length > 0"
+      v-if="previewFileIdToShow"
+      active
       :preview-file-id="previewFileIdToShow"
       @cancel="() => $store.commit('HIDE_PREVIEW_FILE')"
     />
@@ -42,17 +43,16 @@ export default {
       'assetTypeMap',
       'currentEpisode',
       'currentProduction',
+      'departmentMap',
       'editMap',
       'episodeMap',
       'isCurrentUserAdmin',
       'isDataLoading',
-      'isPreviewFileDisplayed',
       'isDarkTheme',
-      'isLoginLoading',
       'isSavingCommentPreview',
       'isTVShow',
+      'mainConfig',
       'previewFileIdToShow',
-      'route',
       'personMap',
       'productionMap',
       'sequenceMap',
@@ -65,40 +65,19 @@ export default {
   },
 
   async mounted() {
-    if (localStorage.getItem('dark-theme') === 'true' && !this.isDarkTheme) {
-      this.$store.commit('TOGGLE_DARK_THEME')
-      document.documentElement.style.background = '#36393F'
-      document.body.style.background = '#36393F'
-    } else {
-      document.documentElement.style.background = '#FFF'
-      document.body.style.background = '#FFF'
-    }
     const config = await this.setMainConfig()
-    // Setup Crisp
-    if (config.crisp_token?.length) {
-      const supportChat = localPreferences.getBoolPreference(
-        'support:show',
-        true
-      )
-      this.setSupportChat(supportChat)
-      crisp.init(config.crisp_token)
-    }
-    // Setup Sentry
-    if (config.sentry?.dsn?.length) {
-      sentry.init(this.$router, {
-        dsn: config.sentry.dsn,
-        sampleRate: config.sentry.sampleRate
-      })
-    }
+    this.setupDarkTheme()
+    this.setupCrisp(config)
+    this.setupSentry(config)
   },
 
   methods: {
     ...mapActions([
       'getOrganisation',
-      'loadTask',
       'loadAsset',
       'loadAssetType',
       'loadComment',
+      'loadDepartment',
       'loadEdit',
       'loadEpisode',
       'loadOpenProductions',
@@ -106,10 +85,10 @@ export default {
       'loadProduction',
       'loadSequence',
       'loadShot',
+      'loadTask',
       'loadTaskStatus',
       'loadTaskType',
       'refreshMetadataDescriptor',
-      'removeAsset',
       'setMainConfig',
       'setSupportChat'
     ]),
@@ -124,17 +103,46 @@ export default {
       } else {
         this.$store.commit('UNASSIGN_TASKS', selectedTaskIds)
       }
+    },
+
+    setupDarkTheme() {
+      const darkTheme = localStorage.getItem('dark-theme')
+      const isDarkTheme =
+        darkTheme === 'true' ||
+        (darkTheme !== 'false' &&
+          Boolean(this.mainConfig?.dark_theme_by_default))
+      this.$store.commit('TOGGLE_DARK_THEME', isDarkTheme)
+    },
+
+    setupCrisp(config) {
+      if (config.crisp_token?.length) {
+        const supportChat = localPreferences.getBoolPreference(
+          'support:show',
+          true
+        )
+        this.setSupportChat(supportChat)
+        crisp.init(config.crisp_token)
+      }
+    },
+
+    setupSentry(config) {
+      if (config.sentry?.dsn?.length) {
+        const app = this.$.appContext.app
+        sentry.init(app, this.$router, {
+          dsn: config.sentry.dsn,
+          sampleRate: config.sentry.sampleRate
+        })
+      }
     }
   },
 
   watch: {
-    isDarkTheme() {
-      if (this.isDarkTheme) {
-        document.documentElement.style.background = '#36393F'
-        document.body.style.background = '#36393F'
-      } else {
-        document.documentElement.style.background = '#FFF'
-        document.body.style.background = '#FFF'
+    isDarkTheme: {
+      immediate: true,
+      handler() {
+        const background = this.isDarkTheme ? '#36393F' : '#FFF'
+        document.documentElement.style.background = background
+        document.body.style.background = background
       }
     },
 
@@ -293,6 +301,24 @@ export default {
         const task = this.taskMap.get(eventData.task_id)
         if (task) {
           this.$store.commit('DELETE_TASK_END', task)
+        }
+      },
+
+      'department:new'(eventData) {
+        if (!this.departmentMap.get(eventData.department_id)) {
+          this.loadDepartment(eventData.department_id)
+        }
+      },
+
+      'department:update'(eventData) {
+        this.loadDepartment(eventData.department_id)
+      },
+
+      'department:delete'(eventData) {
+        if (this.departmentMap.get(eventData.task_type_id)) {
+          this.$store.commit('DELETE_DEPARTMENTS_END', {
+            id: eventData.task_type_id
+          })
         }
       },
 
@@ -658,56 +684,14 @@ body {
     }
   }
 
-  .vdp-datepicker__calendar {
-    background-color: #36393f;
-    border-color: #25282e;
-
-    .prev,
-    .next,
-    .day__month_btn,
-    header span:hover {
-      background: #36393f;
-    }
-
-    header .prev::after,
-    header .prev::after {
-      border-right-color: #eee;
-    }
-
-    header .next::after,
-    header .next::after {
-      border-left-color: #eee;
-    }
-
-    header .next.disabled::after,
-    header .next.disabled::after {
-      border-left-color: #666;
-    }
-
-    .cell.year.disabled,
-    .cell.month.disabled,
-    .cell.day.disabled {
-      color: $grey;
-    }
-  }
-
   .hero .control .icon {
     color: #555;
-  }
-
-  .v-autocomplete-input {
-    background: $dark-grey;
-    color: white;
   }
 
   h2 {
     border-bottom: 1px solid $grey;
   }
 } // End dark theme
-
-#app .router-link-active {
-  color: #00d1b2;
-}
 
 .loading-info {
   background: white;
@@ -900,7 +884,7 @@ a:hover {
 }
 
 .pa0 {
-  padding: 0em;
+  padding: 0;
 }
 
 .pa1 {
@@ -908,7 +892,7 @@ a:hover {
 }
 
 .pb0 {
-  padding-bottom: 0em;
+  padding-bottom: 0;
 }
 
 .pb1 {
@@ -916,7 +900,7 @@ a:hover {
 }
 
 .pt0 {
-  padding-top: 0em;
+  padding-top: 0;
 }
 
 .mauto {
@@ -932,7 +916,7 @@ a:hover {
 }
 
 .mr0 {
-  margin-right: 0em;
+  margin-right: 0;
 }
 
 .mr05 {
@@ -979,6 +963,10 @@ a:hover {
   flex: 1;
 }
 
+.nowrap {
+  white-space: nowrap;
+}
+
 .z300 {
   z-index: 300000;
 }
@@ -998,7 +986,6 @@ label.label {
   text-transform: uppercase;
 }
 
-texarea,
 input.input {
   padding: 1em;
   height: 3em;
@@ -1006,6 +993,10 @@ input.input {
 
 .select select {
   border-radius: 10px;
+
+  .datatable & {
+    border-radius: 3px;
+  }
 }
 
 .select select:hover,
@@ -1071,7 +1062,7 @@ input.input:focus {
   background: #67be4b;
 }
 
-input[type='checkbox'] {
+input[type='checkbox']:not([disabled]) {
   cursor: pointer;
 }
 
@@ -1138,7 +1129,7 @@ textarea.input:focus {
   color: white;
   border-color: #5e60ba;
   padding: 12px 12px 12px 12px;
-  margin: 0.3em 0 0em 0;
+  margin: 0.3em 0 0 0;
   font-size: 1.4em;
   font-weight: 500;
   letter-spacing: 1px;
@@ -1188,8 +1179,8 @@ textarea.input:focus {
   padding: 3em 2em 2em 2em;
   border-radius: 2px;
   box-shadow:
-    rgba(0, 0, 0, 0.14902) 0px 1px 1px 0px,
-    rgba(0, 0, 0, 0.09804) 0px 1px 2px 0px;
+    rgba(0, 0, 0, 0.14902) 0 1px 1px 0,
+    rgba(0, 0, 0, 0.09804) 0 1px 2px 0;
 }
 
 .box h1.title {
@@ -1212,15 +1203,15 @@ textarea.input:focus {
 }
 
 .button .icon.is-small:first-child:last-child {
-  margin-right: 0em;
+  margin-right: 0;
 }
 
 .actions .button .icon.is-small.icon-only:first-child:last-child {
-  margin-right: 0em;
+  margin-right: 0;
 }
 
 .actions .button .icon.is-small:first-child:last-child {
-  margin-right: 0em;
+  margin-right: 0;
 }
 
 .button .icon.is-small {
@@ -1745,6 +1736,67 @@ tbody:last-child .empty-line:last-child {
   display: none;
 }
 
+th .input-editor,
+td .input-editor {
+  background: transparent;
+  border: 1px solid transparent;
+  color: $grey-strong;
+  height: 100%;
+  padding: 0.5rem;
+  width: 100%;
+  z-index: 100;
+
+  &:active,
+  &:focus,
+  &:hover {
+    background: transparent;
+    background: white;
+  }
+
+  &:active,
+  &:focus {
+    border: 1px solid $green;
+  }
+
+  &:hover {
+    border: 1px solid $light-green;
+  }
+
+  &:invalid,
+  &.error {
+    color: $red;
+  }
+}
+
+.dark {
+  th .input-editor,
+  td .select select,
+  td .input-editor {
+    color: $white;
+
+    option {
+      background: $dark-grey-light;
+      color: $white;
+    }
+
+    &:focus,
+    &:active,
+    &:hover {
+      background: $dark-grey-light;
+    }
+  }
+}
+
+td.frames,
+td.framein,
+td.frameout,
+td.max-retakes,
+td.resolution,
+td.fps {
+  height: 3.1rem;
+  padding: 0;
+}
+
 .resizable {
   th {
     .resizable-knob {
@@ -1847,7 +1899,7 @@ tbody:last-child .empty-line:last-child {
 }
 
 .modal-content label.button {
-  margin-left: 0em;
+  margin-left: 0;
 }
 
 .modal-content .box p.text {
@@ -1901,6 +1953,14 @@ tbody:last-child .empty-line:last-child {
     background: var(--background-tag);
     border-left: 0.4em solid var(--background-hover);
   }
+
+  table tr:hover {
+    background: var(--background-hover);
+  }
+
+  table thead th {
+    color: inherit;
+  }
 }
 
 .playlist-column .video-player-box .video-js {
@@ -1946,7 +2006,7 @@ tbody:last-child .empty-line:last-child {
 
 .entity-thumbnail {
   border-radius: 0.5em;
-  box-shadow: 0px 0px 6px var(--box-shadow);
+  box-shadow: 0 0 6px var(--box-shadow);
   cursor: pointer;
   transition: transform ease 0.3s;
   max-width: 90px;
@@ -1986,7 +2046,7 @@ th.validation-cell {
 .block {
   background: var(--background-block);
   border-radius: 1em;
-  box-shadow: 0px 0px 6px var(--box-shadow);
+  box-shadow: 0 0 6px var(--box-shadow);
   color: var(--text);
   padding: 1.5em;
 
@@ -2075,48 +2135,6 @@ th.validation-cell {
   .selected-status-line {
     padding: 0.1em;
     padding-left: 0.2em;
-  }
-}
-
-.theme .datepicker input {
-  width: 150px;
-
-  &.short {
-    width: 112px;
-  }
-}
-
-.theme .datepicker .vdp-datepicker__calendar {
-  z-index: 2000;
-
-  .cell.year:not(.blank):not(.disabled):hover,
-  .cell.month:not(.blank):not(.disabled):hover,
-  .cell.day:not(.blank):not(.disabled):hover {
-    background: var(--background-selectable);
-    border: 1px solid transparent;
-  }
-
-  .cell.year.disabled:hover,
-  .cell.month.disabled:hover,
-  .cell.day.disabled:hover {
-    border: 1px solid transparent;
-  }
-
-  .cell.year.selected,
-  .cell.month.selected,
-  .cell.day.selected {
-    background: var(--background-selected);
-  }
-
-  .cell.year.selected:not(.blank):not(.disabled):hover,
-  .cell.month.selected:not(.blank):not(.disabled):hover,
-  .cell.day.selected:not(.blank):not(.disabled):hover {
-    border: 1px solid transparent;
-    background: var(--background-selected);
-  }
-
-  header span:not(.disabled):hover {
-    background: var(--background-selectable);
   }
 }
 
@@ -2224,10 +2242,44 @@ th.validation-cell {
   padding: 0.5em;
 }
 
+// Ludice Icons
+.icon-1x {
+  width: 1em;
+  height: 1em;
+}
+
+.align-middle {
+  vertical-align: middle;
+}
+
 @media screen and (max-width: 1000px) {
   .button .icon.is-small {
     margin-right: 0;
   }
+}
+
+#app .dp__active_date {
+  color: $black;
+  background: var(--background-selected);
+}
+
+#app .dp__today {
+  border-color: var(--background-selected);
+}
+
+#app .dp__date_hover:hover {
+  background: var(--background-selectable);
+}
+
+#app .dp__input {
+  border-radius: 10px;
+  height: 40px;
+  width: 118px;
+}
+
+#app .datatable .dp__input {
+  border-radius: 3px;
+  height: 43px;
 }
 
 @media screen and (max-width: 768px) {

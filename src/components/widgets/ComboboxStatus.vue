@@ -61,13 +61,13 @@
 </template>
 
 <script>
+import { ChevronDownIcon } from 'lucide-vue-next'
 import { mapGetters } from 'vuex'
-import { ChevronDownIcon } from 'vue-feather-icons'
 
 import colors from '@/lib/colors'
 import { sortTaskStatuses } from '@/lib/sorting'
 
-import ComboboxMask from '@/components/widgets/ComboboxMask'
+import ComboboxMask from '@/components/widgets/ComboboxMask.vue'
 
 export default {
   name: 'combobox-status',
@@ -76,6 +76,8 @@ export default {
     ChevronDownIcon,
     ComboboxMask
   },
+
+  emits: ['update:modelValue'],
 
   data() {
     return {
@@ -96,7 +98,7 @@ export default {
       default: () => [],
       type: Array
     },
-    value: {
+    modelValue: {
       default: '',
       type: String
     },
@@ -139,8 +141,8 @@ export default {
     },
 
     currentStatus() {
-      if (this.value) {
-        return this.taskStatusMap.get(this.value)
+      if (this.modelValue) {
+        return this.taskStatusMap.get(this.modelValue)
       } else if (this.addPlaceholder) {
         return {
           short_name: '+ status',
@@ -177,7 +179,7 @@ export default {
 
   methods: {
     selectStatus(status) {
-      this.$emit('input', status.id)
+      this.$emit('update:modelValue', status.id)
       this.showStatusList = false
     },
 

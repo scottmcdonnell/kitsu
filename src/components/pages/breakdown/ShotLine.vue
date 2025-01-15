@@ -1,16 +1,20 @@
 <template>
   <div
     :id="entity.id"
+    class="shot unselectable"
     :class="{
-      shot: true,
-      selected: selected,
-      unselectable: true,
+      selected,
       stdby: entity ? entity.is_casting_standby : false,
       'text-mode': textMode
     }"
     @click="onClicked($event)"
   >
-    <div class="flexrow-item sticky">
+    <div
+      class="flexrow-item sticky"
+      :style="{
+        'max-width': columnWidth.name ? columnWidth.name + 'px' : '250px'
+      }"
+    >
       <p class="error has-text-left info-message" v-if="isSaveError">
         {{ $t('breakdown.save_error') }}
       </p>
@@ -31,7 +35,7 @@
         </div>
       </div>
     </div>
-    <div class="standby-column flexrow-item" v-if="!isShowInfosBreakdown">
+    <div class="standby-column flexrow-item" v-if="isShowInfosBreakdown">
       <input
         type="checkbox"
         :checked="entity ? entity.is_casting_standby : false"
@@ -44,11 +48,11 @@
     </div>
     <div
       class="description-column flexrow-item"
-      v-if="!isShowInfosBreakdown && isDescription"
+      v-if="isShowInfosBreakdown && isDescription"
     >
       <div
         class="tooltip-text"
-        v-html="compileMarkdown(entity.description)"
+        v-html="renderMarkdown(entity.description)"
         v-if="readOnly"
       ></div>
       <textarea
@@ -62,7 +66,7 @@
     </div>
     <div
       class="frames-column flexrow-item"
-      v-if="isFrames && !isShowInfosBreakdown && metadataDisplayHeaders.frames"
+      v-if="isFrames && isShowInfosBreakdown && metadataDisplayHeaders.frames"
     >
       <input
         class="input-editor"
@@ -79,9 +83,7 @@
     </div>
     <div
       class="frames-column flexrow-item"
-      v-if="
-        isFrameIn && !isShowInfosBreakdown && metadataDisplayHeaders.frameIn
-      "
+      v-if="isFrameIn && isShowInfosBreakdown && metadataDisplayHeaders.frameIn"
     >
       <input
         class="input-editor"
@@ -106,7 +108,7 @@
     <div
       class="frames-column flexrow-item"
       v-if="
-        isFrameOut && !isShowInfosBreakdown && metadataDisplayHeaders.frameOut
+        isFrameOut && isShowInfosBreakdown && metadataDisplayHeaders.frameOut
       "
     >
       <input
@@ -129,104 +131,112 @@
         {{ getMetadataFieldValue({ field_name: 'frame_out' }, entity) }}
       </span>
     </div>
-    <div
-      class="metadata-descriptor flexrow-item"
-      :title="entity.data ? entity.data[descriptor.field_name] : ''"
-      :key="'desc' + entity.id + '-' + descriptor.id"
-      v-for="(descriptor, j) in visibleMetadataDescriptors"
-      v-if="!isShowInfosBreakdown"
-    >
-      <input
-        class="input-editor"
-        @input="event => onMetadataFieldChanged(entity, descriptor, event)"
-        @keyup.ctrl="event => onInputKeyUp(event, getIndex(i, k), j)"
-        :value="getMetadataFieldValue(descriptor, entity)"
-        v-if="
-          descriptor.choices.length === 0 &&
-          (isCurrentUserManager ||
-            isSupervisorInDepartments(descriptor.departments))
-        "
-      />
+
+    <template v-if="isShowInfosBreakdown">
       <div
-        class="metadata-value selectable"
-        v-else-if="
-          descriptor.choices.length > 0 &&
-          getDescriptorChecklistValues(descriptor).length > 0
-        "
+        class="metadata-descriptor flexrow-item"
+        :title="entity.data ? entity.data[descriptor.field_name] : ''"
+        :key="'desc' + entity.id + '-' + descriptor.id"
+        :style="{
+          'min-width': columnWidth[descriptor.id]
+            ? columnWidth[descriptor.id] + 'px'
+            : '110px',
+          'max-width': columnWidth[descriptor.id]
+            ? columnWidth[descriptor.id] + 'px'
+            : '110px'
+        }"
+        v-for="descriptor in visibleMetadataDescriptors"
       >
-        <p
-          v-for="(option, i) in getDescriptorChecklistValues(descriptor)"
-          :key="`${entity.id}-${descriptor.id}-${i}-${option.text}-div`"
+        <input
+          class="input-editor"
+          @input="event => onMetadataFieldChanged(entity, descriptor, event)"
+          :value="getMetadataFieldValue(descriptor, entity)"
+          v-if="
+            descriptor.choices.length === 0 &&
+            (isCurrentUserManager ||
+              isSupervisorInDepartments(descriptor.departments))
+          "
+        />
+        <div
+          class="metadata-value selectable"
+          v-else-if="
+            descriptor.choices.length > 0 &&
+            getDescriptorChecklistValues(descriptor).length > 0
+          "
         >
-          <input
-            type="checkbox"
-            @change="
-              event =>
-                onMetadataChecklistChanged(
-                  entity,
-                  descriptor,
-                  option.text,
-                  event
+          <p
+            :key="`${entity.id}-${descriptor.id}-${i}-${option.text}-div`"
+            v-for="(option, i) in getDescriptorChecklistValues(descriptor)"
+          >
+            <input
+              type="checkbox"
+              @change="
+                event =>
+                  onMetadataChecklistChanged(
+                    entity,
+                    descriptor,
+                    option.text,
+                    event
+                  )
+              "
+              :id="`${entity.id}-${descriptor.id}-${i}-${option.text}-input`"
+              :checked="
+                getMetadataChecklistValues(descriptor, entity)[option.text]
+              "
+              :disabled="
+                !(
+                  isCurrentUserManager ||
+                  isSupervisorInDepartments(descriptor.departments)
                 )
-            "
-            :id="`${entity.id}-${descriptor.id}-${i}-${option.text}-input`"
-            :checked="
-              getMetadataChecklistValues(descriptor, entity)[option.text]
-            "
-            :disabled="
-              !(
+              "
+              :style="[
                 isCurrentUserManager ||
                 isSupervisorInDepartments(descriptor.departments)
-              )
-            "
-            :style="[
-              isCurrentUserManager ||
-              isSupervisorInDepartments(descriptor.departments)
-                ? { cursor: 'pointer' }
-                : { cursor: 'auto' }
-            ]"
-          />
-          <label
-            :for="`${entity.id}-${descriptor.id}-${i}-${option.text}-input`"
-            :style="[
-              isCurrentUserManager ||
-              isSupervisorInDepartments(descriptor.departments)
-                ? { cursor: 'pointer' }
-                : { cursor: 'auto' }
-            ]"
-          >
-            {{ option.text }}
-          </label>
-        </p>
-      </div>
-      <span
-        class="select"
-        v-else-if="
-          isCurrentUserManager ||
-          isSupervisorInDepartments(descriptor.departments)
-        "
-      >
-        <select
-          class="select-input"
-          @keyup.ctrl="event => onInputKeyUp(event, getIndex(i, k), j)"
-          @change="event => onMetadataFieldChanged(entity, descriptor, event)"
+                  ? { cursor: 'pointer' }
+                  : { cursor: 'auto' }
+              ]"
+            />
+            <label
+              :for="`${entity.id}-${descriptor.id}-${i}-${option.text}-input`"
+              :style="[
+                isCurrentUserManager ||
+                isSupervisorInDepartments(descriptor.departments)
+                  ? { cursor: 'pointer' }
+                  : { cursor: 'auto' }
+              ]"
+            >
+              {{ option.text }}
+            </label>
+          </p>
+        </div>
+        <span
+          class="select"
+          v-else-if="
+            isCurrentUserManager ||
+            isSupervisorInDepartments(descriptor.departments)
+          "
         >
-          <option
-            v-for="(option, i) in getDescriptorChoicesOptions(descriptor)"
-            :key="`desc-value-${entity.id}-${descriptor.id}-${i}-${option.label}-${option.value}`"
-            :value="option.value"
-            :selected="
-              getMetadataFieldValue(descriptor, entity) === option.value
-            "
+          <select
+            class="select-input"
+            @change="event => onMetadataFieldChanged(entity, descriptor, event)"
           >
-            {{ option.label }}
-          </option>
-        </select>
-      </span>
-      <span class="metadata-value selectable" v-else>
-        {{ getMetadataFieldValue(descriptor, entity) }}
-      </span>
-    </div>
+            <option
+              :key="`desc-value-${entity.id}-${descriptor.id}-${i}-${option.label}-${option.value}`"
+              :value="option.value"
+              :selected="
+                getMetadataFieldValue(descriptor, entity) === option.value
+              "
+              v-for="(option, i) in getDescriptorChoicesOptions(descriptor)"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+        </span>
+        <span class="metadata-value selectable" v-else>
+          {{ getMetadataFieldValue(descriptor, entity) }}
+        </span>
+      </div>
+    </template>
     <div
       class="asset-list flexrow-item"
       :key="entity.id + '-' + assetType"
@@ -245,6 +255,7 @@
             class="flexrow-item"
             :key="asset.id"
             :asset="asset"
+            :active="selected"
             :nb-occurences="asset.nb_occurences"
             :read-only="readOnly"
             :text-mode="textMode"
@@ -255,6 +266,7 @@
             v-for="asset in assetsByAssetTypesMap[assetType]"
           />
         </div>
+        <div class="actions filler"></div>
       </div>
       <div class="asset-type-line flexrow empty mt05 mb05" v-else>
         {{ $t('breakdown.empty') }}
@@ -265,16 +277,19 @@
 
 <script>
 import { mapGetters } from 'vuex'
+
 import { renderMarkdown } from '@/lib/render'
 import { entityListMixin } from '@/components/mixins/entity_list'
 import { descriptorMixin } from '@/components/mixins/descriptors'
 
-import AssetBlock from '@/components/pages/breakdown/AssetBlock'
-import EntityThumbnail from '@/components/widgets/EntityThumbnail'
+import AssetBlock from '@/components/pages/breakdown/AssetBlock.vue'
+import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
 
 export default {
   name: 'shot-line',
+
   mixins: [entityListMixin, descriptorMixin],
+
   components: {
     AssetBlock,
     EntityThumbnail
@@ -332,11 +347,25 @@ export default {
     isSaveError: {
       default: false,
       type: Boolean
+    },
+    columnWidth: {
+      default: () => {},
+      type: Object
     }
   },
 
+  emits: [
+    'add-one',
+    'click',
+    'description-changed',
+    'edit-label',
+    'remove-one',
+    'standby-changed'
+  ],
+
   computed: {
     ...mapGetters([
+      'assetMap',
       'isCurrentUserManager',
       'isCurrentUserSupervisor',
       'isFrameIn',
@@ -372,12 +401,12 @@ export default {
       this.$emit('edit-label', asset, label, this.entity.id)
     },
 
-    removeOneAsset(assetId, nbOccurences) {
-      this.$emit('remove-one', assetId, this.entity.id, nbOccurences)
+    removeOneAsset(assetId) {
+      this.$emit('remove-one', assetId)
     },
 
-    addOneAsset(assetId, nbOccurences) {
-      this.$emit('add-one', assetId, this.entity.id, nbOccurences)
+    addOneAsset(assetId) {
+      this.$emit('add-one', assetId)
     },
 
     onDescriptionChanged(entity, event) {
@@ -388,9 +417,7 @@ export default {
       this.$emit('standby-changed', entity, event.target.checked)
     },
 
-    compileMarkdown(input) {
-      return renderMarkdown(input)
-    },
+    renderMarkdown,
 
     nbAssetsForType(assetType) {
       return this.assetsByAssetTypesMap[assetType].reduce(
@@ -401,6 +428,7 @@ export default {
   }
 }
 </script>
+
 <style lang="scss" scoped>
 .dark {
   .asset-type-name {
@@ -443,7 +471,7 @@ export default {
 }
 
 .text-mode .asset-list {
-  padding-top: 0em;
+  padding-top: 0;
 }
 
 .asset-type-line {
@@ -559,8 +587,8 @@ export default {
 
 .standby-column {
   padding-top: 1em;
-  min-width: 80px;
-  max-width: 80px;
+  min-width: 60px;
+  max-width: 60px;
   justify-content: center;
 }
 
@@ -634,7 +662,7 @@ div .tooltip-editor {
 }
 
 .metadata-descriptor .select {
-  color: $grey-strong;
+  color: var(--text);
   margin: 0;
   height: 40px;
   width: 100%;
@@ -653,7 +681,7 @@ div .tooltip-editor {
   }
 
   select {
-    color: $grey-strong;
+    color: var(--text);
     height: 100%;
     width: 100%;
     background: transparent;
@@ -662,12 +690,12 @@ div .tooltip-editor {
 
     &:focus {
       border: 1px solid $green;
-      background: white;
+      background: var(--background);
+      color: var(--text);
     }
 
     &:hover {
-      background: transparent;
-      background: white;
+      background: var(--background);
       border: 1px solid $light-green;
     }
   }

@@ -21,6 +21,7 @@ import TaskType from '@/components/pages/TaskType.vue'
 import Todos from '@/components/pages/Todos.vue'
 import Edits from '@/components/pages/Edits.vue'
 
+const AssetLibrary = () => import('@/components/pages/AssetLibrary.vue')
 const AllTasks = () => import('@/components/pages/AllTasks.vue')
 const Asset = () => import('@/components/pages/Asset.vue')
 const AssetTypes = () => import('@/components/pages/AssetTypes.vue')
@@ -105,7 +106,7 @@ export const routes = [
         firefox: '>=78',
         edge: '>90',
         vivaldi: '>2.8',
-        opera: '>22',
+        opera: '>=50',
         safari: '>=14'
       })
       if (!isValidBrowser) {
@@ -117,7 +118,7 @@ export const routes = [
           next(nextPath)
         } else {
           timezone.setTimezone()
-          lang.setLocale()
+          lang.setLocale(userStore.state.user.locale)
           if (store.state.productions.openProductions.length === 0) {
             init(err => {
               if (err) {
@@ -154,7 +155,7 @@ export const routes = [
           next(nextPath)
         } else {
           timezone.setTimezone()
-          lang.setLocale()
+          lang.setLocale(userStore.state.user.locale)
           const isProhibited =
             !userStore.getters.isCurrentUserAdmin(userStore.state) &&
             to &&
@@ -184,6 +185,12 @@ export const routes = [
       {
         path: '',
         name: 'home'
+      },
+
+      {
+        path: 'asset-library',
+        component: AssetLibrary,
+        name: 'asset-library'
       },
 
       {
@@ -885,7 +892,7 @@ export const routes = [
   },
 
   {
-    path: '/*',
+    path: '/:pathMatch(.*)*',
     component: NotFound,
     name: 'not-found'
   }

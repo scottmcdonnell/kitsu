@@ -16,7 +16,7 @@
           {{ $t('playlists.create_title') }}
         </h1>
 
-        <form v-on:submit.prevent>
+        <form @submit.prevent>
           <text-field
             ref="nameField"
             :label="$t('playlists.fields.name')"
@@ -59,18 +59,22 @@
 </template>
 
 <script>
-import ComboboxSimple from '@/components/widgets/ComboboxSimple'
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-import ModalFooter from '@/components/modals/ModalFooter'
-import TextField from '@/components/widgets/TextField'
-
 import { mapGetters } from 'vuex'
+
 import { modalMixin } from '@/components/modals/base_modal'
+
 import { sortByName } from '@/lib/sorting'
+
+import ComboboxSimple from '@/components/widgets/ComboboxSimple.vue'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import ModalFooter from '@/components/modals/ModalFooter.vue'
+import TextField from '@/components/widgets/TextField.vue'
 
 export default {
   name: 'edit-playlist-modal',
+
   mixins: [modalMixin],
+
   components: {
     ComboboxSimple,
     ComboboxTaskType,
@@ -105,6 +109,8 @@ export default {
     }
   },
 
+  emits: ['cancel', 'confirm'],
+
   data() {
     return {
       forClient: 'false',
@@ -137,10 +143,10 @@ export default {
       if (
         (this.currentEpisode &&
           ['main', 'all'].includes(this.currentEpisode.id)) ||
-        this.currentProduction.production_type === 'assets'
+        this.currentProduction?.production_type === 'assets'
       ) {
         return [{ label: this.$t('assets.title'), value: 'asset' }]
-      } else if (this.currentProduction.production_type === 'shots') {
+      } else if (this.currentProduction?.production_type === 'shots') {
         return [
           { label: this.$t('shots.title'), value: 'shot' },
           { label: this.$t('sequences.title'), value: 'sequence' }
@@ -155,8 +161,8 @@ export default {
     },
 
     defaultForEntity() {
-      const isOnlyAssets = this.currentProduction.production_type === 'assets'
-      const isOnlyShots = this.currentProduction.production_type === 'shots'
+      const isOnlyAssets = this.currentProduction?.production_type === 'assets'
+      const isOnlyShots = this.currentProduction?.production_type === 'shots'
       const isAssetEpisode =
         this.currentEpisode && ['all', 'main'].includes(this.currentEpisode.id)
       return (isAssetEpisode || isOnlyAssets) && !isOnlyShots ? 'asset' : 'shot'
@@ -216,7 +222,7 @@ export default {
         this.forClient = this.playlistToEdit.for_client ? 'true' : 'false'
         this.resetForm()
         setTimeout(() => {
-          this.$refs.nameField.focus()
+          this.$refs.nameField?.focus()
         }, 100)
       }
     }

@@ -6,6 +6,7 @@
       'border-top-left-radius': isRoundedTopBorder ? '10px' : '',
       'border-top-right-radius': isRoundedTopBorder ? '10px' : ''
     }"
+    @click="$emit('click')"
   >
     <div
       class="video-wrapper"
@@ -35,12 +36,14 @@ import panzoom from 'panzoom'
 import { mapGetters } from 'vuex'
 
 import { formatFrame } from '@/lib/video'
-import Spinner from '@/components/widgets/Spinner'
 
 import { domMixin } from '@/components/mixins/dom'
 
+import Spinner from '@/components/widgets/Spinner.vue'
+
 export default {
   name: 'video-viewer',
+
   mixins: [domMixin],
 
   components: {
@@ -118,6 +121,16 @@ export default {
     }
   },
 
+  emits: [
+    'click',
+    'duration-changed',
+    'frame-update',
+    'play-ended',
+    'size-changed',
+    'video-end',
+    'video-loaded'
+  ],
+
   data() {
     return {
       annotations: [],
@@ -144,6 +157,9 @@ export default {
           this.isLoading = false
           this.setCurrentTime(0)
           this.setCurrentTimeRaw(0)
+          this.$nextTick(() => {
+            this.video.currentTime = 0
+          })
           this.$emit('video-loaded')
         }
         this.video.addEventListener(
@@ -156,6 +172,7 @@ export default {
         this.video.addEventListener('resize', this.resetSize)
 
         this.video.addEventListener('loadedmetadata', () => {
+          if (!this.video) return
           this.configureVideo()
           this.onWindowResize()
           this.setCurrentTime(0)
@@ -208,7 +225,7 @@ export default {
     }
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.pause()
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('resize', this.onWindowResize)
@@ -227,7 +244,7 @@ export default {
     },
 
     fps() {
-      return parseFloat(this.currentProduction.fps || '24')
+      return parseFloat(this.currentProduction?.fps) || 25
     },
 
     frameDuration() {
@@ -286,16 +303,16 @@ export default {
 
     getNaturalDimensions() {
       return {
-        height: this.video.videoHeight,
-        width: this.video.videoWidth
+        height: this.video ? this.video.videoHeight : 0,
+        width: this.video ? this.video.videoWidth : 0
       }
     },
 
     getDimensions() {
       const dimensions = this.getNaturalDimensions()
       const ratio = dimensions.height / dimensions.width || 1
-      const fullWidth = this.container.offsetWidth
-      const fullHeight = this.container.offsetHeight
+      const fullWidth = this.container ? this.container.offsetWidth : 0
+      const fullHeight = this.container ? this.container.offsetHeight : 0
       let width = fullWidth
       let height = Math.floor(width * ratio)
       if (height > fullHeight) {
@@ -328,7 +345,7 @@ export default {
         this.$options.currentTimeCalls = []
       }
       this.$options.currentTimeCalls.push(currentTime)
-      if (!this.$options.running) this.runSetCurrentTime()
+      this.runSetCurrentTime()
     },
 
     runSetCurrentTime() {
@@ -338,7 +355,7 @@ export default {
         this.$options.running = true
         const currentTime = this.$options.currentTimeCalls.shift()
         if (this.video.currentTime !== currentTime) {
-          this.video.currentTime = Number(currentTime.toPrecision(4))
+          this.video.currentTime = Number(currentTime.toPrecision(4)) + 0.001
         }
         setTimeout(() => {
           this.runSetCurrentTime()
@@ -417,7 +434,7 @@ export default {
         this.setCurrentTime(0)
       }
       this.video.play()
-      if (this.name.indexOf('comarison') < 0) {
+      if (this.name.indexOf('comparison') < 0) {
         this.runEmitTimeUpdateLoop()
       }
     },
@@ -449,7 +466,7 @@ export default {
     goPreviousFrame() {
       const nextFrame = this.currentFrame - 1
       if (nextFrame < 0) return
-      this.video.currentTime = nextFrame * this.frameDuration
+      this.video.currentTime = nextFrame * this.frameDuration + 0.001
       this.$emit('frame-update', nextFrame)
       return nextFrame
     },
@@ -457,7 +474,7 @@ export default {
     goNextFrame() {
       const nextFrame = this.currentFrame + 1
       if (nextFrame >= this.nbFrames) return
-      this.video.currentTime = nextFrame * this.frameDuration
+      this.video.currentTime = nextFrame * this.frameDuration + 0.001
       this.$emit('frame-update', nextFrame)
       return nextFrame
     },

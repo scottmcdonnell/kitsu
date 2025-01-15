@@ -70,19 +70,19 @@
           <table class="render">
             <colgroup>
               <col
-                v-for="item in columnsRequired"
                 :key="`col-missing-${item}`"
                 class="missing"
+                v-for="item in columnsRequired"
               />
               <col
-                v-for="(cell, index) in parsedCsv[0]"
                 :key="`col-${index}`"
                 :class="stateColumn(cell)"
+                v-for="(cell, index) in parsedCsv[0]"
               />
               <col
-                v-for="item in columnsOptional"
                 :key="`col-missing-${item}`"
                 class="missing-optional"
+                v-for="item in columnsOptional"
               />
             </colgroup>
             <thead>
@@ -95,8 +95,8 @@
                   {{ cell }}
                 </th>
                 <th
-                  v-for="(cell, index) in parsedCsv[0]"
                   :key="`header-${index}`"
+                  v-for="(cell, index) in parsedCsv[0]"
                 >
                   <div class="render-select">
                     <combobox
@@ -104,7 +104,7 @@
                       :value="cell"
                       :error="isDuplicated(index)"
                       v-model="columnSelect[index]"
-                      @input="checkForDuplicate"
+                      @update:model-value="checkForDuplicate"
                     />
                   </div>
                   {{ cell || '-' }}
@@ -124,9 +124,10 @@
                   overwrite: updateData && existingData(index),
                   disabled: !updateData && existingData(index)
                 }"
-                v-for="(line, index) in startFrom(parsedCsv, 1)"
-                v-if="line && line.length > 1"
                 :key="`line-${index}`"
+                v-for="(line, index) in parsedCsv
+                  .slice(1)
+                  .filter(line => line.length > 1)"
               >
                 <td v-for="cell in columnsRequired" :key="`cell-${cell}`">
                   {{ '-' }}
@@ -162,16 +163,20 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
+import { mapGetters } from 'vuex'
+
 import { modalMixin } from '@/components/modals/base_modal'
-import Combobox from '@/components/widgets/Combobox'
-import Checkbox from '@/components/widgets/Checkbox'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import ModalFooter from '@/components/modals/ModalFooter'
+
+import Combobox from '@/components/widgets/Combobox.vue'
+import Checkbox from '@/components/widgets/Checkbox.vue'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ModalFooter from '@/components/modals/ModalFooter.vue'
 
 export default {
   name: 'import-render-modal',
+
   mixins: [modalMixin],
+
   components: {
     ButtonSimple,
     Combobox,
@@ -179,13 +184,12 @@ export default {
     ModalFooter
   },
 
+  emits: ['cancel', 'confirm', 'reupload'],
+
   data() {
     return {
       duplicates: [],
       formData: null,
-      form: {
-        name: ''
-      },
       updateData: false
     }
   },
@@ -236,7 +240,6 @@ export default {
   computed: {
     ...mapGetters([
       'assetMetadataDescriptors',
-      'isTVShow',
       'shotMetadataDescriptors',
       'editMetadataDescriptors'
     ]),
@@ -326,18 +329,12 @@ export default {
   },
 
   methods: {
-    ...mapActions([]),
-
     onConfirmClicked() {
       this.$emit('confirm', this.parsedCsv, this.updateData)
     },
 
     onReupload() {
       this.$emit('reupload')
-    },
-
-    startFrom(arr, index) {
-      return arr.slice(index)
     },
 
     stateColumn(data) {
@@ -473,7 +470,7 @@ export default {
   font-size: 1em;
   font-weight: bold;
   margin-bottom: 1.5em;
-  margin-top: 0em;
+  margin-top: 0;
   text-transform: uppercase;
 }
 

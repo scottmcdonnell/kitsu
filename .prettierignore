@@ -2,3 +2,4 @@ src/locales/*
 src/stories/*
 tests/*
 scripts/*
+src/components/widgets/At/*

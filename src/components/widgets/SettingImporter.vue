@@ -48,8 +48,8 @@
 <script>
 import { mapGetters } from 'vuex'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import ComboboxProduction from '@/components/widgets/ComboboxProduction'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxProduction from '@/components/widgets/ComboboxProduction.vue'
 
 export default {
   name: 'setting-importer',
@@ -58,6 +58,8 @@ export default {
     ButtonSimple,
     ComboboxProduction
   },
+
+  emits: ['import-from-production', 'import-item'],
 
   data() {
     return {

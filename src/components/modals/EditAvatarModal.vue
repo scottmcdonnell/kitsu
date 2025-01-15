@@ -16,7 +16,7 @@
           />
           <people-avatar
             :is-lazy="false"
-            :person="this.person"
+            :person="person"
             :size="150"
             :font-size="60"
           />
@@ -65,8 +65,9 @@
 
 <script>
 import { modalMixin } from '@/components/modals/base_modal'
-import PeopleAvatar from '@/components/widgets/PeopleAvatar'
-import Spinner from '@/components/widgets/Spinner'
+
+import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
 
 export default {
   name: 'edit-avatar-modal',
@@ -104,6 +105,8 @@ export default {
       required: true
     }
   },
+
+  emits: ['close', 'delete', 'update'],
 
   methods: {
     selectFile() {

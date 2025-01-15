@@ -55,8 +55,8 @@
 </template>
 
 <script>
+import { ChevronDownIcon } from 'lucide-vue-next'
 import { mapGetters } from 'vuex'
-import { ChevronDownIcon } from 'vue-feather-icons'
 
 import { getProductionPath } from '@/lib/path'
 
@@ -69,6 +69,8 @@ export default {
     ChevronDownIcon,
     ComboboxMask
   },
+
+  emits: ['input'],
 
   data() {
     return {
@@ -90,10 +92,8 @@ export default {
     }
   },
 
-  mounted() {},
-
   computed: {
-    ...mapGetters(['episodeMap', 'currentProduction']),
+    ...mapGetters(['currentProduction']),
 
     episodeLabel() {
       let option

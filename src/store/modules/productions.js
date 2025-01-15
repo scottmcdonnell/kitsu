@@ -1,6 +1,11 @@
-import Vue from 'vue/dist/vue'
 import productionsApi from '@/store/api/productions'
 import { sortProductions, sortByName } from '@/lib/sorting'
+
+import assetTypeStore from '@/store/modules/assettypes'
+import statusAutomationsStore from '@/store/modules/statusautomation'
+import taskTypeStore from '@/store/modules/tasktypes'
+import taskStatusStore from '@/store/modules/taskstatus'
+
 import {
   addToIdList,
   removeFromIdList,
@@ -43,8 +48,12 @@ import {
   DELETE_METADATA_DESCRIPTOR_END,
   CLEAR_SHOTS,
   CLEAR_ASSETS,
+  SAVE_LAST_PRODUCTION_ROUTE,
   RESET_ALL
 } from '@/store/mutation-types'
+
+const taskTypesCache = taskTypeStore.cache
+const taskStatusCache = taskStatusStore.cache
 
 const initialState = {
   productions: [],
@@ -58,6 +67,8 @@ const initialState = {
   isProductionsLoading: false,
   isProductionsLoadingError: false,
   isOpenProductionsLoading: false,
+
+  lastProductionRoute: { name: 'open-productions' },
 
   assetsPath: { name: 'open-productions' },
   assetTypesPath: { name: 'open-productions' },
@@ -79,7 +90,7 @@ const helpers = {
     let route = { name: 'open-productions' }
     if (episodeId) {
       route = {
-        name: 'episode-' + routeName,
+        name: `episode-${routeName}`,
         params: {
           episode_id: episodeId,
           production_id: productionId
@@ -154,6 +165,8 @@ const getters = {
   playlistsPath: state => state.playlistsPath,
   teamPath: state => state.teamPath,
 
+  lastProductionRoute: state => state.lastProductionRoute,
+
   productionAssetTypes: (state, getters, rootState) => {
     if (!state.currentProduction) return []
     if (helpers.isEmptyArray(state.currentProduction, 'asset_types')) {
@@ -161,7 +174,7 @@ const getters = {
     } else {
       return sortByName(
         state.currentProduction.asset_types.map(id =>
-          rootState.assetTypes.assetTypeMap.get(id)
+          assetTypeStore.cache.assetTypeMap.get(id)
         )
       )
     }
@@ -181,11 +194,11 @@ const getters = {
 
   productionTaskStatuses: (state, getters, rootState) => {
     if (helpers.isEmptyArray(state.currentProduction, 'task_statuses')) {
-      return rootState.taskStatus.taskStatus
+      return rootState.taskStatus.taskStatuses
     } else {
       return sortByName(
         state.currentProduction.task_statuses.map(id =>
-          rootState.taskStatus.taskStatusMap.get(id)
+          taskStatusCache.taskStatusMap.get(id)
         )
       )
     }
@@ -194,11 +207,11 @@ const getters = {
   getProductionTaskStatuses: (state, getters, rootState) => id => {
     const production = state.productionMap.get(id)
     if (helpers.isEmptyArray(production, 'task_statuses')) {
-      return rootState.taskStatus.taskStatus
+      return rootState.taskStatus.taskStatuses
     } else {
       return sortByName(
         production.task_statuses.map(id =>
-          rootState.taskStatus.taskStatusMap.get(id)
+          taskStatusCache.taskStatusMap.get(id)
         )
       )
     }
@@ -209,7 +222,7 @@ const getters = {
       return []
     } else {
       return state.currentProduction.status_automations.map(id =>
-        rootState.statusAutomations.statusAutomationMap.get(id)
+        statusAutomationsStore.cache.statusAutomationMap.get(id)
       )
     }
   },
@@ -228,7 +241,7 @@ const getters = {
     } else {
       return sortByName(
         state.currentProduction.task_types.map(id =>
-          rootState.taskTypes.taskTypeMap.get(id)
+          taskTypesCache.taskTypeMap.get(id)
         )
       )
     }
@@ -240,7 +253,7 @@ const getters = {
       return rootState.taskTypes.taskTypes
     } else {
       return sortByName(
-        production.task_types.map(id => rootState.taskTypes.taskTypeMap.get(id))
+        production.task_types.map(id => taskTypesCache.taskTypeMap.get(id))
       )
     }
   },
@@ -281,7 +294,7 @@ const getters = {
   productionDepartmentIds: (state, getters) => {
     const departmentIds = {}
     return getters.productionTaskTypes.reduce((acc, type) => {
-      if (type.department_id && !departmentIds[type.department_id]) {
+      if (type?.department_id && !departmentIds[type.department_id]) {
         departmentIds[type.department_id] = true
         acc.push(type.department_id)
       }
@@ -390,18 +403,12 @@ const actions = {
     commit(PRODUCTION_PICTURE_FILE_SELECTED, formData)
   },
 
-  uploadProductionAvatar({ commit, state }, productionId) {
-    return new Promise((resolve, reject) => {
-      productionsApi.postAvatar(
-        productionId,
-        state.productionAvatarFormData,
-        err => {
-          commit(PRODUCTION_AVATAR_UPLOADED, productionId)
-          if (err) reject(err)
-          else resolve()
-        }
-      )
-    })
+  async uploadProductionAvatar({ commit, state }, productionId) {
+    await productionsApi.postAvatar(
+      productionId,
+      state.productionAvatarFormData
+    )
+    commit(PRODUCTION_AVATAR_UPLOADED, productionId)
   },
 
   addPersonToTeam({ commit, state }, person) {
@@ -519,7 +526,9 @@ const actions = {
       .then(descriptor => {
         const descriptorMap = new Map()
         state.openProductions.forEach(production => {
-          if (!production.descriptors) Vue.set(production, 'descriptors', [])
+          if (!production.descriptors) {
+            production.descriptors = []
+          }
           production.descriptors.forEach(desc => {
             descriptorMap.set(desc.id, desc)
           })
@@ -572,6 +581,10 @@ const actions = {
 
   loadProductionStats() {
     return productionsApi.getProductionStats()
+  },
+
+  saveLastProductionRoute({ commit }, route) {
+    this.commit(SAVE_LAST_PRODUCTION_ROUTE, route)
   }
 }
 
@@ -646,7 +659,6 @@ const mutations = {
     production.project_status_name = productionStatus.name
     state.productions.push(production)
     state.productionMap.set(production.id, production)
-    state.productionMap = new Map(state.productionMap) // for reactivity
     state.openProductions.push(production)
     state.productions = sortProductions(state.productions)
     state.openProductions = sortByName(state.openProductions)
@@ -689,7 +701,6 @@ const mutations = {
       }
     }
     state.productionMap.set(production.id, production)
-    state.productionMap = new Map(state.productionMap) // for reactivity
     state.productions = sortProductions(state.productions)
     state.openProductions = sortByName(state.openProductions)
   },
@@ -845,7 +856,7 @@ const mutations = {
       if (production.descriptors) {
         production.descriptors.push(descriptor)
       } else {
-        Vue.set(production, 'descriptors', [descriptor])
+        production.descriptors = descriptor
       }
     }
   },
@@ -855,7 +866,7 @@ const mutations = {
       if (production.descriptors) {
         updateModelFromList(production.descriptors, descriptor)
       } else {
-        Vue.set(production, 'descriptors', [])
+        production.descriptors = []
       }
     }
   },
@@ -880,6 +891,10 @@ const mutations = {
     if (!isTeamMember && state.currentProduction) {
       state.currentProduction.team.push(personId)
     }
+  },
+
+  [SAVE_LAST_PRODUCTION_ROUTE](state, route) {
+    state.lastProductionRoute = route
   },
 
   [RESET_ALL](state) {

@@ -3,14 +3,14 @@
     :label="label"
     :disabled="disabled"
     :options="modelOptions"
-    :value="currentModelId"
-    @input="emitValue"
+    :model-value="currentModelId"
+    @update:model-value="emitValue"
     @enter="emitEnter"
   />
 </template>
 
 <script>
-import Combobox from '@/components/widgets/Combobox'
+import Combobox from '@/components/widgets/Combobox.vue'
 
 export default {
   name: 'combobox-model',
@@ -25,7 +25,7 @@ export default {
       type: String
     },
 
-    value: {
+    modelValue: {
       default: () => {},
       type: Object
     },
@@ -41,6 +41,8 @@ export default {
     }
   },
 
+  emits: ['enter', 'update:modelValue'],
+
   data() {
     return {
       currentModelId: '',
@@ -53,13 +55,11 @@ export default {
     this.reset()
   },
 
-  computed: {},
-
   methods: {
     emitValue(value) {
       this.currentModelId = value
       const model = this.modelMap[this.currentModelId]
-      this.$emit('input', model)
+      this.$emit('update:modelValue', model)
     },
 
     emitEnter(value) {
@@ -70,7 +70,9 @@ export default {
 
     reset() {
       if (this.models.length > 0) {
-        this.currentModelId = this.models[0].id
+        this.currentModelId =
+          this.models.find(model => model.id === this.modelValue.id) ??
+          this.models[0].id
         this.modelMap = {}
         this.modelOptions = this.models.map(model => ({
           label: model.name,
@@ -90,5 +92,3 @@ export default {
   }
 }
 </script>
-
-<style lang="scss" scoped></style>

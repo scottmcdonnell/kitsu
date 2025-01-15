@@ -3,14 +3,14 @@
     :label="label"
     :disabled="disabled"
     :options="booleanOptions"
-    :value="value"
-    @input="emitValue"
+    :model-value="modelValue"
+    @update:model-value="emitValue"
     @enter="emitEnter"
   />
 </template>
 
 <script>
-import Combobox from '@/components/widgets/Combobox'
+import Combobox from '@/components/widgets/Combobox.vue'
 
 export default {
   name: 'combobox-boolean',
@@ -25,14 +25,9 @@ export default {
       type: String
     },
 
-    value: {
+    modelValue: {
       default: 'false',
       type: String
-    },
-
-    options: {
-      default: () => [],
-      type: Array
     },
 
     disabled: {
@@ -40,6 +35,8 @@ export default {
       type: Boolean
     }
   },
+
+  emits: ['enter', 'update:modelValue'],
 
   data() {
     return {
@@ -50,17 +47,14 @@ export default {
     }
   },
 
-  computed: {},
-
   methods: {
     emitValue(value) {
-      this.$emit('input', value)
+      this.$emit('update:modelValue', value)
     },
+
     emitEnter(value) {
       this.$emit('enter', value)
     }
   }
 }
 </script>
-
-<style lang="scss" scoped></style>

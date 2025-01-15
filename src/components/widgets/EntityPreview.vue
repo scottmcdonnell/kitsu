@@ -9,7 +9,7 @@
         extension: entity.preview_file_extension
       }"
       :is-rounded-top-border="isRoundedTopBorder"
-      @click.native="onVideoClicked()"
+      @click="onVideoClicked()"
     />
     <button-simple
       class="button-play"
@@ -19,10 +19,9 @@
       @click="onVideoClicked()"
     />
   </div>
-  <a
+  <div
     class="preview-wrapper preview-picture"
     :class="{ cover }"
-    target="_blank"
     :style="{
       width: emptyWidth ? `${emptyWidth}px` : undefined,
       'min-width': emptyWidth ? `${emptyWidth}px` : undefined,
@@ -46,17 +45,18 @@
         :width="width || ''"
         alt=""
       />
-      <span class="view-icon" @click.stop="onPictureClicked()">
-        <eye-icon size="1.2x" />
-      </span>
+      <a class="view-icon" @click.stop="onPictureClicked()">
+        <eye-icon :size="18" />
+      </a>
     </template>
-  </a>
+  </div>
 </template>
 
 <script>
-import { EyeIcon } from 'vue-feather-icons'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import VideoViewer from '@/components/previews/VideoViewer'
+import { EyeIcon } from 'lucide-vue-next'
+
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import VideoViewer from '@/components/previews/VideoViewer.vue'
 
 export default {
   name: 'entity-preview',
@@ -78,10 +78,6 @@ export default {
       default: () => {},
       type: Object
     },
-    square: {
-      default: false,
-      type: Boolean
-    },
     cover: {
       default: false,
       type: Boolean
@@ -91,14 +87,6 @@ export default {
       type: Number
     },
     height: {
-      default: null,
-      type: Number
-    },
-    maxWidth: {
-      default: null,
-      type: Number
-    },
-    maxHeight: {
       default: null,
       type: Number
     },
@@ -129,14 +117,9 @@ export default {
       return this.entity.preview_file_extension === 'mp4'
     },
 
-    isPreview() {
-      const previewFileId = this.previewFileId || this.entity.preview_file_id
-      return previewFileId && previewFileId.length > 0
-    },
-
     thumbnailPath() {
       const previewFileId = this.previewFileId || this.entity.preview_file_id
-      return '/api/pictures/previews/preview-files/' + previewFileId + '.png'
+      return `/api/pictures/previews/preview-files/${previewFileId}.png`
     },
 
     thumbnailKey() {
@@ -185,60 +168,44 @@ export default {
   padding-left: 13px;
   line-height: initial;
   opacity: 0.75;
-  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
-a {
+.preview-picture {
+  position: relative;
   background: $black;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: auto;
-}
 
-img {
-  display: block;
-  border: 0;
-  border-radius: 0;
-}
-
-span.thumbnail-empty {
-  background: $white-grey;
-  display: block;
-  margin: 0;
-}
-
-.thumbnail-picture.square {
-  width: 100px;
-  height: 100px;
-}
-
-span.view-icon {
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 5px;
-  color: $light-grey-light;
-  display: none;
-  padding: 0.4rem;
-  height: 30px;
-  position: absolute;
-  right: 10px;
-  top: 10px;
-  width: 30px;
-  transition: all 0.2s ease-in-out;
-
-  &:hover {
-    background: rgba(0, 0, 0, 0.75);
-    color: $white;
+  .thumbnail-picture {
+    display: block;
+    border: 0;
+    border-radius: 0;
   }
-}
 
-.preview-wrapper {
-  position: relative;
+  .view-icon {
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 5px;
+    color: $light-grey-light;
+    display: none;
+    padding: 0.4rem;
+    height: 30px;
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    width: 30px;
+    transition: all 0.2s ease-in-out;
 
-  &:hover {
-    span.view-icon {
-      display: block;
+    &:hover {
+      background: rgba(0, 0, 0, 0.75);
+      color: $white;
     }
+  }
+
+  &:hover .view-icon {
+    display: block;
   }
 }
 

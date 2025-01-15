@@ -1,6 +1,6 @@
 <template>
   <div class="data-list">
-    <div class="datatable-wrapper" ref="body" v-scroll="onBodyScroll">
+    <div class="datatable-wrapper" ref="body" @scroll.passive="onBodyScroll">
       <table class="datatable">
         <thead class="datatable-head">
           <tr>
@@ -8,29 +8,31 @@
               {{ $t('asset_types.fields.name') }}
             </th>
             <th scope="col" class="validation">{{ $t('main.all') }}</th>
-            <th
-              scope="col"
-              class="validation validation-cell"
-              :key="columnId"
-              v-for="columnId in validationColumns"
-              v-if="!isLoading"
-            >
-              <div
-                class="flexrow validation-content"
-                :style="getValidationStyle(columnId)"
+            <template v-if="!isLoading">
+              <th
+                scope="col"
+                class="validation validation-cell"
+                :key="columnId"
+                v-for="columnId in validationColumns"
               >
-                <router-link
-                  class="flexrow-item"
-                  :to="taskTypePath(columnId)"
-                  v-if="!isCurrentUserClient"
+                <div
+                  class="flexrow validation-content"
+                  :style="getValidationStyle(columnId)"
                 >
-                  {{ taskTypeMap.get(columnId).name }}
-                </router-link>
-                <span class="flexrow-item" v-else>
-                  {{ taskTypeMap.get(columnId).name }}
-                </span>
-              </div>
-            </th>
+                  <router-link
+                    class="flexrow-item"
+                    :title="taskTypeMap.get(columnId).name"
+                    :to="taskTypePath(columnId)"
+                    v-if="!isCurrentUserClient"
+                  >
+                    {{ taskTypeMap.get(columnId).name }}
+                  </router-link>
+                  <span class="flexrow-item" v-else>
+                    {{ taskTypeMap.get(columnId).name }}
+                  </span>
+                </div>
+              </th>
+            </template>
             <th scope="col" class="actions"></th>
           </tr>
         </thead>
@@ -43,7 +45,7 @@
             <stats-cell
               :colors="chartColors('all', 'all')"
               :data="chartData('all', 'all')"
-              :displayMode="displayMode"
+              :display-mode="displayMode"
             />
 
             <stats-cell
@@ -51,7 +53,7 @@
               :key="'all-' + columnId"
               :colors="chartColors('all', columnId)"
               :data="chartData('all', columnId)"
-              :displayMode="displayMode"
+              :display-mode="displayMode"
               v-for="columnId in validationColumns"
             />
 
@@ -66,21 +68,25 @@
             <stats-cell
               :colors="chartColors(entry.id, 'all')"
               :data="chartData(entry.id, 'all')"
-              :displayMode="displayMode"
+              :display-mode="displayMode"
               v-if="isStats(entry.id, 'all')"
             />
             <td v-else></td>
 
-            <stats-cell
-              :key="entry.id + columnId"
-              :style="getValidationStyle(columnId)"
-              :colors="chartColors(entry.id, columnId)"
-              :data="chartData(entry.id, columnId)"
-              :displayMode="displayMode"
-              v-if="isStats(entry.id, columnId)"
+            <template
+              :key="entry.id + '-' + columnId"
               v-for="columnId in validationColumns"
-            />
-            <td :style="getValidationStyle(columnId)" v-else></td>
+            >
+              <stats-cell
+                :key="entry.id + columnId"
+                :style="getValidationStyle(columnId)"
+                :colors="chartColors(entry.id, columnId)"
+                :data="chartData(entry.id, columnId)"
+                :display-mode="displayMode"
+                v-if="isStats(entry.id, columnId)"
+              />
+              <td :style="getValidationStyle(columnId)" v-else></td>
+            </template>
 
             <td class="actions"></td>
           </tr>
@@ -125,11 +131,13 @@ import { mapGetters } from 'vuex'
 import { getChartColors, getChartData } from '@/lib/stats'
 
 import { entityListMixin } from '@/components/mixins/entity_list'
-import StatsCell from '@/components/cells/StatsCell'
-import TableInfo from '@/components/widgets/TableInfo'
+
+import StatsCell from '@/components/cells/StatsCell.vue'
+import TableInfo from '@/components/widgets/TableInfo.vue'
 
 export default {
   name: 'production-asset-type-list',
+
   mixins: [entityListMixin],
 
   props: {
@@ -207,16 +215,6 @@ export default {
 
     onHeaderScroll(event, position) {
       this.$refs.tableWrapper.scrollLeft = position.scrollLeft
-    },
-
-    onBodyScroll(event, position) {
-      this.$emit('scroll', position.scrollTop)
-    },
-
-    setScrollPosition(scrollPosition) {
-      if (this.$refs.body) {
-        this.$refs.body.scrollTop = scrollPosition
-      }
     },
 
     taskTypePath(taskTypeId) {

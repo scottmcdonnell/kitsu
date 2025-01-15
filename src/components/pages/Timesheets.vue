@@ -213,7 +213,6 @@ export default {
   computed: {
     ...mapGetters([
       'isCurrentUserAdmin',
-      'isCurrentUserManager',
       'organisation',
       'people',
       'productions',
@@ -564,7 +563,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('timesheets.title')} - Kitsu`
     }

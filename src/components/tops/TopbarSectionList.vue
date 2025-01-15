@@ -15,10 +15,10 @@
       </div>
       <div class="select-input" ref="select" v-if="showSectionList">
         <div
-          class="section-line"
-          v-for="(section, index) in sectionList"
-          @click="selectSection(section)"
           :key="section.value + '-' + index"
+          class="section-line"
+          @click="selectSection(section)"
+          v-for="(section, index) in sectionList"
         >
           <router-link
             class="flexrow"
@@ -39,8 +39,8 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex'
-import { ChevronDownIcon } from 'vue-feather-icons'
+import { ChevronDownIcon } from 'lucide-vue-next'
+import { mapActions, mapGetters } from 'vuex'
 
 import { getProductionPath } from '@/lib/path'
 
@@ -55,6 +55,8 @@ export default {
     ComboboxMask,
     KitsuIcon
   },
+
+  emits: ['input'],
 
   data() {
     return {
@@ -101,6 +103,8 @@ export default {
   },
 
   methods: {
+    ...mapActions(['setCurrentSection', 'setLastProductionScreen']),
+
     selectSection(section) {
       if (section.value !== 'separator') {
         this.$emit('input', section.value)
@@ -125,7 +129,20 @@ export default {
 
   watch: {
     section() {
-      if (this.localSection !== this.section) this.localSection = this.section
+      if (this.localSection !== this.section) {
+        this.localSection = this.section
+      }
+    },
+
+    localSection() {
+      this.setCurrentSection(this.localSection)
+      if (
+        ['assets', 'episodes', 'sequences', 'shots', 'edits'].includes(
+          this.localSection
+        )
+      ) {
+        this.setLastProductionScreen(this.localSection)
+      }
     }
   }
 }

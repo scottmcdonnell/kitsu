@@ -126,17 +126,13 @@
           </thead>
           <draggable
             class="datatable-body"
-            draggable=".task-status"
+            item-key="id"
             tag="tbody"
-            :value="sortedProductionTaskStatuses"
-            @end="updateTaskStatusPriority($event.oldIndex, $event.newIndex)"
+            v-model="taskStatusItems"
+            @end="updateTaskStatusPriority"
           >
-            <template v-for="taskStatus in sortedProductionTaskStatuses">
-              <tr
-                class="datatable-row task-status"
-                :key="taskStatus.id"
-                v-if="taskStatus"
-              >
+            <template #item="{ element: taskStatus }">
+              <tr class="datatable-row task-status">
                 <td>
                   {{ taskStatus.name }}
                 </td>
@@ -185,19 +181,20 @@ import { mapGetters, mapActions } from 'vuex'
 
 import { sortTaskStatuses } from '@/lib/sorting'
 
-import BooleanCell from '@/components/cells/BooleanCell'
-import Combobox from '@/components/widgets/Combobox'
-import ComboboxStatus from '@/components/widgets/ComboboxStatus'
-import ProductionBackgrounds from '@/components/pages/production/ProductionBackgrounds'
-import ProductionBoard from '@/components/pages/production/ProductionBoard'
-import ProductionBrief from '@/components/pages/production/ProductionBrief'
-import ProductionParameters from '@/components/pages/production/ProductionParameters'
-import ProductionStatusAutomations from '@/components/pages/production/ProductionStatusAutomations'
-import ProductionTaskTypes from '@/components/pages/production/ProductionTaskTypes'
-import ValidationTag from '@/components/widgets/ValidationTag'
+import BooleanCell from '@/components/cells/BooleanCell.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
+import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
+import ProductionBackgrounds from '@/components/pages/production/ProductionBackgrounds.vue'
+import ProductionBoard from '@/components/pages/production/ProductionBoard.vue'
+import ProductionBrief from '@/components/pages/production/ProductionBrief.vue'
+import ProductionParameters from '@/components/pages/production/ProductionParameters.vue'
+import ProductionStatusAutomations from '@/components/pages/production/ProductionStatusAutomations.vue'
+import ProductionTaskTypes from '@/components/pages/production/ProductionTaskTypes.vue'
+import ValidationTag from '@/components/widgets/ValidationTag.vue'
 
 export default {
   name: 'production-settings',
+
   components: {
     BooleanCell,
     Combobox,
@@ -216,6 +213,7 @@ export default {
     return {
       activeTab: 'parameters',
       assetTypeId: '',
+      taskStatusItems: [],
       taskStatusId: ''
     }
   },
@@ -234,18 +232,11 @@ export default {
 
   computed: {
     ...mapGetters([
-      'assetTypeMap',
       'currentProduction',
       'assetTypes',
       'productionAssetTypes',
-      'productionTaskTypes',
       'productionTaskStatuses',
-      'productionStatusAutomations',
-      'taskStatus',
-      'taskStatusMap',
-      'taskTypeMap',
-      'taskTypes',
-      'isTVShow'
+      'taskStatus'
     ]),
 
     remainingAssetTypes() {
@@ -311,12 +302,8 @@ export default {
       this.taskStatusId = this.remainingTaskStatuses[0]?.id
     },
 
-    async updateTaskStatusPriority(oldIndex, newIndex) {
-      const taskStatuses = [...this.productionTaskStatuses]
-      const taskStatus = taskStatuses[oldIndex]
-      taskStatuses.splice(oldIndex, 1)
-      taskStatuses.splice(newIndex, 0, taskStatus)
-      await this.updateTaskStatusPriorities(taskStatuses)
+    async updateTaskStatusPriority() {
+      await this.updateTaskStatusPriorities(this.taskStatusItems)
     },
 
     async updateTaskStatusPriorities(taskStatuses) {
@@ -342,10 +329,19 @@ export default {
           }
         })
       }
+    },
+
+    sortedProductionTaskStatuses: {
+      immediate: true,
+      handler() {
+        this.taskStatusItems = JSON.parse(
+          JSON.stringify(this.sortedProductionTaskStatuses)
+        )
+      }
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.currentProduction.name} | ${this.$t(
         'settings.title'
@@ -367,7 +363,7 @@ p {
 }
 
 .wrapper {
-  margin-top: 0px;
+  margin-top: 0;
   overflow-y: scroll;
   padding: 2em;
   flex: 1;

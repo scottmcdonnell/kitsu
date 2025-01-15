@@ -14,7 +14,7 @@
         </h1>
 
         <p>
-          {{ $t('entities.thumbnails.explaination') }}
+          {{ $t('entities.thumbnails.explanation') }}
         </p>
 
         <combobox-task-type
@@ -24,7 +24,7 @@
         />
 
         <p>
-          {{ $t('entities.thumbnails.explaination_two') }}
+          {{ $t('entities.thumbnails.explanation_two') }}
           {{ $t(`entities.thumbnails.${parent}_pattern`) }}
         </p>
 
@@ -86,23 +86,24 @@
 </template>
 
 <script>
+import { CheckIcon } from 'lucide-vue-next'
 import { mapGetters } from 'vuex'
-import { modalMixin } from '@/components/modals/base_modal'
 
-import { CheckIcon } from 'vue-feather-icons'
+import { modalMixin } from '@/components/modals/base_modal'
 
 import stringHelpers from '@/lib/string'
 import assetStore from '@/store/modules/assets'
 import editStore from '@/store/modules/edits'
 import shotStore from '@/store/modules/shots'
 
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-import FileUpload from '@/components/widgets/FileUpload'
-import ModalFooter from '@/components/modals/ModalFooter'
-import Spinner from '@/components/widgets/Spinner'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import FileUpload from '@/components/widgets/FileUpload.vue'
+import ModalFooter from '@/components/modals/ModalFooter.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
 
 export default {
   name: 'add-thumbnails-modal',
+
   mixins: [modalMixin],
 
   components: {
@@ -137,6 +138,8 @@ export default {
     }
   },
 
+  emits: ['cancel', 'confirm'],
+
   data() {
     return {
       extensions: '.png,.jpg,.jpeg,.mp4,.mov',
@@ -168,11 +171,11 @@ export default {
     taskTypeList() {
       let validationColumns = []
       if (this.isAssets) {
-        validationColumns = this.assetValidationColumns
+        validationColumns = this.assetValidationColumns || []
       } else if (this.isEdits) {
-        validationColumns = this.editValidationColumns
+        validationColumns = this.editValidationColumns || []
       } else if (this.isShots) {
-        validationColumns = this.shotValidationColumns
+        validationColumns = this.shotValidationColumns || []
       }
       return validationColumns.map(taskTypeId =>
         this.taskTypeMap.get(taskTypeId)

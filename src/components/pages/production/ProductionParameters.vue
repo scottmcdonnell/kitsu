@@ -1,17 +1,14 @@
 <template>
   <div class="columns">
     <div class="column is-one-third box">
-      <!-- Form -->
-      <form class="form" v-on:submit.prevent>
+      <form class="form" @submit.prevent>
         <text-field
-          ref="nameField"
           :label="$t('productions.fields.name')"
           @enter="runConfirmation"
           v-focus
           v-model="form.name"
         />
         <text-field
-          ref="codeField"
           :label="$t('productions.fields.code')"
           @enter="runConfirmation"
           v-model="form.code"
@@ -19,26 +16,27 @@
         <div class="columns">
           <div class="mr1">
             <date-field
-              ref="startDateField"
               class="mb0"
+              :can-delete="false"
               :label="$t('productions.fields.start_date')"
-              :short-date="true"
+              :max-date="form.end_date"
+              :with-margin="false"
               v-model="form.start_date"
             />
           </div>
           <div>
             <date-field
-              ref="endDateField"
               class="mb0"
+              :can-delete="false"
               :label="$t('productions.fields.end_date')"
-              :short-date="true"
+              :min-date="form.start_date"
+              :with-margin="false"
               v-model="form.end_date"
             />
           </div>
         </div>
 
         <combobox-styled
-          ref="productionTypeField"
           class="mb2"
           locale-key-prefix="productions.type."
           :label="$t('productions.fields.type')"
@@ -48,7 +46,6 @@
         />
 
         <combobox-styled
-          ref="homepage"
           class="mb2"
           locale-key-prefix="productions.homepage."
           :label="$t('productions.fields.homepage')"
@@ -59,7 +56,6 @@
         />
 
         <!--text-field
-          ref="nbEpisodesField"
           type="number"
           :step="1"
           :label="$t('productions.fields.nb_episodes')"
@@ -68,7 +64,6 @@
           v-if="currentProduction && currentProduction.id && isLocalTVShow"
         /-->
         <!--text-field
-          ref="episodesSpanField"
           :label="$t('productions.fields.episode_span')"
           @enter="runConfirmation"
           v-focus
@@ -77,7 +72,6 @@
         /-->
 
         <text-field
-          ref="fpsField"
           type="number"
           :max="60"
           :step="0.001"
@@ -87,42 +81,42 @@
           v-if="currentProduction && currentProduction.id"
         />
         <text-field
-          ref="ratioField"
           :label="$t('productions.fields.ratio')"
           @enter="runConfirmation"
           v-model="form.ratio"
           v-if="currentProduction && currentProduction.id"
         />
         <text-field
-          ref="resolutionField"
           :label="$t('productions.fields.resolution')"
           @enter="runConfirmation"
           v-model="form.resolution"
           v-if="currentProduction && currentProduction.id"
         />
         <combobox-boolean
-          ref="isClientsIsolatedField"
           :label="$t('productions.fields.is_clients_isolated')"
           @enter="runConfirmation"
           v-model="form.is_clients_isolated"
           v-if="currentProduction && currentProduction.id"
         />
         <combobox-boolean
-          ref="isPreviewDownloadAllowed"
           :label="$t('productions.fields.is_preview_download_allowed')"
           @enter="runConfirmation"
           v-model="form.is_preview_download_allowed"
           v-if="currentProduction && currentProduction.id"
         />
         <combobox-boolean
-          ref="isSetPreviewAutomated"
           :label="$t('productions.fields.is_set_preview_automated')"
           @enter="runConfirmation"
           v-model="form.is_set_preview_automated"
           v-if="currentProduction && currentProduction.id"
         />
+        <combobox-boolean
+          :label="$t('productions.fields.is_publish_default')"
+          @enter="runConfirmation"
+          v-model="form.is_publish_default_for_artists"
+          v-if="currentProduction && currentProduction.id"
+        />
         <text-field
-          ref="maxRetakesField"
           type="number"
           :step="1"
           :label="$t('productions.fields.max_retakes')"
@@ -159,18 +153,20 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
+
 import { formatSimpleDate, parseSimpleDate } from '@/lib/time'
 import { PRODUCTION_TYPE_OPTIONS, HOME_PAGE_OPTIONS } from '@/lib/productions'
 
-import ComboboxBoolean from '@/components/widgets/ComboboxBoolean'
-import ComboboxStyled from '@/components/widgets/ComboboxStyled'
-import DateField from '@/components/widgets/DateField'
-import FileUpload from '@/components/widgets/FileUpload'
-import TextField from '@/components/widgets/TextField'
 import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
+import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
+import DateField from '@/components/widgets/DateField.vue'
+import FileUpload from '@/components/widgets/FileUpload.vue'
+import TextField from '@/components/widgets/TextField.vue'
 
 export default {
   name: 'production-parameters',
+
   components: {
     ComboboxBoolean,
     ComboboxStyled,
@@ -179,6 +175,8 @@ export default {
     TextField,
     ButtonSimple
   },
+
+  emits: ['confirm'],
 
   data() {
     return {
@@ -200,23 +198,22 @@ export default {
         is_clients_isolated: 'false',
         is_preview_download_allowed: 'false',
         is_set_preview_automated: 'false',
+        is_publish_default_for_artists: 'false',
         ratio: '',
         resolution: '',
         production_type: 'short'
       }
     }
   },
+
   computed: {
-    ...mapGetters([
-      'currentProduction',
-      'productionAvatarFormData',
-      'productionStatus',
-      'isTVShow'
-    ])
+    ...mapGetters(['currentProduction', 'productionAvatarFormData', 'isTVShow'])
   },
+
   mounted() {
     this.resetForm()
   },
+
   watch: {
     currentProduction: {
       handler() {
@@ -229,6 +226,7 @@ export default {
       this.updateTvShowRelatedDatas(newProductionType === 'tvshow')
     }
   },
+
   methods: {
     ...mapActions([
       'editProduction',
@@ -262,6 +260,9 @@ export default {
     },
 
     resetForm() {
+      this.$refs.fileField?.reset()
+      this.storeProductionPicture(null)
+
       if (this.currentProduction) {
         this.form = {
           name: this.currentProduction.name,
@@ -286,6 +287,10 @@ export default {
             .is_set_preview_automated
             ? 'true'
             : 'false',
+          is_publish_default_for_artists: this.currentProduction
+            .is_publish_default_for_artists
+            ? 'true'
+            : 'false',
           ratio: this.currentProduction.ratio,
           resolution: this.currentProduction.resolution,
           homepage: this.currentProduction.homepage
@@ -303,6 +308,7 @@ export default {
           is_clients_isolated: 'false',
           is_preview_download_allowed: 'false',
           is_set_preview_automated: 'false',
+          is_publish_default_for_artists: 'false',
           fps: '',
           ratio: '',
           resolution: '',
@@ -313,20 +319,19 @@ export default {
 
     async editParameters() {
       this.isLoading = true
+      this.isError = false
       try {
-        await this.editProduction({
-          id: this.currentProduction.id,
-          ...this.form,
-          start_date: formatSimpleDate(this.form.start_date),
-          end_date: formatSimpleDate(this.form.end_date)
-        })
         if (this.productionAvatarFormData) {
           await this.uploadProductionAvatar(this.currentProduction.id)
         }
+        await this.editProduction({
+          ...this.form,
+          id: this.currentProduction.id,
+          start_date: formatSimpleDate(this.form.start_date),
+          end_date: formatSimpleDate(this.form.end_date)
+        })
       } catch {
-        this.isLoading = false
         this.isError = true
-        return
       }
       this.isLoading = false
     }

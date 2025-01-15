@@ -35,7 +35,7 @@
 
     <div
       class="task-list-body"
-      v-scroll="onBodyScroll"
+      @scroll.passive="onBodyScroll"
       v-if="entries.length > 0"
     >
       <table class="datatable">
@@ -105,23 +105,24 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
+import { mapGetters } from 'vuex'
 
 import { formatListMixin } from '@/components/mixins/format'
 
-import TaskTypeCell from '@/components/cells/TaskTypeCell'
-import TableInfo from '@/components/widgets/TableInfo'
-import ValidationTag from '@/components/widgets/ValidationTag'
-import PeopleAvatar from '@/components/widgets/PeopleAvatar'
+import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
+import TableInfo from '@/components/widgets/TableInfo.vue'
+import TaskTypeCell from '@/components/cells/TaskTypeCell.vue'
+import ValidationTag from '@/components/widgets/ValidationTag.vue'
 
 export default {
   name: 'entity-task-list',
+
   mixins: [formatListMixin],
 
   components: {
+    PeopleAvatar,
     TableInfo,
     TaskTypeCell,
-    PeopleAvatar,
     ValidationTag
   },
 
@@ -139,6 +140,8 @@ export default {
       default: false
     }
   },
+
+  emits: ['task-selected'],
 
   data() {
     return {
@@ -176,9 +179,8 @@ export default {
   },
 
   methods: {
-    ...mapActions([]),
-
-    onBodyScroll(event, position) {
+    onBodyScroll(event) {
+      const position = event.target
       this.$refs.headerWrapper.style.left = `-${position.scrollLeft}px`
     },
 

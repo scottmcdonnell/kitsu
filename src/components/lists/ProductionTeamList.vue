@@ -23,7 +23,7 @@
           </tr>
         </thead>
         <tbody class="datatable-body" v-if="!isEmpty">
-          <tr class="datatable-row" v-for="person in entries" :key="person.id">
+          <tr class="datatable-row" :key="person.id" v-for="person in entries">
             <people-name-cell
               class="name datatable-row-header"
               :person="person"
@@ -62,11 +62,13 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
-import DepartmentNamesCell from '@/components/cells/DepartmentNamesCell'
-import PeopleNameCell from '@/components/cells/PeopleNameCell'
+
+import DepartmentNamesCell from '@/components/cells/DepartmentNamesCell.vue'
+import PeopleNameCell from '@/components/cells/PeopleNameCell.vue'
 
 export default {
   name: 'production-team-list',
+
   components: {
     DepartmentNamesCell,
     PeopleNameCell

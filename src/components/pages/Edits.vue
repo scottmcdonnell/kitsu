@@ -23,7 +23,7 @@
             <combobox-department
               class="combobox-department flexrow-item"
               :selectable-departments="selectableDepartments('Edit')"
-              :dispay-all-and-my-departments="true"
+              :display-all-and-my-departments="true"
               :width="230"
               rounded
               v-model="selectedDepartment"
@@ -74,10 +74,9 @@
         </div>
 
         <sorting-info
-          :label="$t('main.sorted_by')"
           :sorting="editSorting"
           @clear-sorting="onChangeSortClicked(null)"
-          v-if="editSorting && editSorting.length > 0"
+          v-if="editSorting?.length"
         />
         <edit-list
           ref="edit-list"
@@ -215,7 +214,6 @@
     <add-metadata-modal
       :active="modals.isAddMetadataDisplayed"
       :is-loading="loading.addMetadata"
-      :is-loading-stay="loading.addMetadata"
       :is-error="errors.addMetadata"
       :descriptor-to-edit="descriptorToEdit"
       entity-type="Edit"
@@ -253,6 +251,7 @@
 <script>
 import moment from 'moment'
 import { mapGetters, mapActions } from 'vuex'
+
 import csv from '@/lib/csv'
 import func from '@/lib/func'
 import { sortByName } from '@/lib/sorting'
@@ -261,29 +260,30 @@ import stringHelpers from '@/lib/string'
 import { searchMixin } from '@/components/mixins/search'
 import { entitiesMixin } from '@/components/mixins/entities'
 
-import AddMetadataModal from '@/components/modals/AddMetadataModal'
-import AddThumbnailsModal from '@/components/modals/AddThumbnailsModal'
-import BigThumbnailsButton from '@/components/widgets/BigThumbnailsButton'
-import BuildFilterModal from '@/components/modals/BuildFilterModal'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import ComboboxDepartment from '@/components/widgets/ComboboxDepartment'
-import CreateTasksModal from '@/components/modals/CreateTasksModal'
-import DeleteModal from '@/components/modals/DeleteModal'
-import EditEditModal from '@/components/modals/EditEditModal'
-import ImportRenderModal from '@/components/modals/ImportRenderModal'
-import ImportModal from '@/components/modals/ImportModal'
-import HardDeleteModal from '@/components/modals/HardDeleteModal'
-import SearchField from '@/components/widgets/SearchField'
-import SearchQueryList from '@/components/widgets/SearchQueryList'
-import SortingInfo from '@/components/widgets/SortingInfo'
-import ShowAssignationsButton from '@/components/widgets/ShowAssignationsButton'
-import ShowInfosButton from '@/components/widgets/ShowInfosButton'
-import EditHistoryModal from '@/components/modals/EditHistoryModal'
+import AddMetadataModal from '@/components/modals/AddMetadataModal.vue'
+import AddThumbnailsModal from '@/components/modals/AddThumbnailsModal.vue'
+import BigThumbnailsButton from '@/components/widgets/BigThumbnailsButton.vue'
+import BuildFilterModal from '@/components/modals/BuildFilterModal.vue'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
+import CreateTasksModal from '@/components/modals/CreateTasksModal.vue'
+import DeleteModal from '@/components/modals/DeleteModal.vue'
+import EditEditModal from '@/components/modals/EditEditModal.vue'
+import ImportRenderModal from '@/components/modals/ImportRenderModal.vue'
+import ImportModal from '@/components/modals/ImportModal.vue'
+import HardDeleteModal from '@/components/modals/HardDeleteModal.vue'
+import SearchField from '@/components/widgets/SearchField.vue'
+import SearchQueryList from '@/components/widgets/SearchQueryList.vue'
+import SortingInfo from '@/components/widgets/SortingInfo.vue'
+import ShowAssignationsButton from '@/components/widgets/ShowAssignationsButton.vue'
+import ShowInfosButton from '@/components/widgets/ShowInfosButton.vue'
+import EditHistoryModal from '@/components/modals/EditHistoryModal.vue'
 import EditList from '@/components/lists/EditList.vue'
 import TaskInfo from '@/components/sides/TaskInfo.vue'
 
 export default {
   name: 'edits',
+
   mixins: [searchMixin, entitiesMixin],
 
   components: {
@@ -317,6 +317,7 @@ export default {
       departmentFilter: [],
       editToDelete: null,
       editToEdit: null,
+      editToRestore: null,
       formData: null,
       genericColumns: [
         'Metadata column name (text value)',
@@ -370,7 +371,7 @@ export default {
     }
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.clearSelectedEdits()
   },
 
@@ -380,8 +381,8 @@ export default {
 
   mounted() {
     let searchQuery = ''
-    if (this.editSearchText && this.editSearchText.length > 0) {
-      this.searchField.setValue(this.editSearchText)
+    if (this.editSearchText.length > 0) {
+      this.$refs['edit-search-field']?.setValue(this.editSearchText)
     }
     if (this.$route.query.search && this.$route.query.search.length > 0) {
       searchQuery = `${this.$route.query.search}`
@@ -395,6 +396,7 @@ export default {
         this.$refs['edit-search-field'].setValue(searchQuery)
         this.onSearchChange()
         this.$refs['edit-list'].setScrollPosition(this.editListScrollPosition)
+        this.$refs['edit-list'].selectTaskFromQuery()
       }
     }
 
@@ -408,7 +410,7 @@ export default {
           setTimeout(() => {
             this.initialLoading = false
             finalize()
-          }, 500)
+          }, 200)
         })
       }, 0)
     } else {
@@ -477,7 +479,11 @@ export default {
       const edits = {}
       this.displayedEdits.forEach(edit => {
         let editKey = ''
-        if (this.isTVShow && edit.episode_id) {
+        if (
+          this.isTVShow &&
+          edit.episode_id &&
+          this.episodeMap.has(edit.episode_id)
+        ) {
           editKey += this.episodeMap.get(edit.episode_id).name
         }
         editKey += `${edit.name}`
@@ -601,6 +607,7 @@ export default {
         .then(form => {
           this.loading.edit = false
           this.modals.isNewDisplayed = false
+          this.onSearchChange(false)
         })
         .catch(err => {
           console.error(err)
@@ -821,15 +828,19 @@ export default {
       this.modals.isDeleteAllTasksDisplayed = true
     },
 
-    onSearchChange() {
+    onSearchChange(clearSelection = true) {
       if (!this.searchField) return
       this.isSearchActive = false
       const searchQuery = this.searchField.getValue() || ''
       if (searchQuery.length !== 1 && !this.isLongEditList) {
         this.applySearch(searchQuery)
-      }
-      if (searchQuery.length === 0 && this.isLongEditList) {
+      } else if (searchQuery.length === 0 && this.isLongEditList) {
         this.applySearch('')
+      } else {
+        this.setSearchInUrl()
+      }
+      if (clearSelection) {
+        this.clearSelection()
       }
     },
 
@@ -930,23 +941,25 @@ export default {
       this.applySearch(query)
     },
 
-    onFieldChanged({ entry, fieldName, value }) {
+    async onFieldChanged({ entry, fieldName, value }) {
       const data = {
         id: entry.id,
-        description: entry.description
+        description: entry.description,
+        [fieldName]: value
       }
-      data[fieldName] = value
-      this.editEdit(data)
+      await this.editEdit(data)
+      this.onSearchChange(false)
     },
 
-    onMetadataChanged({ entry, descriptor, value }) {
-      const metadata = {}
-      metadata[descriptor.field_name] = value
+    async onMetadataChanged({ entry, descriptor, value }) {
       const data = {
         id: entry.id,
-        data: metadata
+        data: {
+          [descriptor.field_name]: value
+        }
       }
-      this.editEdit(data)
+      await this.editEdit(data)
+      this.onSearchChange(false)
     }
   },
 
@@ -954,7 +967,7 @@ export default {
     $route() {
       if (!this.$route.query) return
       const search = this.$route.query.search
-      const actualSearch = this.$refs['edit-search-field'].getValue()
+      const actualSearch = this.$refs['edit-search-field']?.getValue()
       if (search !== actualSearch) {
         this.searchField.setValue(search)
         this.applySearch(search)
@@ -962,16 +975,27 @@ export default {
     },
 
     currentProduction() {
-      this.$refs['edit-search-field'].setValue('')
+      this.$refs['edit-search-field']?.setValue('')
       this.$store.commit('SET_EDIT_LIST_SCROLL_POSITION', 0)
       this.initialLoading = true
       if (!this.isTVShow) this.reset()
     },
 
     currentEpisode() {
-      this.$refs['edit-search-field'].setValue('')
+      this.$refs['edit-search-field']?.setValue('')
       this.$store.commit('SET_EDIT_LIST_SCROLL_POSITION', 0)
       if (this.isTVShow && this.currentEpisode) this.reset()
+    },
+
+    currentSection() {
+      if (
+        (this.isTVShow && this.edits.length === 0) ||
+        this.edits[0].episode_id !== this.currentEpisode.id
+      ) {
+        this.$refs['edit-search-field'].setValue('')
+        this.$store.commit('SET_EDIT_LIST_SCROLL_POSITION', 0)
+        this.reset()
+      }
     },
 
     isEditsLoading() {
@@ -992,7 +1016,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     if (this.isTVShow) {
       return {
         title: `${
@@ -1045,6 +1069,6 @@ export default {
 }
 
 .combobox-department {
-  margin-bottom: 0px;
+  margin-bottom: 0;
 }
 </style>

@@ -61,13 +61,16 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
+
 import { modalMixin } from '@/components/modals/base_modal'
+
 import { formatDate } from '@/lib/time'
 
-import TableInfo from '@/components/widgets/TableInfo'
+import TableInfo from '@/components/widgets/TableInfo.vue'
 
 export default {
   name: 'edit-history-modal',
+
   mixins: [modalMixin],
 
   components: {
@@ -84,6 +87,8 @@ export default {
       default: () => {}
     }
   },
+
+  emits: ['cancel'],
 
   data() {
     return {

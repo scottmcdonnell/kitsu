@@ -32,7 +32,7 @@
           <combobox
             class="flexrow-item"
             :options="general.operatorOptions"
-            @input="onDepartmentOperatorChanged(departmentFilter)"
+            @update:model-value="onDepartmentOperatorChanged(departmentFilter)"
             locale-key-prefix="entities.build_filter."
             v-model="departmentFilter.operator"
           />
@@ -67,16 +67,18 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
+import { mapGetters } from 'vuex'
+
 import { modalMixin } from '@/components/modals/base_modal'
 import { getFilters } from '@/lib/filtering'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import Combobox from '@/components/widgets/Combobox'
-import ModalFooter from '@/components/modals/ModalFooter'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
+import ModalFooter from '@/components/modals/ModalFooter.vue'
 
 export default {
   name: 'build-people-filter-modal',
+
   mixins: [modalMixin],
 
   components: {
@@ -91,6 +93,8 @@ export default {
       default: false
     }
   },
+
+  emits: ['cancel', 'confirm'],
 
   data() {
     return {
@@ -136,8 +140,6 @@ export default {
   },
 
   methods: {
-    ...mapActions([]),
-
     // Build filter
 
     applyFilter() {

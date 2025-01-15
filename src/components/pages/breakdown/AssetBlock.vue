@@ -1,19 +1,19 @@
 <template>
   <div
+    class="asset big casted labelled"
     :class="{
-      asset: true,
-      big: true,
+      active,
       'big-asset': bigMode,
-      casted: true,
-      active: active,
-      labelled: true
+      shared: asset.shared
     }"
     :title="`${asset.name} (${nbOccurences})`"
     v-if="!textMode"
   >
     <div class="asset-wrapper">
-      <div class="asset-add-1" @click="addOneAsset" v-if="!readOnly">+ 1</div>
-      <div class="asset-add" @click="removeOneAsset" v-if="!readOnly">- 1</div>
+      <template v-if="!readOnly && active">
+        <div class="asset-add-1" @click.stop="addOneAsset">+ 1</div>
+        <div class="asset-add" @click.stop="removeOneAsset">- 1</div>
+      </template>
       <div class="asset-picture" v-if="asset.preview_file_id">
         <img
           loading="lazy"
@@ -34,15 +34,20 @@
       {{ asset.label || $t('breakdown.options.animate') }}
     </div>
   </div>
-  <div class="asset-text flexrow-item flexrow" v-else>
-    <span class="asset-text-name flexrow-item">
+  <div
+    class="asset-text flexrow-item flexrow"
+    :class="{
+      shared: asset.shared
+    }"
+    v-else
+  >
+    <span class="asset-text-name flexrow-item filler">
       {{ asset.name }} ({{ nbOccurences }})
     </span>
-    <span class="filler"></span>
     <span
       class="modify-asset flexrow-item"
-      @click="removeOneAsset"
-      v-if="!readOnly"
+      @click.stop="removeOneAsset"
+      v-if="!readOnly && active"
     >
       - 1
     </span>
@@ -51,19 +56,13 @@
 
 <script>
 import stringHelpers from '@/lib/string'
+import { domMixin } from '@/components/mixins/dom'
 
 export default {
   name: 'asset-block',
-  components: {},
 
-  data() {
-    return {
-      initialLoading: true,
-      loading: {
-        EditLabel: false
-      }
-    }
-  },
+  mixins: [domMixin],
+
   props: {
     asset: {
       default: () => ({
@@ -94,15 +93,15 @@ export default {
     }
   },
 
-  computed: {},
+  emits: ['add-one', 'edit-label', 'remove-one'],
 
   methods: {
     removeOneAsset(event) {
-      this.$emit('remove-one', this.asset.asset_id, this.nbOccurences)
+      this.$emit('remove-one', this.asset.asset_id)
     },
 
     addOneAsset(event) {
-      this.$emit('add-one', this.asset.asset_id, this.nbOccurences)
+      this.$emit('add-one', this.asset.asset_id)
     },
 
     shortenName(name) {
@@ -165,6 +164,10 @@ export default {
       bottom: 15px;
     }
   }
+
+  &.shared {
+    box-shadow: 0 0 0 2px var(--shared-color);
+  }
 }
 
 .labelled {
@@ -198,7 +201,7 @@ export default {
   font-weight: bold;
   font-size: 0.9em;
   opacity: 0;
-  z-index: 2;
+  z-index: 3;
 }
 
 .asset-add-1 {
@@ -271,6 +274,10 @@ export default {
 .asset-text {
   width: 120px;
   margin-right: 0;
+
+  &.shared {
+    box-shadow: 0 0 0 2px var(--shared-color);
+  }
 }
 
 .modify-asset {

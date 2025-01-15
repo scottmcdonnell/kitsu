@@ -51,11 +51,11 @@ import { mapGetters, mapActions } from 'vuex'
 import csv from '@/lib/csv'
 import stringHelpers from '@/lib/string'
 
-import DeleteModal from '@/components/modals/DeleteModal'
+import DeleteModal from '@/components/modals/DeleteModal.vue'
 import DepartmentList from '@/components/lists/DepartmentList.vue'
-import EditDepartmentsModal from '@/components/modals/EditDepartmentsModal'
-import ListPageHeader from '@/components/widgets/ListPageHeader'
-import RouteTabs from '@/components/widgets/RouteTabs'
+import EditDepartmentsModal from '@/components/modals/EditDepartmentsModal.vue'
+import ListPageHeader from '@/components/widgets/ListPageHeader.vue'
+import RouteTabs from '@/components/widgets/RouteTabs.vue'
 
 export default {
   name: 'departments',
@@ -107,7 +107,7 @@ export default {
     try {
       await this.loadDepartments()
     } catch (error) {
-      console.log(error)
+      console.error(error)
       this.errors.departments = true
     }
     this.loading.departments = false
@@ -209,7 +209,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('departments.title')} - Kitsu`
     }

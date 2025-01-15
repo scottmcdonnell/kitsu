@@ -8,6 +8,8 @@ import { applyFilters, getFilters, getKeyWords } from '@/lib/filtering'
 import auth from '@/lib/auth'
 
 import taskStatusStore from '@/store/modules/taskstatus'
+import taskStore from '@/store/modules/tasks'
+
 import {
   LOAD_PEOPLE_START,
   LOAD_PEOPLE_ERROR,
@@ -81,21 +83,21 @@ const helpers = {
   },
 
   getTaskStatus(taskStatusId) {
-    return taskStatusStore.state.taskStatusMap.get(taskStatusId)
+    return taskStatusStore.cache.taskStatusMap.get(taskStatusId)
   },
 
   buildResult(state, { peopleSearch, departments, persons }) {
     const query = peopleSearch
     const keywords = getKeyWords(query) || []
 
-    const peopleIndex = buildNameIndex(state.people)
+    const peopleIndex = cache.peopleIndex
     const filters = getFilters({
       entryIndex: peopleIndex,
       departments,
       persons,
       query
     })
-    let result = indexSearch(peopleIndex, keywords) || state.people
+    let result = indexSearch(peopleIndex, keywords) || cache.people
     result = applyFilters(result, filters, {})
     result = sortPeople(result)
 
@@ -105,10 +107,12 @@ const helpers = {
 }
 
 const cache = {
+  people: [],
   peopleIndex: {},
   personDoneTasksIndex: {},
   personDoneTasks: [],
-  personTasksIndex: {}
+  personTasksIndex: {},
+  personMap: new Map()
 }
 
 const initialState = {
@@ -116,15 +120,17 @@ const initialState = {
     name: 'Kitsu',
     hours_by_day: 8,
     has_avatar: false,
-    use_original_file_name: 'false',
-    timesheets_locked: 'false'
+    hd_by_default: false,
+    timesheets_locked: false,
+    use_original_file_name: false,
+    format_duration_in_hours: false,
+    dark_theme_by_default: false
   },
 
   people: [],
   displayedPeople: [],
   peopleSearchText: '',
   peopleSearchQueries: [],
-  personMap: new Map(),
   isPeopleLoading: false,
   isPeopleLoadingError: true,
 
@@ -165,17 +171,17 @@ const state = {
 const getters = {
   organisation: state => state.organisation,
 
-  people: state => state.people,
-  peopleWithoutBot: state => state.people.filter(person => !person.is_bot),
-  activePeople: state => state.people.filter(person => person.active),
+  people: state => cache.people,
+  peopleWithoutBot: state => cache.people.filter(person => !person.is_bot),
+  activePeople: state => cache.people.filter(person => person.active),
   activePeopleWithoutBot: state =>
-    state.people.filter(person => person.active && !person.is_bot),
+    cache.people.filter(person => person.active && !person.is_bot),
   displayedPeople: state => state.displayedPeople,
-  peopleIndex: state => state.peopleIndex,
-  personMap: state => state.personMap,
+  peopleIndex: state => cache.peopleIndex,
+  personMap: state => cache.personMap,
   personEmailMap: state => {
     const emailMap = new Map()
-    state.people.forEach(person => {
+    cache.people.forEach(person => {
       emailMap.set(person.email, person)
     })
     return emailMap
@@ -205,7 +211,7 @@ const getters = {
   personTaskSelectionGrid: state => state.personTaskSelectionGrid,
   personTasksScrollPosition: state => state.personTasksScrollPosition,
 
-  getPerson: state => id => state.personMap.get(id),
+  getPerson: state => id => cache.personMap.get(id),
 
   timesheet: state => state.timesheet,
   personTimeSpentMap: state => state.personTimeSpentMap,
@@ -218,8 +224,8 @@ const getters = {
 
 const actions = {
   async getOrganisation({ commit }) {
-    const organisation = await peopleApi.getOrganisation()
-    commit(SET_ORGANISATION, organisation)
+    const organisations = await peopleApi.getOrganisations()
+    commit(SET_ORGANISATION, organisations[0])
   },
 
   async saveOrganisation({ commit }, form) {
@@ -241,7 +247,6 @@ const actions = {
     commit(SET_ORGANISATION, { has_avatar: false })
   },
 
-  // FIXME: refactor callback to async/await
   loadPeople({ commit, rootGetters }, callback) {
     commit(LOAD_PEOPLE_START)
     peopleApi.getPeople((err, people) => {
@@ -505,7 +510,7 @@ const actions = {
     const table = await getTableFn(year, monthString, productionId, studioId)
     if (detailLevel === 'day') {
       const dayOffs = await peopleApi.getDaysOff(year, monthString)
-      commit(PEOPLE_SET_DAY_OFFS, dayOffs)
+      commit(PEOPLE_SET_DAY_OFFS, { dayOffs, month })
     }
     commit(PEOPLE_TIMESHEET_LOADED, table)
   },
@@ -566,7 +571,7 @@ const mutations = {
   [LOAD_PEOPLE_START](state) {
     state.isPeopleLoading = true
     state.isPeopleLoadingError = false
-    state.personMap = new Map()
+    cache.personMap = new Map()
   },
 
   [LOAD_PEOPLE_ERROR](state) {
@@ -577,61 +582,62 @@ const mutations = {
   [LOAD_PEOPLE_END](state, { people, userFilters }) {
     state.isPeopleLoading = false
     state.isPeopleLoadingError = false
-    state.people = sortPeople(people).map(person => {
-      person = helpers.addAdditionalInformation(person)
-      state.personMap.set(person.id, person)
-      return person
+    cache.people = sortPeople(people).map(person => {
+      return helpers.addAdditionalInformation(person)
     })
-    state.displayedPeople = state.people
-    cache.peopleIndex = buildNameIndex(state.people)
+    cache.people.forEach(person => {
+      cache.personMap.set(person.id, person)
+    })
+    state.displayedPeople = cache.people
+    cache.peopleIndex = buildNameIndex(cache.people)
 
     state.peopleSearchQueries = userFilters.people?.all || []
   },
 
   [DELETE_PEOPLE_END](state, person) {
     if (person) {
-      const personToDeleteIndex = state.people.findIndex(
+      const personToDeleteIndex = cache.people.findIndex(
         ({ id }) => id === person.id
       )
       if (personToDeleteIndex >= 0) {
-        state.people.splice(personToDeleteIndex, 1)
+        cache.people.splice(personToDeleteIndex, 1)
       }
-      delete state.personMap.get(person.id)
+      delete cache.personMap.get(person.id)
     }
-    cache.peopleIndex = buildNameIndex(state.people)
+    cache.peopleIndex = buildNameIndex(cache.people)
     if (state.peopleSearchText) {
       const keywords = getKeyWords(state.peopleSearchText)
       state.displayedPeople = indexSearch(cache.peopleIndex, keywords)
     } else {
-      state.displayedPeople = state.people
+      state.displayedPeople = cache.people
     }
   },
 
   [EDIT_PEOPLE_END](state, person) {
     person = helpers.addAdditionalInformation(person)
     if (person.name) {
-      const personToEditIndex = state.people.findIndex(
+      const personToEditIndex = cache.people.findIndex(
         ({ id }) => id === person.id
       )
       if (personToEditIndex >= 0) {
-        state.people[personToEditIndex] = person
-      } else if (!state.personMap.has(person.id)) {
-        state.people.push(person)
+        cache.people[personToEditIndex] = person
+      } else if (!cache.personMap.has(person.id)) {
+        cache.people.push(person)
       }
-      state.personMap.set(person.id, person)
-      state.people = sortPeople(state.people)
-      cache.peopleIndex = buildNameIndex(state.people)
+      cache.personMap.set(person.id, person)
+      cache.people = sortPeople(cache.people)
+      cache.peopleIndex = buildNameIndex(cache.people)
       if (state.peopleSearchText) {
         const keywords = getKeyWords(state.peopleSearchText)
         state.displayedPeople = indexSearch(cache.peopleIndex, keywords)
       } else {
-        state.displayedPeople = state.people
+        state.displayedPeople = cache.people
       }
     }
   },
 
   [DISABLE_TWO_FACTOR_AUTHENTICATION_END](state, personId) {
-    const person = state.personMap.get(personId)
+    const person = cache.personMap.get(personId)
     person.totp_enabled = false
     person.email_otp_enabled = false
     person.preferred_two_factor_authentication = null
@@ -657,7 +663,7 @@ const mutations = {
   },
 
   [UPLOAD_AVATAR_END](state, personId) {
-    const person = state.personMap.get(personId)
+    const person = cache.personMap.get(personId)
     if (person) {
       const timestamp = Date.now()
       person.avatarPath = `/api/pictures/thumbnails/persons/${person.id}.png?t=${timestamp}`
@@ -666,7 +672,7 @@ const mutations = {
   },
 
   [CLEAR_AVATAR](state, personId) {
-    const person = state.personMap.get(personId)
+    const person = cache.personMap.get(personId)
     if (person) {
       person.has_avatar = false
     }
@@ -676,7 +682,7 @@ const mutations = {
     state,
     { personId, tasks, userFilters, taskTypeMap }
   ) {
-    state.person = state.personMap.get(personId)
+    state.person = cache.personMap.get(personId)
 
     tasks.forEach(populateTask)
     tasks.forEach(task => {
@@ -765,9 +771,11 @@ const mutations = {
   },
 
   [CLEAR_SELECTED_TASKS](state, validationInfo) {
-    state.personTaskSelectionGrid = clearSelectionGrid(
-      state.personTaskSelectionGrid
-    )
+    if (taskStore.state.nbSelectedTasks > 0) {
+      state.personTaskSelectionGrid = clearSelectionGrid(
+        state.personTaskSelectionGrid
+      )
+    }
   },
 
   [PEOPLE_TIMESHEET_LOADED](state, timesheet) {
@@ -807,7 +815,7 @@ const mutations = {
     state.daysOff = daysOff
   },
 
-  [PEOPLE_SET_DAY_OFFS](state, dayOffs) {
+  [PEOPLE_SET_DAY_OFFS](state, { dayOffs, month }) {
     const dayOffMap = {}
     // Build a map that tells if a day is off. It uses two keys: the person id
     // and the day number.
@@ -818,8 +826,10 @@ const mutations = {
       const currentDate = new Date(date)
       const endDate = new Date(end_date)
       while (currentDate <= endDate) {
-        const day = currentDate.toISOString().substring(8, 10)
-        dayOffMap[person_id][day] = true
+        if (currentDate.getUTCMonth() + 1 === month) {
+          const day = currentDate.toISOString().substring(8, 10)
+          dayOffMap[person_id][day] = true
+        }
         currentDate.setDate(currentDate.getDate() + 1)
       }
     })
@@ -836,7 +846,7 @@ const mutations = {
 
   [USER_SAVE_PROFILE_SUCCESS](state, form) {
     // On profile change we need to update the main list.
-    const person = state.personMap.get(form.id)
+    const person = cache.personMap.get(form.id)
     if (person) {
       Object.assign(person, form)
       helpers.addAdditionalInformation(person)
@@ -875,5 +885,6 @@ export default {
   getters,
   actions,
   mutations,
-  helpers
+  helpers,
+  cache
 }

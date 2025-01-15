@@ -2,40 +2,23 @@ import client from '@/store/api/client'
 import { buildQueryString } from '@/lib/query'
 
 export default {
-  getOrganisation() {
-    return client.pget('/api/data/organisations').then(organisations => {
-      let organisation = {
-        name: 'Kitsu',
-        hours_by_day: 8,
-        has_avatar: false,
-        use_original_file_name: false,
-        timesheets_locked: false,
-        chat_token_slack: '',
-        chat_webhook_mattermost: '',
-        chat_token_discord: ''
-      }
-      if (organisations.length > 0) organisation = organisations[0]
-      organisation.use_original_file_name = organisation.use_original_file_name
-        ? 'true'
-        : 'false'
-      organisation.timesheets_locked = organisation.timesheets_locked
-        ? 'true'
-        : 'false'
-      Promise.resolve(organisation)
-    })
+  getOrganisations() {
+    return client.pget('/api/data/organisations')
   },
 
   updateOrganisation(organisation) {
     const data = {
       name: organisation.name,
       hours_by_day: organisation.hours_by_day,
-      timesheets_locked: organisation.timesheets_locked === 'true',
-      use_original_file_name: organisation.use_original_file_name === 'true',
-      hd_by_default: organisation.hd_by_default === 'true',
+      timesheets_locked: organisation.timesheets_locked,
+      use_original_file_name: organisation.use_original_file_name,
+      hd_by_default: organisation.hd_by_default,
       chat_token_slack: organisation.chat_token_slack,
       chat_webhook_mattermost: organisation.chat_webhook_mattermost,
       chat_token_discord: organisation.chat_token_discord,
-      has_avatar: organisation.has_avatar
+      has_avatar: organisation.has_avatar,
+      format_duration_in_hours: organisation.format_duration_in_hours,
+      dark_theme_by_default: organisation.dark_theme_by_default
     }
     return client.pput(`/api/data/organisations/${organisation.id}`, data)
   },
@@ -246,13 +229,21 @@ export default {
     return client.pget('/api/data/user/filter-groups')
   },
 
-  createFilterGroup(listType, name, color, productionId, entityType) {
+  createFilterGroup(
+    listType,
+    name,
+    color,
+    productionId,
+    entityType,
+    departmentId
+  ) {
     const data = {
       list_type: listType,
       name,
       color,
       project_id: productionId,
-      entity_type: entityType
+      entity_type: entityType,
+      department_id: departmentId
     }
     return client.ppost('/api/data/user/filter-groups', data)
   },
@@ -262,7 +253,8 @@ export default {
       name: filterGroup.name,
       color: filterGroup.color,
       is_shared: filterGroup.is_shared,
-      project_id: filterGroup.project_id
+      project_id: filterGroup.project_id,
+      department_id: filterGroup.department_id
     }
     return client.pput(`/api/data/user/filter-groups/${filterGroup.id}`, data)
   },
@@ -281,7 +273,8 @@ export default {
       search_query: searchFilter.search_query,
       search_filter_group_id: searchFilter.search_filter_group_id,
       is_shared: searchFilter.is_shared,
-      project_id: searchFilter.project_id
+      project_id: searchFilter.project_id,
+      department_id: searchFilter.department_id
     }
     return client.pput(`/api/data/user/filters/${searchFilter.id}`, data)
   },
@@ -448,7 +441,6 @@ export default {
     computeMode
   ) {
     let path = `/api/data/persons/${personId}/quota-shots/`
-    const weighted = computeMode === 'weighted'
 
     if (detailLevel === 'year') {
       path += `year/${year}`
@@ -469,7 +461,7 @@ export default {
       else path += '&'
       path += `&task_type_id=${taskTypeId}`
     }
-    path += `&weighted=${weighted}`
+    path += `&count_mode=${computeMode}`
 
     return client.pget(path)
   },

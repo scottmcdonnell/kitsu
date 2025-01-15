@@ -1,6 +1,6 @@
 <template>
   <div class="data-list">
-    <div class="datatable-wrapper" ref="body" v-scroll="onBodyScroll">
+    <div class="datatable-wrapper" ref="body" @scroll.passive="onBodyScroll">
       <table class="datatable">
         <thead class="datatable-head">
           <tr>
@@ -8,29 +8,31 @@
               {{ $t('shots.fields.sequence') }}
             </th>
             <th scope="col" class="validation">{{ $t('main.all') }}</th>
-            <th
-              scope="col"
-              class="validation validation-cell"
-              :key="columnId"
-              v-for="columnId in validationColumns"
-              v-if="!isLoading"
-            >
-              <div
-                class="flexrow validation-content"
-                :style="getValidationStyle(columnId)"
+            <template v-if="!isLoading">
+              <th
+                scope="col"
+                class="validation validation-cell"
+                :key="columnId"
+                v-for="columnId in validationColumns"
               >
-                <router-link
-                  class="flexrow-item"
-                  :to="taskTypePath(columnId)"
-                  v-if="!isCurrentUserClient"
+                <div
+                  class="flexrow validation-content"
+                  :style="getValidationStyle(columnId)"
                 >
-                  {{ taskTypeMap.get(columnId).name }}
-                </router-link>
-                <span class="flexrow-item" v-else>
-                  {{ taskTypeMap.get(columnId).name }}
-                </span>
-              </div>
-            </th>
+                  <router-link
+                    class="flexrow-item"
+                    :title="taskTypeMap.get(columnId).name"
+                    :to="taskTypePath(columnId)"
+                    v-if="!isCurrentUserClient"
+                  >
+                    {{ taskTypeMap.get(columnId).name }}
+                  </router-link>
+                  <span class="flexrow-item" v-else>
+                    {{ taskTypeMap.get(columnId).name }}
+                  </span>
+                </div>
+              </th>
+            </template>
             <th scope="col" class="actions"></th>
           </tr>
         </thead>
@@ -45,8 +47,8 @@
               :colors="chartColors('all', 'all')"
               :data="chartData('all', 'all')"
               :frames-data="chartData('all', 'all', 'frames')"
-              :countMode="countMode"
-              :displayMode="displayMode"
+              :count-mode="countMode"
+              :display-mode="displayMode"
             />
 
             <stats-cell
@@ -55,20 +57,15 @@
               :colors="chartColors('all', columnId)"
               :data="chartData('all', columnId)"
               :frames-data="chartData('all', columnId, 'frames')"
-              :countMode="countMode"
-              :displayMode="displayMode"
+              :count-mode="countMode"
+              :display-mode="displayMode"
               v-for="columnId in validationColumns"
             />
 
             <td class="actions"></td>
           </tr>
 
-          <tr
-            class="datatable-row"
-            :key="entry.id"
-            v-for="entry in entries"
-            v-if="isEntryStats(entry.id)"
-          >
+          <tr class="datatable-row" :key="entry.id" v-for="entry in entryStats">
             <td scope="row" class="name datatable-row-header">
               {{ entry.name }}
             </td>
@@ -77,24 +74,28 @@
               :colors="chartColors(entry.id, 'all')"
               :data="chartData(entry.id, 'all')"
               :frames-data="chartData(entry.id, 'all', 'frames')"
-              :countMode="countMode"
-              :displayMode="displayMode"
+              :count-mode="countMode"
+              :display-mode="displayMode"
               v-if="isStats(entry.id, 'all')"
             />
             <td v-else></td>
 
-            <stats-cell
-              :key="entry.id + columnId"
-              :style="getValidationStyle(columnId)"
-              :colors="chartColors(entry.id, columnId)"
-              :data="chartData(entry.id, columnId)"
-              :frames-data="chartData(entry.id, columnId, 'frames')"
-              :countMode="countMode"
-              :displayMode="displayMode"
-              v-if="isStats(entry.id, columnId)"
+            <template
+              :key="entry.id + '-' + columnId"
               v-for="columnId in validationColumns"
-            />
-            <td :style="getValidationStyle(columnId)" v-else></td>
+            >
+              <stats-cell
+                :key="entry.id + columnId"
+                :style="getValidationStyle(columnId)"
+                :colors="chartColors(entry.id, columnId)"
+                :data="chartData(entry.id, columnId)"
+                :frames-data="chartData(entry.id, columnId, 'frames')"
+                :count-mode="countMode"
+                :display-mode="displayMode"
+                v-if="isStats(entry.id, columnId)"
+              />
+              <td :style="getValidationStyle(columnId)" v-else></td>
+            </template>
 
             <td class="actions"></td>
           </tr>
@@ -131,15 +132,18 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
+import { mapGetters } from 'vuex'
+
 import { getChartColors, getChartData } from '@/lib/stats'
+
 import { entityListMixin } from '@/components/mixins/entity_list'
 
-import TableInfo from '@/components/widgets/TableInfo'
-import StatsCell from '@/components/cells/StatsCell'
+import TableInfo from '@/components/widgets/TableInfo.vue'
+import StatsCell from '@/components/cells/StatsCell.vue'
 
 export default {
   name: 'sequence-stats-list',
+
   mixins: [entityListMixin],
 
   components: {
@@ -187,13 +191,15 @@ export default {
       'currentProduction',
       'currentEpisode',
       'displayedSequencesLength',
-      'isDarkTheme',
       'isCurrentUserClient',
-      'isCurrentUserManager',
       'isTVShow',
       'sequenceSearchText',
       'taskTypeMap'
     ]),
+
+    entryStats() {
+      return this.entries.filter(entry => this.isEntryStats(entry.id))
+    },
 
     isEmptyList() {
       return (
@@ -207,8 +213,6 @@ export default {
   },
 
   methods: {
-    ...mapActions([]),
-
     chartColors(entryId, columnId) {
       return getChartColors(this.sequenceStats, entryId, columnId)
     },
@@ -231,16 +235,6 @@ export default {
         isStats = isStats || this.sequenceStats[entryId][statKey]
       })
       return isStats
-    },
-
-    onBodyScroll(event, position) {
-      this.$emit('scroll', position.scrollTop)
-    },
-
-    setScrollPosition(scrollPosition) {
-      if (this.$refs.body) {
-        this.$refs.body.scrollTop = scrollPosition
-      }
     },
 
     editPath(sequenceId) {

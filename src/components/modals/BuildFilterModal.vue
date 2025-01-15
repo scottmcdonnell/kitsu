@@ -44,7 +44,7 @@
 
         <div
           class="flexrow task-type-filter"
-          :key="'task-type-' + i"
+          :key="`task-type-${i}`"
           v-for="(taskTypeFilter, i) in taskTypeFilters.values"
         >
           <combobox-task-type
@@ -55,14 +55,14 @@
           <combobox
             class="flexrow-item"
             :options="general.taskTypeOperatorOptions"
-            @input="onTaskTypeOperatorChanged(taskTypeFilter)"
+            @update:model-value="onTaskTypeOperatorChanged(taskTypeFilter)"
             locale-key-prefix="entities.build_filter."
             v-model="taskTypeFilter.operator"
           />
           <div class="flexrow-item flexrow value-column">
             <combobox-status
               class="flexrow-item"
-              :key="'task-type-value-' + index"
+              :key="`task-type-value-${index}`"
               :task-status-list="taskStatuses"
               v-model="taskTypeFilter.values[index]"
               v-for="(statusId, index) in taskTypeFilter.values"
@@ -91,22 +91,14 @@
 
           <div
             class="flexrow descriptor-filter"
-            :key="'desc-' + i"
+            :key="`descriptor-${i}`"
             v-for="(descriptorFilter, i) in metadataDescriptorFilters.values"
           >
             <combobox
               class="flexrow-item"
               :options="descriptorOptions"
-              @input="onDescriptorChanged(descriptorFilter)"
+              @update:model-value="onDescriptorChanged(descriptorFilter)"
               v-model="descriptorFilter.id"
-            />
-            <combobox
-              class="flexrow-item"
-              :options="general.operatorOptions"
-              locale-key-prefix="entities.build_filter."
-              v-model="descriptorFilter.operator"
-              v-if="!descriptorFilter.is_checklist"
-              @input="operator => onOperatorChanged(operator, descriptorFilter)"
             />
 
             <combobox
@@ -114,21 +106,45 @@
               :options="general.checklistOptions"
               locale-key-prefix="entities.build_filter."
               v-model="descriptorFilter.values[0].checked"
+              v-if="descriptorFilter.is_checklist"
+            />
+            <combobox
+              class="flexrow-item"
+              :options="general.booleanOptions"
+              locale-key-prefix="entities.build_filter."
+              v-model="descriptorFilter.values[0]"
+              v-else-if="
+                getDescriptor(descriptorFilter.id).data_type === 'boolean'
+              "
+            />
+            <combobox
+              class="flexrow-item"
+              :options="general.operatorOptions"
+              locale-key-prefix="entities.build_filter."
+              @update:model-value="
+                operator => onOperatorChanged(operator, descriptorFilter)
+              "
+              v-model="descriptorFilter.operator"
               v-else
             />
 
-            <div class="flexrow-item flexrow value-column">
+            <div
+              class="flexrow-item flexrow value-column"
+              v-if="getDescriptor(descriptorFilter.id).data_type !== 'boolean'"
+            >
               <template v-for="(value, index) in descriptorFilter.values">
-                <text-field
-                  :key="'descriptor-value-' + index"
+                <metadata-field
                   class="flexrow-item"
-                  input-class=" thin"
+                  label=""
+                  :key="`descriptor-value-${index}`"
+                  :descriptor="getDescriptor(descriptorFilter.id)"
+                  :entity="{}"
                   v-model="descriptorFilter.values[index]"
                   v-if="getDescriptor(descriptorFilter.id).choices.length === 0"
                 />
                 <combobox
                   class="flexrow-item"
-                  :key="'descriptor-list-value-' + index"
+                  :key="`descriptor-value-${index}`"
                   :options="
                     getDescriptorChoiceOptions(
                       descriptorFilter.id,
@@ -170,19 +186,18 @@
           />
 
           <div class="flexcolumn">
-            <people-field
-              class="flexrow-item assignation-person"
-              :people="team"
-              big
-              v-model="assignation.person"
-              v-if="['assignedto', '-assignedto'].includes(assignation.value)"
-            />
-            <span
-              class="flexrow-item align-middle"
+            <template
               v-if="['assignedto', '-assignedto'].includes(assignation.value)"
             >
-              {{ $t('main.on') }}
-            </span>
+              <people-field
+                class="flexrow-item"
+                :people="team"
+                v-model="assignation.person"
+              />
+              <span class="flexrow-item mt05 mb05">
+                {{ $t('main.on') }}
+              </span>
+            </template>
 
             <combobox-task-type
               class="flexrow-item"
@@ -275,19 +290,22 @@
 
 <script>
 import { mapGetters } from 'vuex'
+
 import { modalMixin } from '@/components/modals/base_modal'
 import { getFilters } from '@/lib/filtering'
 import { sortPeople } from '@/lib/sorting'
 import { descriptorMixin } from '@/components/mixins/descriptors'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import Combobox from '@/components/widgets/Combobox'
-import ComboboxStatus from '@/components/widgets/ComboboxStatus'
-import ComboboxStyled from '@/components/widgets/ComboboxStyled'
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-import ModalFooter from '@/components/modals/ModalFooter'
-import PeopleField from '@/components/widgets/PeopleField'
-import TextField from '@/components/widgets/TextField'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
+import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
+import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import MetadataField from '@/components/widgets/MetadataField.vue'
+import ModalFooter from '@/components/modals/ModalFooter.vue'
+import PeopleField from '@/components/widgets/PeopleField.vue'
+
+import { v4 as uuidv4 } from 'uuid'
 
 export default {
   name: 'build-filter-modal',
@@ -300,9 +318,9 @@ export default {
     ComboboxStatus,
     ComboboxStyled,
     ComboboxTaskType,
+    MetadataField,
     ModalFooter,
-    PeopleField,
-    TextField
+    PeopleField
   },
 
   props: {
@@ -315,6 +333,8 @@ export default {
       default: 'asset'
     }
   },
+
+  emits: ['cancel', 'confirm'],
 
   data() {
     return {
@@ -339,6 +359,10 @@ export default {
           { label: 'equal', value: '=' },
           { label: 'not_equal', value: '=-' },
           { label: 'in', value: 'in' }
+        ],
+        booleanOptions: [
+          { label: 'checked', value: 'true' },
+          { label: 'not_checked', value: '-true' }
         ],
         checklistOptions: [
           { label: 'checked', value: true },
@@ -486,7 +510,7 @@ export default {
       return sortPeople(
         this.currentProduction.team
           .map(personId => this.personMap.get(personId))
-          .filter(person => !person.is_bot)
+          .filter(person => person && !person.is_bot)
       )
     },
 
@@ -561,8 +585,8 @@ export default {
           if (descriptorFilter.operator === '=-') operator = '=[-'
           value = descriptorFilter.values.join(',')
         }
-        const desc = this.getDescriptor(descriptorFilter.id)
-        query += ` [${desc.name}]${operator}${value}]`
+        const descriptor = this.getDescriptor(descriptorFilter.id)
+        query += ` [${descriptor.name}]${operator}${value}]`
       })
       return query
     },
@@ -635,6 +659,7 @@ export default {
 
     addTaskTypeFilter() {
       const filter = {
+        localId: uuidv4(),
         id: this.taskTypeList[0].id,
         operator: '=',
         values: [this.taskStatuses[0].id]
@@ -649,7 +674,7 @@ export default {
 
     removeTaskTypeFilter(taskTypeFilter) {
       this.taskTypeFilters.values = this.taskTypeFilters.values.filter(
-        f => f !== taskTypeFilter
+        f => f.localId !== taskTypeFilter.localId
       )
     },
 
@@ -671,30 +696,35 @@ export default {
         } else {
           descriptorFilter.values = [descriptor.choices[0]]
         }
+      } else if (descriptor.data_type === 'boolean') {
+        descriptorFilter.values = ['-true']
       } else {
         descriptorFilter.values = ['']
       }
     },
 
     addDescriptorFilter() {
-      const desc = this.getDescriptor(this.descriptorOptions[0].value)
+      const descriptor = this.getDescriptor(this.descriptorOptions[0].value)
       const values = []
       let isChecklist = false
-      if (desc.choices.length > 0) {
-        const checklistValues = this.getDescriptorChecklistValues(desc)
+      if (descriptor.choices.length > 0) {
+        const checklistValues = this.getDescriptorChecklistValues(descriptor)
         if (checklistValues.length > 0) {
           isChecklist = true
           values.push(checklistValues[0])
         } else {
-          values.push(desc.choices[0])
+          values.push(descriptor.choices[0])
         }
+      } else if (descriptor.data_type === 'boolean') {
+        values.push('-true')
       } else {
         values.push('')
       }
       const filter = {
+        localId: uuidv4(),
         id: this.descriptorOptions[0].value,
         operator: '=',
-        values: values,
+        values,
         is_checklist: isChecklist
       }
       this.metadataDescriptorFilters.values.push(filter)
@@ -704,7 +734,7 @@ export default {
     removeDescriptorFilter(descriptorFilter) {
       this.metadataDescriptorFilters.values =
         this.metadataDescriptorFilters.values.filter(
-          f => f !== descriptorFilter
+          f => f.localId !== descriptorFilter.localId
         )
     },
 
@@ -813,12 +843,18 @@ export default {
               checked: false
             }
           ]
-        } else if (filter.excluding) operator = '=-'
+        } else if (filter.excluding) {
+          if (filter.descriptor.data_type === 'boolean') {
+            values = [`-${filter.values[0]}`]
+          } else {
+            operator = '=-'
+          }
+        }
       }
       this.metadataDescriptorFilters.values.push({
         id: filter.descriptor.id,
         operator,
-        values: values,
+        values,
         is_checklist: isChecklist
       })
     },
@@ -848,7 +884,7 @@ export default {
 
     setFiltersFromPriorityQuery(filter) {
       this.priority.taskTypeId = filter.taskTypeId
-      this.priority.value = filter.value + ''
+      this.priority.value = String(filter.value)
     },
 
     setFiltersFromReadyForQuery(filter) {
@@ -951,13 +987,5 @@ export default {
   input {
     line-height: 30px;
   }
-}
-
-.assignation-person {
-  margin-bottom: 0.5em;
-}
-
-.align-middle {
-  margin-top: 9px;
 }
 </style>

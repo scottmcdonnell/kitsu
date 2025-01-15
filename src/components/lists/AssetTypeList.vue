@@ -7,6 +7,9 @@
             <th scope="col" class="name">
               {{ $t('asset_types.fields.name') }}
             </th>
+            <th scope="col" class="short-name">
+              {{ $t('asset_types.fields.short_name') }}
+            </th>
             <th scope="col" class="task-types">
               {{ $t('asset_types.fields.task_types') }}
             </th>
@@ -17,6 +20,12 @@
           <tr class="datatable-row" v-for="entry in entries" :key="entry.id">
             <td class="name">
               {{ entry.name }}
+              <span :title="entry.description" v-if="entry.description">
+                <help-circle-icon class="icon is-small" />
+              </span>
+            </td>
+            <td class="short-name">
+              {{ entry.short_name }}
             </td>
             <td class="task-types" v-if="(entry.task_types || []).length > 0">
               <span
@@ -49,15 +58,25 @@
 </template>
 
 <script>
+import { HelpCircleIcon } from 'lucide-vue-next'
+import { mapGetters } from 'vuex'
+
 import { sortTaskTypes } from '@/lib/sorting'
 
-import { mapGetters, mapActions } from 'vuex'
-import RowActionsCell from '@/components/cells/RowActionsCell'
-import TableInfo from '@/components/widgets/TableInfo'
-import TaskTypeName from '@/components/widgets/TaskTypeName'
+import RowActionsCell from '@/components/cells/RowActionsCell.vue'
+import TableInfo from '@/components/widgets/TableInfo.vue'
+import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
 
 export default {
   name: 'asset-type-list',
+
+  components: {
+    HelpCircleIcon,
+    RowActionsCell,
+    TableInfo,
+    TaskTypeName
+  },
+
   props: {
     entries: {
       type: Array,
@@ -73,20 +92,13 @@ export default {
     }
   },
 
-  data() {
-    return {}
-  },
-  components: {
-    TaskTypeName,
-    RowActionsCell,
-    TableInfo
-  },
+  emits: ['delete-clicked', 'edit-clicked'],
+
   computed: {
     ...mapGetters(['taskTypeMap'])
   },
-  methods: {
-    ...mapActions([]),
 
+  methods: {
     sortTaskTypes(taskTypeIds = []) {
       const taskTypes = taskTypeIds.map(taskTypeId =>
         this.taskTypeMap.get(taskTypeId)

@@ -1,18 +1,29 @@
 <template>
   <span
-    class="field bool-field flexrow"
-    :class="{ 'is-true': localValue }"
-    :disabled="disabled"
+    class="bool-field flexrow"
+    :class="{
+      field: isField,
+      'is-true': localValue,
+      small: isSmall
+    }"
+    :disabled="disabled || null"
     @click="onClick"
   >
     <span class="icon-wrapper flexrow-item">
       <check-icon
-        :title="$t('main.yes')"
         class="true"
-        stroke-width="3"
+        :size="12"
+        :stroke-width="3"
+        :title="$t('main.yes')"
         v-if="localValue"
       />
-      <x-icon :title="$t('main.no')" class="false" stroke-width="3" v-else />
+      <x-icon
+        class="false"
+        :size="12"
+        :stroke-width="3"
+        :title="$t('main.no')"
+        v-else
+      />
     </span>
     <span class="flexrow-item">
       {{ label }}
@@ -21,7 +32,7 @@
 </template>
 
 <script>
-import { CheckIcon, XIcon } from 'vue-feather-icons'
+import { CheckIcon, XIcon } from 'lucide-vue-next'
 
 export default {
   name: 'boolean-field',
@@ -36,15 +47,25 @@ export default {
       default: '',
       type: String
     },
-    value: {
+    modelValue: {
       default: 'false',
       type: String
     },
     disabled: {
       default: false,
       type: Boolean
+    },
+    isField: {
+      default: false,
+      type: Boolean
+    },
+    isSmall: {
+      default: false,
+      type: Boolean
     }
   },
+
+  emits: ['click', 'update:modelValue'],
 
   data() {
     return {
@@ -54,25 +75,26 @@ export default {
 
   methods: {
     emitValue() {
-      this.$emit('input', this.localValue ? 'true' : 'false')
+      this.$emit('update:modelValue', this.localValue ? 'true' : 'false')
     },
 
     onClick() {
       this.localValue = !this.localValue
       this.$emit('click', this.localValue ? 'true' : 'false')
+      this.emitValue()
     }
   },
 
   watch: {
-    value: {
+    modelValue: {
       immediate: true,
       handler() {
-        this.localValue = this.value === 'true'
+        this.localValue = this.modelValue === 'true'
       }
     },
 
     localValue() {
-      this.emitValue()
+      // this.emitValue()
     }
   }
 }
@@ -83,15 +105,7 @@ export default {
   color: $light-green;
 }
 
-.true,
-.false {
-  height: 12px;
-  width: 12px;
-}
-
 .icon-wrapper {
-  height: 12px;
-  width: 12px;
   margin-right: 5px;
 }
 
@@ -120,6 +134,22 @@ export default {
   &.is-true {
     color: $light-green;
     border: 2px solid $light-green;
+  }
+}
+
+.bool-field.flexrow-item:first-child {
+  margin-right: 0;
+}
+
+.small {
+  font-size: 0.8em;
+  padding: 0.2em 0.8em 0.2em 1.8em;
+  position: relative;
+
+  .icon-wrapper {
+    position: absolute;
+    top: 4px;
+    left: 6px;
   }
 }
 </style>

@@ -7,9 +7,13 @@
   >
     <div class="modal-background" @click="$emit('cancel')"></div>
 
-    <div class="modal-content">
-      <div class="box content">
-        <!--div
+    <div
+      class="modal-content"
+      @dragover="onFileDragover"
+      @dragleave="onFileDragLeave"
+    >
+      <div class="box content attachment-modal-box">
+        <div
           ref="dropMask"
           id="drop-mask"
           class="drop-mask"
@@ -17,13 +21,13 @@
           v-if="isDraggingFile"
         >
           {{ $t('main.drop_files_here') }}
-        </div-->
+        </div>
         <h2 class="subtitle">{{ title }}</h2>
         <h1 class="title">
           {{ $t('tasks.comment_image') }}
         </h1>
 
-        <div class="flexrow buttons">
+        <div class="flexrow buttons attachment-modal-buttons">
           <file-upload
             ref="file-field"
             class="flexrow-item"
@@ -53,18 +57,13 @@
         <h3 class="subtitle has-text-centered" v-if="forms.length > 0">
           {{ $t('comments.selected_files') }}
         </h3>
-        <p class="upload-previews" v-if="forms.length > 0">
-          <template v-for="(form, i) in forms">
-            <p class="attachment-name" :key="'name-' + i">
+        <div class="upload-attachments" v-if="forms.length > 0">
+          <template v-for="(form, index) in forms" :key="`attachment-${index}`">
+            <p class="attachment-name">
               {{ form.get('file').name }}
               <span @click="removeAttachment(form)">x</span>
             </p>
-            <img
-              alt="uploaded file"
-              :src="getURL(form)"
-              :key="i"
-              v-if="isImage(form)"
-            />
+            <img alt="uploaded file" :src="getURL(form)" v-if="isImage(form)" />
             <video
               class="is-fullwidth"
               preload="auto"
@@ -72,19 +71,17 @@
               loop
               muted
               :src="getURL(form)"
-              :key="i"
               v-else-if="isVideo(form)"
             />
             <iframe
               class="is-fullwidth"
               frameborder="0"
               :src="getURL(form)"
-              :key="i"
               v-else-if="isPdf(form)"
             />
-            <hr :key="'separator-' + i" />
+            <hr />
           </template>
-        </p>
+        </div>
         <p class="has-text-right mt2">
           <a
             :class="{
@@ -107,13 +104,15 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
 import { modalMixin } from '@/components/modals/base_modal'
+
 import files from '@/lib/files'
+
 import FileUpload from '@/components/widgets/FileUpload.vue'
 
 export default {
   name: 'add-attachment-modal',
+
   mixins: [modalMixin],
 
   components: {
@@ -151,6 +150,8 @@ export default {
     }
   },
 
+  emits: ['add-snapshots', 'cancel', 'confirm'],
+
   data() {
     return {
       forms: [],
@@ -160,16 +161,12 @@ export default {
   },
 
   computed: {
-    ...mapGetters([]),
-
     fileField() {
       return this.$refs['file-field']
     }
   },
 
   methods: {
-    ...mapActions([]),
-
     onFileSelected(forms) {
       this.forms = this.forms.concat(forms)
     },
@@ -221,12 +218,6 @@ export default {
       this.forms = this.forms.filter(f => f !== form)
     },
 
-    onDrop(event) {
-      this.isDraggingFile = false
-      this.fileField.onDrop(event)
-      event.preventDefault()
-    },
-
     onFileDragover(event) {
       event.preventDefault()
       event.stopPropagation()
@@ -239,6 +230,14 @@ export default {
       if (event.target.id === 'drop-mask') {
         this.isDraggingFile = false
       }
+    },
+
+    onDrag(event) {},
+
+    onDrop(event) {
+      this.fileField.onDrop(event)
+      this.isDraggingFile = false
+      event.preventDefault()
     }
   },
 
@@ -253,7 +252,7 @@ export default {
     window.addEventListener('paste', this.onPaste, false)
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('paste', this.onPaste)
   }
 }
@@ -280,7 +279,7 @@ export default {
   width: 100%;
 }
 
-.upload-previews {
+.upload-attachments {
   text-align: center;
 }
 
@@ -328,10 +327,10 @@ h3.subtitle {
   font-size: 2em;
   justify-content: center;
   position: absolute;
-  top: 0px;
-  left: 0px;
-  right: 0px;
-  bottom: 0px;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 1000;
 }
 </style>

@@ -48,7 +48,7 @@
           <task-type-name
             class="flexrow-item"
             :task-type="taskTypeMap.get(currentAsset.ready_for)"
-            :current-production-id="this.currentProduction.id"
+            :current-production-id="currentProduction.id"
           />
         </div>
       </div>
@@ -56,7 +56,7 @@
       <div class="asset-data block">
         <route-section-tabs
           class="section-tabs"
-          :activeTab="currentSection"
+          :active-tab="currentSection"
           :route="$route"
           :tabs="assetTabs"
         />
@@ -64,25 +64,23 @@
         <div class="flexrow mt1">
           <span
             class="tag tag-standby"
-            v-show="
-              currentSection === 'casting' && currentAsset.is_casting_standby
+            v-if="
+              currentSection === 'casting' && currentAsset?.is_casting_standby
             "
           >
             {{ $t('breakdown.fields.standby') }}
           </span>
-          <span
-            class="flexrow-item mt05"
-            v-show="currentSection === 'schedule'"
-          >
-            {{ $t('schedule.zoom_level') }}:
-          </span>
-          <combobox-number
-            class="zoom-level flexrow-item"
-            :options="zoomOptions"
-            is-simple
-            v-model="zoomLevel"
-            v-show="currentSection === 'schedule'"
-          />
+          <template v-if="currentSection === 'schedule'">
+            <span class="flexrow-item mt05">
+              {{ $t('schedule.zoom_level') }}:
+            </span>
+            <combobox-number
+              class="zoom-level flexrow-item"
+              is-simple
+              :options="zoomOptions"
+              v-model="zoomLevel"
+            />
+          </template>
         </div>
 
         <div class="flexrow infos" v-show="currentSection === 'infos'">
@@ -151,48 +149,57 @@
               "
             >
               <em>Casted in {{ nbShotsCastedIn }} shots</em>
-              <div
-                class="sequence-shots"
-                :key="
-                  sequenceShots.length > 0 ? sequenceShots[0].sequence_name : ''
+              <template
+                v-if="
+                  currentAsset.castInShotsBySequence.length > 0 &&
+                  currentAsset.castInShotsBySequence[0][0].sequence_name
                 "
-                v-if="sequenceShots[0].sequence_name"
-                v-for="sequenceShots in currentAsset.castInShotsBySequence"
               >
-                <div class="shot-sequence">
-                  {{
-                    sequenceShots.length > 0
+                <div
+                  class="sequence-shots"
+                  :key="
+                    sequenceShots?.length > 0
                       ? sequenceShots[0].sequence_name
                       : ''
-                  }}
+                  "
+                  v-for="sequenceShots in currentAsset.castInShotsBySequence ||
+                  []"
+                >
+                  <div class="shot-sequence">
+                    {{
+                      sequenceShots?.length > 0
+                        ? sequenceShots[0].sequence_name
+                        : ''
+                    }}
+                  </div>
+                  <div class="shot-list">
+                    <router-link
+                      class="shot-link"
+                      :key="shot.shot_id"
+                      :to="shotPath(shot)"
+                      v-for="shot in sequenceShots"
+                    >
+                      <entity-thumbnail
+                        class="entity-thumbnail"
+                        :entity="shot"
+                        :square="true"
+                        :empty-width="103"
+                        :empty-height="103"
+                        :with-link="false"
+                      />
+                      <div>
+                        <span class="break-word">{{ shot.shot_name }}</span>
+                        <span v-if="shot.nb_occurences > 1">
+                          ({{ shot.nb_occurences }})
+                        </span>
+                      </div>
+                    </router-link>
+                  </div>
                 </div>
-                <div class="shot-list">
-                  <router-link
-                    class="shot-link"
-                    :key="shot.shot_id"
-                    :to="shotPath(shot)"
-                    v-for="shot in sequenceShots"
-                  >
-                    <entity-thumbnail
-                      class="entity-thumbnail"
-                      :entity="shot"
-                      :square="true"
-                      :empty-width="103"
-                      :empty-height="103"
-                      :with-link="false"
-                    />
-                    <div>
-                      <span class="break-word">{{ shot.shot_name }}</span>
-                      <span v-if="shot.nb_occurences > 1">
-                        ({{ shot.nb_occurences }})
-                      </span>
-                    </div>
-                  </router-link>
-                </div>
+              </template>
+              <div v-else>
+                {{ $t('assets.no_cast_in') }}
               </div>
-            </div>
-            <div v-else>
-              {{ $t('assets.no_cast_in') }}
             </div>
           </div>
           <table-info
@@ -275,8 +282,11 @@
           <div class="concept-list mt1">
             <template v-if="filteredLinkedConcepts.length">
               <concept-card
+                class="concept"
+                :class="{ selected: currentConcept?.id === concept.id }"
                 :key="'concept-' + concept.id"
                 :concept="concept"
+                @click="selectConcept(concept)"
                 v-for="concept in filteredLinkedConcepts"
               />
             </template>
@@ -331,6 +341,10 @@
       </task-info>
     </div>
 
+    <div class="column side-column" v-show="currentSection === 'concepts'">
+      <task-info entity-type="Concept" :task="currentConceptTask" />
+    </div>
+
     <edit-asset-modal
       ref="edit-asset-modal"
       :active="modals.edit"
@@ -345,7 +359,9 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
-import { CornerLeftUpIcon } from 'vue-feather-icons'
+import { CornerLeftUpIcon } from 'lucide-vue-next'
+
+import assetStore from '@/store/modules/assets'
 
 import { sortByName } from '@/lib/sorting'
 import { entityMixin } from '@/components/mixins/entity'
@@ -373,7 +389,9 @@ import TaskInfo from '@/components/sides/TaskInfo.vue'
 
 export default {
   name: 'asset',
+
   mixins: [entityMixin, formatListMixin],
+
   components: {
     ButtonSimple,
     ConceptCard,
@@ -401,8 +419,10 @@ export default {
     return {
       type: 'asset',
       currentAsset: null,
+      currentConcept: null,
       currentTask: null,
       currentConceptStatus: null,
+      currentConceptTask: null,
       localTasks: [],
       castIn: {
         isLoading: false,
@@ -590,7 +610,9 @@ export default {
 
   methods: {
     ...mapActions([
+      'addSelectedConcepts',
       'clearSelectedTasks',
+      'clearSelectedConcepts',
       'editAsset',
       'loadAsset',
       'loadAssets',
@@ -610,11 +632,11 @@ export default {
         const assetId = this.route.params.asset_id
         this.currentAssetId = assetId
         if (!assetId) resolve(null)
-        let asset = this.assetMap.get(assetId) || null
+        let asset = assetStore.cache.assetMap.get(assetId) || null
         if (!asset) {
           if (assetId) {
             return this.loadAsset(assetId).then(() => {
-              asset = this.assetMap.get(assetId)
+              asset = assetStore.cache.assetMap.get(assetId)
               this.localTasks = asset.tasks.map(taskId =>
                 this.taskMap.get(taskId)
               )
@@ -730,6 +752,21 @@ export default {
           }, 100)
         })
         .catch(console.error)
+    },
+
+    selectConcept(concept) {
+      if (this.currentConcept && this.currentConcept.id === concept.id) {
+        this.currentConcept = null
+        this.currentConceptTask = null
+        this.clearSelectedConcepts()
+      } else {
+        const selection = new Map()
+        selection.set(concept.id, concept)
+        this.clearSelectedConcepts()
+        this.addSelectedConcepts(selection)
+        this.currentConcept = concept
+        this.currentConceptTask = concept.tasks[0]
+      }
     }
   },
 
@@ -761,7 +798,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.title} - Kitsu`
     }
@@ -1000,5 +1037,18 @@ h2.subtitle {
 
 .news-column {
   max-height: 85%;
+}
+
+.concept {
+  border: 5px solid transparent;
+  cursor: pointer;
+  transition: border 0.2s linear;
+  &:hover {
+    border: 5px solid var(--background-selectable);
+  }
+}
+
+.selected {
+  border: 5px solid var(--background-selected);
 }
 </style>

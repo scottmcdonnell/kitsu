@@ -1,6 +1,6 @@
 <template>
   <page-layout>
-    <template v-slot:main>
+    <template #main>
       <div class="all-tasks">
         <page-title
           class="flexrow-item title mt1"
@@ -32,7 +32,6 @@
             </label>
             <people-field
               class="person-field"
-              big
               :people="personList"
               v-model="filters.person"
             />
@@ -51,7 +50,7 @@
         />
       </div>
     </template>
-    <template v-slot:side>
+    <template #side>
       <task-info :task="selectedTasks.values().next().value">
         <status-stats :stats="statusStats" />
       </task-info>
@@ -75,7 +74,7 @@ import StatusStats from '@/components/widgets/StatusStats.vue'
 import TaskInfo from '@/components/sides/TaskInfo.vue'
 
 export default {
-  name: 'AllTasks',
+  name: 'all-tasks',
 
   components: {
     AllTaskList,
@@ -165,7 +164,7 @@ export default {
         return sortPeople(
           production.team
             .map(personId => this.personMap.get(personId))
-            .filter(person => !person.is_bot)
+            .filter(person => person && !person.is_bot)
         )
       } else {
         return this.activePeopleWithoutBot
@@ -284,7 +283,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return { title: `${this.$t('tasks.all_tasks')} - Kitsu` }
   }
 }

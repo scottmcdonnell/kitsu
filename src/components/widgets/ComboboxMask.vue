@@ -1,10 +1,8 @@
 <template>
   <div
     @click="$emit('click')"
-    :class="{
-      'c-mask': true,
-      'is-active': displayed
-    }"
+    class="c-mask"
+    :class="{ 'is-active': displayed }"
   ></div>
 </template>
 
@@ -19,8 +17,6 @@ export default {
     }
   },
 
-  computed: {}
+  emits: ['click']
 }
 </script>
-
-<style lang="scss" scoped></style>

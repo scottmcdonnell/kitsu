@@ -1,7 +1,12 @@
-import Vue from 'vue/dist/vue'
 import breakdownApi from '@/store/api/breakdown'
-import { sortAssets, sortShots } from '@/lib/sorting'
+import peopleApi from '@/store/api/people'
+
+import { sortAssets, sortByName, sortShots } from '@/lib/sorting'
 import { groupEntitiesByParents } from '@/lib/models'
+
+import assetStore from '@/store/modules/assets'
+import shotStore from '@/store/modules/shots'
+import episodeStore from '@/store/modules/episodes'
 
 import {
   CASTING_SET_ASSET_TYPES,
@@ -12,11 +17,13 @@ import {
   CASTING_SET_EPISODES,
   CASTING_SET_ENTITY_CASTING,
   CASTING_SET_FOR_EPISODES,
+  CASTING_SET_LINK_LABEL,
   CASTING_SET_SHOTS,
   CASTING_SET_SEQUENCE,
   CASTING_SET_SEQUENCES,
   CASTING_ADD_TO_CASTING,
   CASTING_REMOVE_FROM_CASTING,
+  LOAD_ASSETS_END,
   LOAD_EPISODES_START,
   LOAD_SHOTS_START,
   LOAD_EPISODE_CASTING_END,
@@ -24,53 +31,65 @@ import {
   LOAD_SEQUENCE_CASTING_END,
   LOAD_ASSET_CASTING_END,
   LOAD_ASSET_CAST_IN_END,
-  CASTING_SET_LINK_LABEL,
+  REMOVE_BREAKDOWN_SEARCH_END,
+  REMOVE_BREAKDOWN_SEARCH_FILTER_GROUP_END,
+  SAVE_BREAKDOWN_SEARCH_END,
+  SAVE_BREAKDOWN_SEARCH_FILTER_GROUP_END,
+  SET_IS_SHOW_INFOS_BREAKDOWN,
   RESET_ALL
 } from '@/store/mutation-types'
 
 const initialState = {
-  currentProduction: null,
-  castingSequenceId: '',
-  castingShotId: 0,
-  castingEpisodes: [],
-  castingSequenceShots: [],
+  breakdownSearchFilterGroups: [],
+  breakdownSearchQueries: [],
+
+  casting: {},
   castingAssetTypeAssets: [],
+  castingAssetTypesOptions: [],
+  castingByType: [],
+  castingCurrentShot: null,
+  castingEpisodes: [],
   castingEpisodeSequences: [],
   castingSequencesOptions: [],
-  castingAssetTypesOptions: [],
+  castingSequenceId: '',
+  castingSequenceShots: [],
+  castingShotId: 0,
 
-  castingCurrentShot: null,
-  casting: {},
-  castingByType: []
+  isShowInfosBreakdown: false
 }
 const state = { ...initialState }
 
 const getters = {
+  breakdownSearchFilterGroups: state => state.breakdownSearchFilterGroups,
+  breakdownSearchQueries: state => state.breakdownSearchQueries,
+
+  casting: state => state.casting,
+  castingAssetTypeAssets: state => state.castingAssetTypeAssets,
+  castingAssetTypesOptions: state => state.castingAssetTypesOptions,
+  castingByType: state => state.castingByType,
+  castingCurrentShot: state => state.castingCurrentShot,
   castingEpisodes: state => state.castingEpisodes,
   castingEpisodeSequences: state => state.castingEpisodeSequences,
   castingSequenceId: state => state.castingSequenceId,
   castingSequenceShots: state => state.castingSequenceShots,
-  castingAssetTypeAssets: state => state.castingAssetTypeAssets,
   castingSequencesOptions: state => state.castingSequencesOptions,
-  castingAssetTypesOptions: state => state.castingAssetTypesOptions,
 
-  casting: state => state.casting,
-  castingByType: state => state.castingByType,
-  castingCurrentShot: state => state.castingCurrentShot
+  isShowInfosBreakdown: state => state.isShowInfosBreakdown
 }
 
 const actions = {
   setCastingForProductionEpisodes({ commit, rootState }, episodeId) {
     const production = rootState.productions.currentProduction
-    const assetMap = rootState.assets.assetMap
-    const episodes = Array.from(rootState.episodes.episodeMap.values()).sort(
+    if (!production) return Promise.resolve()
+
+    const episodes = Array.from(episodeStore.cache.episodeMap.values()).sort(
       (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })
     )
     commit(CASTING_SET_FOR_EPISODES, episodes)
     return breakdownApi
       .getProductionEpisodesCasting(production.id, episodeId)
       .then(casting => {
-        commit(CASTING_SET_CASTING, { casting, assetMap })
+        commit(CASTING_SET_CASTING, { casting, production })
       })
   },
 
@@ -81,9 +100,8 @@ const actions = {
     const production = rootGetters.currentProduction
     const episode = rootGetters.currentEpisode
     const episodeId = episode ? episode.id : null
-    const assetMap = rootGetters.assetMap
     const shots = sortShots(
-      Array.from(rootGetters.shotMap.values()).filter(
+      Array.from(shotStore.cache.shotMap.values()).filter(
         shot => shot.sequence_id === sequenceId || sequenceId === 'all'
       )
     )
@@ -92,8 +110,7 @@ const actions = {
     return breakdownApi
       .getSequenceCasting(production.id, sequenceId, episodeId)
       .then(casting => {
-        commit(CASTING_SET_CASTING, { casting, assetMap })
-        return Promise.resolve()
+        commit(CASTING_SET_CASTING, { casting, production })
       })
   },
 
@@ -102,9 +119,13 @@ const actions = {
       return console.error('assetTypeId is undefined, no casting can be set.')
     }
     const production = rootState.productions.currentProduction
-    const assetMap = rootState.assets.assetMap
-    const assets = Array.from(rootState.assets.assetMap.values())
-      .filter(asset => asset.asset_type_id === assetTypeId)
+    const assets = Array.from(assetStore.cache.assetMap.values())
+      .filter(asset => {
+        return (
+          asset.asset_type_id === assetTypeId ||
+          asset.entity_type_id === assetTypeId
+        )
+      })
       .sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { numeric: true })
       )
@@ -113,7 +134,7 @@ const actions = {
     return breakdownApi
       .getAssetTypeCasting(production.id, assetTypeId)
       .then(casting => {
-        commit(CASTING_SET_CASTING, { casting, assetMap })
+        commit(CASTING_SET_CASTING, { casting, production })
       })
   },
 
@@ -124,7 +145,7 @@ const actions = {
   },
 
   setCastingEpisodes({ commit, rootState }) {
-    const episodes = Array.from(rootState.episodes.episodeMap.values())
+    const episodes = Array.from(episodeStore.cache.episodeMap.values())
     const production = rootState.productions.currentProduction
     commit(CASTING_SET_EPISODES, { production, episodes })
   },
@@ -138,7 +159,7 @@ const actions = {
     { commit, rootState },
     { entityId, assetId, nbOccurences, label }
   ) {
-    const asset = rootState.assets.assetMap.get(assetId)
+    const asset = assetStore.cache.assetMap.get(assetId)
     commit(CASTING_ADD_TO_CASTING, { entityId, asset, nbOccurences, label })
   },
 
@@ -146,7 +167,7 @@ const actions = {
     { commit, rootState },
     { entityId, assetId, nbOccurences }
   ) {
-    const asset = rootState.assets.assetMap.get(assetId)
+    const asset = assetStore.cache.assetMap.get(assetId)
     commit(CASTING_REMOVE_FROM_CASTING, { entityId, asset, nbOccurences })
   },
 
@@ -194,7 +215,7 @@ const actions = {
 
   loadAssetCasting({ commit, rootGetters }, asset) {
     if (!asset) return Promise.resolve({})
-    const assetMap = rootGetters.assetMap
+    const assetMap = assetStore.cache.assetMap
     return breakdownApi.getAssetCasting(asset).then(casting => {
       commit(LOAD_ASSET_CASTING_END, { asset, casting, assetMap })
       return Promise.resolve(casting)
@@ -203,16 +224,15 @@ const actions = {
 
   loadShotCasting({ commit, rootGetters }, shot) {
     if (!shot) return Promise.resolve({})
-    const assetMap = rootGetters.assetMap
     return breakdownApi.getShotCasting(shot).then(casting => {
-      commit(LOAD_SHOT_CASTING_END, { shot, casting, assetMap })
+      commit(LOAD_SHOT_CASTING_END, { shot, casting })
       return Promise.resolve(casting)
     })
   },
 
   loadSequenceCasting({ commit, rootGetters }, sequence) {
     if (!sequence) return Promise.resolve({})
-    const assetMap = rootGetters.assetMap
+    const assetMap = assetStore.cache.assetMap
     return breakdownApi
       .getSequenceCasting(sequence.production_id, sequence.id)
       .then(casting => {
@@ -223,26 +243,109 @@ const actions = {
 
   loadAssetCastIn({ commit, state, rootState }, asset) {
     if (!asset) return Promise.resolve({})
-    const shotMap = rootState.shots.shotMap
+    const shotMap = shotStore.cache.shotMap
     return breakdownApi.getAssetCastIn(asset).then(castIn => {
       commit(LOAD_ASSET_CAST_IN_END, { asset, castIn, shotMap })
       return Promise.resolve(castIn)
+    })
+  },
+
+  saveBreakdownSearch({ commit, rootGetters }, searchQuery) {
+    if (
+      state.breakdownSearchQueries.some(query => query.name === searchQuery)
+    ) {
+      return
+    }
+    const production = rootGetters.currentProduction
+    return peopleApi
+      .createFilter('breakdown', searchQuery, searchQuery, production.id, null)
+      .then(searchQuery => {
+        commit(SAVE_BREAKDOWN_SEARCH_END, { searchQuery, production })
+        return searchQuery
+      })
+  },
+
+  saveBreakdownSearchFilterGroup({ commit, state, rootGetters }, filterGroup) {
+    const groupExist = state.breakdownSearchFilterGroups.some(
+      query => query.name === filterGroup.name
+    )
+    if (groupExist) {
+      return
+    }
+
+    const production = rootGetters.currentProduction
+    return peopleApi
+      .createFilterGroup(
+        'breakdown',
+        filterGroup.name,
+        filterGroup.color,
+        production.id,
+        filterGroup.is_shared,
+        filterGroup.department_id
+      )
+      .then(filterGroup => {
+        commit(SAVE_BREAKDOWN_SEARCH_FILTER_GROUP_END, {
+          filterGroup,
+          production
+        })
+        return filterGroup
+      })
+  },
+
+  removeBreakdownSearch({ commit, rootGetters }, searchQuery) {
+    const production = rootGetters.currentProduction
+    return peopleApi.removeFilter(searchQuery).then(() => {
+      commit(REMOVE_BREAKDOWN_SEARCH_END, { searchQuery, production })
+    })
+  },
+
+  removeBreakdownSearchFilterGroup({ commit, rootGetters }, filterGroup) {
+    const production = rootGetters.currentProduction
+    return peopleApi.removeFilterGroup(filterGroup).then(() => {
+      commit(REMOVE_BREAKDOWN_SEARCH_FILTER_GROUP_END, {
+        filterGroup,
+        production
+      })
     })
   }
 }
 
 const mutations = {
   [LOAD_EPISODES_START](state) {
-    Object.assign(state, initialState)
+    Object.assign(state, {
+      casting: {},
+      castingAssetTypeAssets: [],
+      castingAssetTypesOptions: [],
+      castingByType: [],
+      castingCurrentShot: null,
+      castingEpisodes: [],
+      castingEpisodeSequences: [],
+      castingSequencesOptions: [],
+      castingSequenceId: '',
+      castingSequenceShots: [],
+      castingShotId: 0
+    })
   },
 
   [LOAD_SHOTS_START](state) {
-    Object.assign(state, initialState)
+    Object.assign(state, {
+      casting: {},
+      castingAssetTypeAssets: [],
+      castingAssetTypesOptions: [],
+      castingByType: [],
+      castingCurrentShot: null,
+      castingEpisodes: [],
+      castingEpisodeSequences: [],
+      castingSequencesOptions: [],
+      castingSequenceId: '',
+      castingSequenceShots: [],
+      castingShotId: 0
+    })
   },
 
   [CASTING_SET_FOR_EPISODES](state, episodes) {
     const casting = {}
-    const castingByType = []
+    const castingByType = {}
     state.castingEpisodes = episodes
     episodes.forEach(episode => {
       casting[episode.id] = []
@@ -254,7 +357,7 @@ const mutations = {
 
   [CASTING_SET_SHOTS](state, shots) {
     const casting = {}
-    const castingByType = []
+    const castingByType = {}
     state.castingSequenceShots = shots
     shots.forEach(shot => {
       casting[shot.id] = []
@@ -266,7 +369,7 @@ const mutations = {
 
   [CASTING_SET_ASSETS](state, assets) {
     const casting = {}
-    const castingByType = []
+    const castingByType = {}
     state.castingAssetTypeAssets = assets
     assets.forEach(asset => {
       casting[asset.id] = []
@@ -277,7 +380,6 @@ const mutations = {
   },
 
   [CASTING_SET_EPISODES](state, { production, episodes }) {
-    // TODO CASTING must be renamed to BREAKDOWN when used for namespacing, and CASTING must be kept for meaningful mutations
     state.castingEpisodes = episodes
     state.castingEpisodeOptions = episodes.map(production => {
       const route = {
@@ -290,7 +392,7 @@ const mutations = {
       return {
         label: 'All',
         value: production.id,
-        route: route
+        route
       }
     })
   },
@@ -312,7 +414,7 @@ const mutations = {
       return {
         label: sequence.name,
         value: sequence.id,
-        route: route
+        route
       }
     })
     if (state.castingEpisodeSequences.length > 0) {
@@ -346,7 +448,7 @@ const mutations = {
       return {
         label: assetType.name,
         value: assetType.id,
-        route: route
+        route
       }
     })
   },
@@ -363,24 +465,27 @@ const mutations = {
     state.castingAssetTypeId = assetTypeId
   },
 
-  [CASTING_SET_CASTING](state, { casting, assetMap }) {
+  [CASTING_SET_CASTING](state, { casting, production }) {
     const entityCastingByType = {}
     const entityCastingKeys = Object.keys(casting)
     entityCastingKeys.forEach(entityId => {
       const entityCasting = casting[entityId]
+      entityCasting.forEach(entity => {
+        entity.shared = entity.project_id !== production.id
+      })
       entityCastingByType[entityId] = groupEntitiesByParents(
         entityCasting,
         'asset_type_name'
       )
     })
-    Object.assign(state.casting, casting)
-    state.casting = { ...state.casting }
-    Object.assign(state.castingByType, entityCastingByType)
-    state.castingByType = { ...state.castingByType }
+    state.casting = casting
+    state.castingByType = entityCastingByType
   },
 
   [CASTING_ADD_TO_CASTING](state, { entityId, asset, nbOccurences, label }) {
-    if (!state.casting[entityId]) Vue.set(state.casting, entityId, [])
+    if (!state.casting[entityId]) {
+      state.casting[entityId] = []
+    }
     const previousAsset = state.casting[entityId].find(
       a => a.asset_id === asset.id
     )
@@ -394,15 +499,15 @@ const mutations = {
         asset_type_name: asset.asset_type_name,
         nb_occurences: nbOccurences,
         preview_file_id: asset.preview_file_id,
-        label
+        label,
+        shared: asset.shared
       }
       state.casting[entityId].push(newAsset)
     }
-    Vue.set(state.casting, entityId, sortAssets(state.casting[entityId]))
-    Vue.set(
-      state.castingByType,
-      entityId,
-      groupEntitiesByParents(state.casting[entityId], 'asset_type_name')
+    state.casting[entityId] = sortAssets(state.casting[entityId])
+    state.castingByType[entityId] = groupEntitiesByParents(
+      state.casting[entityId],
+      'asset_type_name'
     )
   },
 
@@ -439,9 +544,9 @@ const mutations = {
     })
     const castingByType = groupEntitiesByParents(casting, 'asset_type_name')
     episode.casting = casting
-    Vue.set(state.casting, episode.id, casting)
-    Vue.set(state.castingByType, episode.id, castingByType)
-    Vue.set(episode, 'castingAssetsByType', castingByType)
+    state.casting[episode.id] = casting
+    state.castingByType[episode.id] = castingByType
+    episode.castingAssetsByType = castingByType
   },
 
   [LOAD_ASSET_CASTING_END](state, { asset, casting }) {
@@ -450,20 +555,21 @@ const mutations = {
     })
     const castingByType = groupEntitiesByParents(casting, 'asset_type_name')
     asset.casting = casting
-    Vue.set(state.casting, asset.id, casting)
-    Vue.set(state.castingByType, asset.id, castingByType)
-    Vue.set(asset, 'castingAssetsByType', castingByType)
+    state.casting[asset.id] = casting
+    state.castingByType[asset.id] = castingByType
+    asset.castingAssetsByType = castingByType
   },
 
   [LOAD_SHOT_CASTING_END](state, { shot, casting }) {
-    casting.forEach(a => {
-      a.name = a.asset_name || a.name
+    casting.forEach(asset => {
+      asset.name = asset.asset_name || asset.name
+      asset.shared = asset.is_shared && shot.project_id !== asset.project_id
     })
     const castingByType = groupEntitiesByParents(casting, 'asset_type_name')
     shot.casting = casting
-    Vue.set(state.casting, shot.id, casting)
-    Vue.set(state.castingByType, shot.id, castingByType)
-    Vue.set(shot, 'castingAssetsByType', castingByType)
+    state.casting[shot.id] = casting
+    state.castingByType[shot.id] = castingByType
+    shot.castingAssetsByType = castingByType
   },
 
   [LOAD_SEQUENCE_CASTING_END](state, { sequence, casting }) {
@@ -474,6 +580,8 @@ const mutations = {
         if (!presenceMap[asset.asset_id]) {
           presenceMap[asset.asset_id] = true
           asset.name = asset.asset_name || asset.name
+          asset.shared =
+            asset.is_shared && asset.project_id !== sequence.production_id
           sequenceCasting.push(asset)
         }
       })
@@ -484,9 +592,9 @@ const mutations = {
       'asset_type_name'
     )
     sequence.casting = sequenceCasting
-    Vue.set(state.casting, sequence.id, sequenceCasting)
-    Vue.set(state.castingByType, sequence.id, castingByType)
-    Vue.set(sequence, 'castingAssetsByType', castingByType)
+    state.casting[sequence.id] = sequenceCasting
+    state.castingByType[sequence.id] = castingByType
+    sequence.castingAssetsByType = castingByType
   },
 
   [LOAD_ASSET_CAST_IN_END](state, { asset, castIn }) {
@@ -496,10 +604,9 @@ const mutations = {
       }
     })
     asset.castIn = castIn
-    Vue.set(
-      asset,
-      'castInShotsBySequence',
-      groupEntitiesByParents(castIn, 'sequence_name')
+    asset.castInShotsBySequence = groupEntitiesByParents(
+      castIn.filter(entity => entity.shot_id),
+      'sequence_name'
     )
   },
 
@@ -508,6 +615,48 @@ const mutations = {
       link => link.asset_id === asset.asset_id
     )
     link.label = label
+  },
+
+  [SAVE_BREAKDOWN_SEARCH_END](state, { searchQuery }) {
+    state.breakdownSearchQueries.push(searchQuery)
+    state.breakdownSearchQueries = sortByName(state.breakdownSearchQueries)
+  },
+
+  [SAVE_BREAKDOWN_SEARCH_FILTER_GROUP_END](state, { filterGroup }) {
+    if (!state.breakdownSearchFilterGroups.includes(filterGroup)) {
+      state.breakdownSearchFilterGroups.push(filterGroup)
+      state.breakdownSearchFilterGroups = sortByName(
+        state.breakdownSearchFilterGroups
+      )
+    }
+  },
+
+  [REMOVE_BREAKDOWN_SEARCH_END](state, { searchQuery }) {
+    const queryIndex = state.breakdownSearchQueries.findIndex(
+      query => query.name === searchQuery.name
+    )
+    if (queryIndex >= 0) {
+      state.breakdownSearchQueries.splice(queryIndex, 1)
+    }
+  },
+
+  [REMOVE_BREAKDOWN_SEARCH_FILTER_GROUP_END](state, { filterGroup }) {
+    const groupIndex = state.breakdownSearchFilterGroups.findIndex(
+      query => query.name === filterGroup.name
+    )
+    if (groupIndex >= 0) {
+      state.breakdownSearchFilterGroups.splice(groupIndex, 1)
+    }
+  },
+
+  [LOAD_ASSETS_END](state, { userFilters, userFilterGroups, production }) {
+    state.breakdownSearchQueries = userFilters.breakdown?.[production.id] || []
+    state.breakdownSearchFilterGroups =
+      userFilterGroups?.breakdown?.[production.id] || []
+  },
+
+  [SET_IS_SHOW_INFOS_BREAKDOWN](state, isShowInfosBreakdown) {
+    state.isShowInfosBreakdown = isShowInfosBreakdown
   },
 
   [RESET_ALL](state) {

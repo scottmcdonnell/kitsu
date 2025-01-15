@@ -3,7 +3,7 @@
     <div>
       <route-section-tabs
         class="section-tabs"
-        :activeTab="activeTab"
+        :active-tab="activeTab"
         :route="$route"
         :tabs="taskTypeTabs"
       />
@@ -38,8 +38,8 @@
 
           <div
             v-else
-            v-for="(taskListObject, index) in taskTypeGroups"
             :key="index"
+            v-for="(taskListObject, index) in taskTypeGroups"
           >
             <table
               class="datatable list"
@@ -48,7 +48,7 @@
                 taskListObject.entity === activeTab
               "
             >
-              /*
+              <!--
               <thead>
                 <tr>
                   <th class="th-name">{{ $t('task_status.fields.name') }}</th>
@@ -57,23 +57,23 @@
                   </th>
                 </tr>
               </thead>
-              */
+              -->
               <draggable
-                v-model="taskListObject.list"
-                draggable=".task-type"
                 class="datatable-body"
+                item-key="taskType.id"
                 tag="tbody"
                 @end="updatePriorities(taskListObject.list)"
+                v-model="taskListObject.list"
               >
-                <production-task-type
-                  class="task-type"
-                  :key="taskTypeData.taskType.id"
-                  :task-type="taskTypeData.taskType"
-                  :schedule-item="taskTypeData.scheduleItem"
-                  @date-changed="onDateChanged"
-                  @remove="removeTaskType"
-                  v-for="taskTypeData in taskListObject.list"
-                />
+                <template #item="{ element: taskTypeData }">
+                  <production-task-type
+                    class="task-type"
+                    :task-type="taskTypeData.taskType"
+                    :schedule-item="taskTypeData.scheduleItem"
+                    @date-changed="onDateChanged"
+                    @remove="removeTaskType"
+                  />
+                </template>
               </draggable>
             </table>
             <p
@@ -89,13 +89,12 @@
         </div>
         <div class="column">
           <setting-importer
-            :is-import-loading="loading.import"
             :items="remainingTaskTypesForEntity"
             :loading-import="loading.import"
             @import-from-production="importTaskTypesFromProduction"
             @import-item="addTaskType"
           >
-            <template v-slot:item-line="{ item }">
+            <template #item-line="{ item }">
               <task-type-name class="pointer" :task-type="item" />
             </template>
           </setting-importer>
@@ -108,16 +107,17 @@
 import draggable from 'vuedraggable'
 import moment from 'moment'
 import { mapGetters, mapActions } from 'vuex'
+
 import func from '@/lib/func'
 import { sortByName, sortTaskTypes } from '@/lib/sorting'
 import { formatFullDate } from '@/lib/time'
 import stringHelper from '@/lib/string'
 
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-import ProductionTaskType from '@/components/pages/production/ProductionTaskType'
-import RouteSectionTabs from '@/components/widgets/RouteSectionTabs'
-import SettingImporter from '@/components/widgets/SettingImporter'
-import TaskTypeName from '@/components/widgets/TaskTypeName'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import ProductionTaskType from '@/components/pages/production/ProductionTaskType.vue'
+import RouteSectionTabs from '@/components/widgets/RouteSectionTabs.vue'
+import SettingImporter from '@/components/widgets/SettingImporter.vue'
+import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
 
 export default {
   name: 'production-task-types',
@@ -325,7 +325,7 @@ export default {
     async addTaskType(taskType) {
       const taskTypeId = taskType && taskType.id ? taskType.id : this.taskTypeId
       await this.addTaskTypeToProduction({
-        taskTypeId: taskTypeId,
+        taskTypeId,
         priority: this.assetTaskTypes.length
       })
       try {
@@ -434,9 +434,9 @@ export default {
       await this.loadContext()
     },
 
-    async importTaskTypesFromProduction(production) {
+    async importTaskTypesFromProduction(productionId) {
       this.loading.import = true
-      const taskTypes = this.getProductionTaskTypes(production.id).filter(
+      const taskTypes = this.getProductionTaskTypes(productionId).filter(
         t => `${t.for_entity.toLowerCase()}s` === this.activeTab
       )
       const entityName = stringHelper.capitalize(this.activeTab).slice(0, -1)
@@ -524,10 +524,6 @@ td.name {
   width: 100px;
 }
 
-td ::v-deep p.control.flexrow {
-  width: 105px;
-}
-
 .episode-span-column {
   margin-left: 5rem;
 }
@@ -549,6 +545,7 @@ h2 {
 }
 
 .empty {
+  color: var(--text);
   font-style: italic;
 }
 

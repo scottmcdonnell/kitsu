@@ -157,74 +157,66 @@
           </thead>
 
           <tbody class="datatable-body">
-            <template v-for="person in assignees">
-              <template>
-                <tr
-                  class="datatable-row task-line"
-                  :key="`${person.id}-alltasks`"
-                >
-                  <td class="person flexrow">
-                    <people-avatar
-                      class="flexrow-item"
-                      :person="person"
-                      :size="30"
-                      :font-size="17"
-                    />
-                    <people-name class="flexrow-item" :person="person" />
-                  </td>
-                  <td class="count numeric-cell">
-                    {{ person.alltasks.count }}
-                  </td>
-                  <td class="frames numeric-cell">
-                    {{ person.alltasks.frames }}
-                  </td>
-                  <td class="seconds numeric-cell">
-                    {{ person.alltasks.seconds }}
-                  </td>
-                  <td class="estimation numeric-cell">
-                    {{ person.alltasks.estimation }}
-                  </td>
-                  <td class="quota numeric-cell">
-                    {{ person.alltasks.quota }}
-                  </td>
-                  <td class="quota numeric-cell">
-                    {{ person.alltasks.quotaFrames }}
-                  </td>
-                  <td class="quota numeric-cell">
-                    {{ person.alltasks.quotaCount }}
-                  </td>
-                </tr>
-                <tr
-                  class="datatable-row task-line"
-                  :key="`${person.id}-remaining`"
-                >
-                  <td class="person flexrow">
-                    <corner-down-right-icon class="ml05 mr05" size="0.9x" />
-                    {{ $t('main.remaining') }}
-                  </td>
-                  <td class="count numeric-cell">
-                    {{ person.remaining.count }}
-                  </td>
-                  <td class="frames numeric-cell">
-                    {{ person.remaining.frames }}
-                  </td>
-                  <td class="seconds numeric-cell">
-                    {{ person.remaining.seconds }}
-                  </td>
-                  <td class="estimation numeric-cell">
-                    {{ person.remaining.estimation }}
-                  </td>
-                  <td class="quota numeric-cell">
-                    {{ person.remaining.quota }}
-                  </td>
-                  <td class="quota numeric-cell">
-                    {{ person.remaining.quotaFrames }}
-                  </td>
-                  <td class="quota numeric-cell">
-                    {{ person.remaining.quotaCount }}
-                  </td>
-                </tr>
-              </template>
+            <template v-for="person in assignees" :key="person.id">
+              <tr class="datatable-row task-line">
+                <td class="person flexrow">
+                  <people-avatar
+                    class="flexrow-item"
+                    :person="person"
+                    :size="30"
+                    :font-size="17"
+                  />
+                  <people-name class="flexrow-item" :person="person" />
+                </td>
+                <td class="count numeric-cell">
+                  {{ person.alltasks.count }}
+                </td>
+                <td class="frames numeric-cell">
+                  {{ person.alltasks.frames }}
+                </td>
+                <td class="seconds numeric-cell">
+                  {{ person.alltasks.seconds }}
+                </td>
+                <td class="estimation numeric-cell">
+                  {{ person.alltasks.estimation }}
+                </td>
+                <td class="quota numeric-cell">
+                  {{ person.alltasks.quota }}
+                </td>
+                <td class="quota numeric-cell">
+                  {{ person.alltasks.quotaFrames }}
+                </td>
+                <td class="quota numeric-cell">
+                  {{ person.alltasks.quotaCount }}
+                </td>
+              </tr>
+              <tr class="datatable-row task-line">
+                <td class="person flexrow">
+                  <corner-down-right-icon class="ml05 mr05" :size="12" />
+                  {{ $t('main.remaining') }}
+                </td>
+                <td class="count numeric-cell">
+                  {{ person.remaining.count }}
+                </td>
+                <td class="frames numeric-cell">
+                  {{ person.remaining.frames }}
+                </td>
+                <td class="seconds numeric-cell">
+                  {{ person.remaining.seconds }}
+                </td>
+                <td class="estimation numeric-cell">
+                  {{ person.remaining.estimation }}
+                </td>
+                <td class="quota numeric-cell">
+                  {{ person.remaining.quota }}
+                </td>
+                <td class="quota numeric-cell">
+                  {{ person.remaining.quotaFrames }}
+                </td>
+                <td class="quota numeric-cell">
+                  {{ person.remaining.quotaCount }}
+                </td>
+              </tr>
             </template>
           </tbody>
         </table>
@@ -234,19 +226,24 @@
 </template>
 
 <script>
-import Vue from 'vue/dist/vue'
+import { CornerDownRightIcon } from 'lucide-vue-next'
+import { firstBy } from 'thenby'
 import { mapGetters, mapActions } from 'vuex'
-import { CornerDownRightIcon } from 'vue-feather-icons'
 
-import EntityThumbnail from '@/components/widgets/EntityThumbnail'
-import PeopleAvatar from '@/components/widgets/PeopleAvatar'
-import PeopleName from '@/components/widgets/PeopleName'
+import assetsStore from '@/store/modules/assets.js'
+import editsStore from '@/store/modules/edits.js'
+import episodesStore from '@/store/modules/episodes.js'
+import sequencesStore from '@/store/modules/sequences.js'
+import shotsStore from '@/store/modules/shots.js'
+
+import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
+import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
+import PeopleName from '@/components/widgets/PeopleName.vue'
 
 import { domMixin } from '@/components/mixins/dom'
 import { formatListMixin } from '@/components/mixins/format'
 import { minutesToDays, range } from '@/lib/time'
 import { frameToSeconds } from '@/lib/video'
-import { firstBy } from 'thenby'
 
 export default {
   name: 'estimation-helper',
@@ -271,6 +268,8 @@ export default {
     }
   },
 
+  emits: ['estimation-changed'],
+
   data() {
     return {
       lastSelection: 0,
@@ -279,23 +278,16 @@ export default {
     }
   },
 
-  mounted() {},
-
   computed: {
     ...mapGetters([
-      'assetMap',
-      'editMap',
-      'episodeMap',
       'currentProduction',
       'isCurrentUserManager',
       'isCurrentUserSupervisor',
-      'user',
       'organisation',
       'personMap',
-      'sequenceMap',
-      'shotMap',
       'taskStatusMap',
-      'taskTypeMap'
+      'taskTypeMap',
+      'user'
     ]),
 
     isAssets() {
@@ -308,6 +300,26 @@ export default {
 
     tasksByPerson() {
       return [...this.tasks].sort(this.compareFirstAssignees)
+    },
+
+    assetMap() {
+      return assetsStore.cache.assetMap
+    },
+
+    editMap() {
+      return editsStore.cache.editMap
+    },
+
+    episodeMap() {
+      return episodesStore.cache.episodeMap
+    },
+
+    sequenceMap() {
+      return sequencesStore.cache.sequenceMap
+    },
+
+    shotMap() {
+      return shotsStore.cache.shotMap
     },
 
     entityMap() {
@@ -424,7 +436,7 @@ export default {
     },
 
     addToSelection(taskId) {
-      Vue.set(this.selectionGrid, taskId, true)
+      this.selectionGrid[taskId] = true
     },
 
     selectTask(event, task, index) {
@@ -618,7 +630,7 @@ td {
 
 .task-list {
   .empty {
-    border-left: 0px solid transparent;
+    border-left: 0 solid transparent;
   }
 }
 

@@ -1,6 +1,6 @@
 <template>
   <div class="data-list">
-    <div ref="body" class="datatable-wrapper" v-scroll="onBodyScroll">
+    <div ref="body" class="datatable-wrapper" @scroll.passive="onBodyScroll">
       <table-header-menu
         ref="headerMenu"
         :is-minimized="hiddenColumns[lastHeaderMenuDisplayed]"
@@ -69,27 +69,28 @@
               v-for="(descriptor, j) in stickedVisibleMetadataDescriptors"
             />
 
-            <validation-header
-              :ref="`validation-${columnIndexInGrid}`"
-              :key="'sticky-header' + columnId"
-              :hidden-columns="hiddenColumns"
-              :column-id="columnId"
-              :validation-style="getValidationStyle(columnId)"
-              :left="
-                offsets['validation-' + columnIndexInGrid]
-                  ? `${offsets['validation-' + columnIndexInGrid]}px`
-                  : '0'
-              "
-              type="assets"
-              is-stick
-              @show-header-menu="
-                event => showHeaderMenu(columnId, columnIndexInGrid, event)
-              "
-              v-for="(
-                columnId, columnIndexInGrid
-              ) in stickedDisplayedValidationColumns"
-              v-if="!isLoading"
-            />
+            <template v-if="!isLoading">
+              <validation-header
+                :ref="`validation-${columnIndexInGrid}`"
+                :key="'sticky-header' + columnId"
+                :hidden-columns="hiddenColumns"
+                :column-id="columnId"
+                :validation-style="getValidationStyle(columnId)"
+                :left="
+                  offsets['validation-' + columnIndexInGrid]
+                    ? `${offsets['validation-' + columnIndexInGrid]}px`
+                    : '0'
+                "
+                type="assets"
+                is-stick
+                @show-header-menu="
+                  event => showHeaderMenu(columnId, columnIndexInGrid, event)
+                "
+                v-for="(
+                  columnId, columnIndexInGrid
+                ) in stickedDisplayedValidationColumns"
+              />
+            </template>
 
             <th
               ref="th-ready-for"
@@ -114,6 +115,7 @@
             >
               {{ $t('assets.fields.description') }}
             </th>
+
             <th
               scope="col"
               class="time-spent number-cell"
@@ -143,33 +145,47 @@
               {{ $t('main.estimation_short') }}
             </th>
 
-            <metadata-header
-              :key="'header' + descriptor.id"
-              :descriptor="descriptor"
-              @show-metadata-header-menu="
-                event => showMetadataHeaderMenu(descriptor.id, event)
+            <th
+              scope="col"
+              class="resolution"
+              v-if="
+                isAssetResolution &&
+                isShowInfos &&
+                metadataDisplayHeaders.resolution
               "
-              v-for="descriptor in nonStickedVisibleMetadataDescriptors"
-              v-if="isShowInfos"
-            />
+            >
+              {{ $t('shots.fields.resolution') }}
+            </th>
 
-            <validation-header
-              :key="'header' + columnId"
-              :hidden-columns="hiddenColumns"
-              :column-id="columnId"
-              :title="taskTypeMap.get(columnId).name"
-              :validation-style="getValidationStyle(columnId)"
-              type="assets"
-              @show-header-menu="
-                event => {
-                  showHeaderMenu(columnId, columnIndexInGrid, event)
-                }
-              "
-              v-for="(
-                columnId, columnIndexInGrid
-              ) in nonStickedDisplayedValidationColumns"
-              v-if="!isLoading"
-            />
+            <template v-if="isShowInfos">
+              <metadata-header
+                :key="'header' + descriptor.id"
+                :descriptor="descriptor"
+                @show-metadata-header-menu="
+                  event => showMetadataHeaderMenu(descriptor.id, event)
+                "
+                v-for="descriptor in nonStickedVisibleMetadataDescriptors"
+              />
+            </template>
+
+            <template v-if="!isLoading">
+              <validation-header
+                :key="'header' + columnId"
+                :hidden-columns="hiddenColumns"
+                :column-id="columnId"
+                :title="taskTypeMap.get(columnId).name"
+                :validation-style="getValidationStyle(columnId)"
+                type="assets"
+                @show-header-menu="
+                  event => {
+                    showHeaderMenu(columnId, columnIndexInGrid, event)
+                  }
+                "
+                v-for="(
+                  columnId, columnIndexInGrid
+                ) in nonStickedDisplayedValidationColumns"
+              />
+            </template>
 
             <th scope="col" class="actions" ref="actionsSection">
               <button-simple
@@ -188,15 +204,15 @@
               />
 
               <table-metadata-selector-menu
-                ref="headerMetadataSelectorMenu"
-                :metadataDisplayHeaders.sync="metadataDisplayHeaders"
                 :descriptors="assetMetadataDescriptors"
                 :exclude="{
                   timeSpent: !isAssetTime,
                   estimation: !isAssetEstimation
                 }"
                 namespace="assets"
-                v-show="columnSelectorDisplayed && isShowInfos"
+                v-model="metadataDisplayHeaders"
+                v-show="columnSelectorDisplayed"
+                v-if="isShowInfos"
               />
 
               <button-simple
@@ -209,226 +225,288 @@
           </tr>
         </thead>
 
-        <tbody
-          class="datatable-body"
-          :key="'group-' + getGroupKey(group, k, 'asset_type_id')"
-          v-for="(group, k) in displayedAssets"
-          v-if="!isLoading && isListVisible"
-        >
-          <tr class="datatable-type-header">
-            <th scope="rowgroup" :colspan="visibleColumns">
-              <span
-                class="datatable-row-header pointer"
-                @click="$emit('asset-type-clicked', group[0].asset_type_name)"
-              >
-                {{ group[0] ? group[0].asset_type_name : '' }}
-              </span>
-            </th>
-          </tr>
-
-          <tr
-            class="datatable-row"
-            scope="row"
-            :key="'row' + asset.id"
-            :class="{ canceled: asset.canceled }"
-            v-for="(asset, i) in group"
+        <template v-if="!isLoading && isListVisible">
+          <tbody
+            class="datatable-body"
+            :key="'group-' + getGroupKey(group, k, 'asset_type_id')"
+            v-for="(group, k) in displayedAssets"
           >
-            <th
-              :class="{
-                'datatable-row-header': true,
-                name: true,
-                bold: !asset.canceled
-              }"
-            >
-              <div class="flexrow">
-                <input
-                  type="checkbox"
-                  class="flexrow-item"
-                  :checked="selectedAssets.has(asset.id)"
-                  @input="event => toggleLine(asset, event)"
-                  v-show="isCurrentUserManager"
-                />
-                <entity-thumbnail
-                  class="entity-thumbnail flexrow-item"
-                  :entity="asset"
-                  :width="isBigThumbnails ? 150 : 50"
-                  :height="isBigThumbnails ? 100 : 30"
-                  :empty-width="isBigThumbnails ? 150 : 50"
-                  :empty-height="isBigThumbnails ? 100 : 32"
-                />
-                <router-link
-                  tabindex="-1"
-                  class="asset-link asset-name flexrow-item"
-                  :to="assetPath(asset.id)"
-                  :title="asset.full_name"
+            <tr class="datatable-type-header" v-if="group[0]">
+              <th scope="rowgroup" :colspan="visibleColumns">
+                <span
+                  class="datatable-row-header pointer"
+                  @click="$emit('asset-type-clicked', group[0].asset_type_name)"
                 >
-                  {{ asset.name }}
-                </router-link>
-              </div>
-            </th>
+                  {{ group[0] ? group[0].asset_type_name : '' }}
+                </span>
+              </th>
+            </tr>
 
-            <td class="episode" v-if="isTVShow && isShowInfos">
-              <div class="flexrow" :title="assetEpisodes(asset, true)">
-                {{ assetEpisodes(asset, false) }}
-              </div>
-            </td>
-
-            <!-- Metadata stick -->
-            <td
-              class="metadata-descriptor datatable-row-header"
-              :title="asset.data ? asset.data[descriptor.field_name] : ''"
-              :style="{
-                'z-index': 1000 - i, // Needed for combo to be above the next cell
-                left: offsets['editor-' + j]
-                  ? `${offsets['editor-' + j]}px`
-                  : '0'
-              }"
-              :key="'sticky-desc-' + asset.id + '-' + descriptor.id"
-              v-for="(descriptor, j) in stickedVisibleMetadataDescriptors"
-            >
-              <metadata-input
-                :entity="asset"
-                :descriptor="descriptor"
-                :indexes="{ i, j, k }"
-                v-on="$listeners"
-              />
-            </td>
-
-            <validation-cell
-              :ref="`validation-${getIndex(i, k)}-${j}`"
+            <tr
+              class="datatable-row"
               :class="{
-                'validation-cell': !hiddenColumns[columnId],
-                'hidden-validation-cell': hiddenColumns[columnId],
-                'datatable-row-header': true
+                canceled: asset.canceled,
+                shared: asset.shared
               }"
-              :key="'sticky-validation-' + columnId + '-' + asset.id"
-              :canceled="asset.canceled"
-              :column="taskTypeMap.get(columnId)"
-              :entity="asset"
-              :task-test="taskMap.get(asset.validations.get(columnId))"
-              :selected="isSelected(i, k, j)"
-              :rowX="getIndex(i, k)"
-              :columnY="j"
-              :minimized="hiddenColumns[columnId]"
-              :is-static="true"
-              :is-assignees="isShowAssignations"
-              :left="
-                offsets['validation-' + j]
-                  ? `${offsets['validation-' + j]}px`
-                  : '0'
-              "
-              :sticked="true"
-              @select="infos => onTaskSelected(infos, true)"
-              @unselect="infos => onTaskUnselected(infos, true)"
-              v-for="(columnId, j) in stickedDisplayedValidationColumns"
-              v-if="!isLoading"
-            />
-
-            <td
-              class="task-type-name ready-for"
-              v-if="
-                isCurrentUserManager &&
-                isShowInfos &&
-                !isAssetsOnly &&
-                metadataDisplayHeaders.readyFor
-              "
+              scope="row"
+              :key="`row${asset.id}`"
+              :title="asset.shared ? $t('library.from_library') : undefined"
+              v-for="(asset, i) in group"
             >
-              <combobox-task-type
-                class="mb0"
-                :value="asset.ready_for"
-                :task-type-list="readyForTaskTypes"
-                :shy="true"
-                @input="taskTypeId => onReadyForChanged(asset, taskTypeId)"
+              <th
+                :class="{
+                  'datatable-row-header': true,
+                  name: true,
+                  bold: !asset.canceled
+                }"
+              >
+                <div class="flexrow">
+                  <input
+                    type="checkbox"
+                    class="flexrow-item"
+                    :checked="selectedAssets.has(asset.id) || null"
+                    :disabled="asset.shared"
+                    @input="event => toggleLine(asset, event)"
+                    v-if="isCurrentUserManager"
+                  />
+                  <entity-thumbnail
+                    class="entity-thumbnail flexrow-item"
+                    :entity="asset"
+                    :width="isBigThumbnails ? 150 : 50"
+                    :height="isBigThumbnails ? 100 : 30"
+                    :empty-width="isBigThumbnails ? 150 : 50"
+                    :empty-height="isBigThumbnails ? 100 : 32"
+                  />
+                  <router-link
+                    tabindex="-1"
+                    class="asset-link asset-name flexrow-item"
+                    :to="assetPath(asset.id)"
+                    :title="asset.full_name"
+                    v-if="!asset.shared"
+                  >
+                    {{ asset.name }}
+                  </router-link>
+                  <template v-else>
+                    {{ asset.name }}
+                  </template>
+                </div>
+              </th>
+
+              <td class="episode" v-if="isTVShow && isShowInfos">
+                <div class="flexrow" :title="assetEpisodes(asset, true)">
+                  {{ assetEpisodes(asset, false) }}
+                </div>
+              </td>
+
+              <!-- Metadata stick -->
+              <td
+                class="metadata-descriptor datatable-row-header"
+                :title="asset.data ? asset.data[descriptor.field_name] : ''"
+                :style="{
+                  'z-index': 1000 - i - k * 100, // Needed for combo to be above the next cell
+                  left: offsets['editor-' + j]
+                    ? `${offsets['editor-' + j]}px`
+                    : '0'
+                }"
+                :key="'sticky-desc-' + asset.id + '-' + descriptor.id"
+                v-for="(descriptor, j) in stickedVisibleMetadataDescriptors"
+              >
+                <metadata-input
+                  :entity="asset"
+                  :descriptor="descriptor"
+                  :indexes="{ i, j, k }"
+                  @metadata-changed="$emit('metadata-changed', $event)"
+                />
+              </td>
+
+              <template v-if="!isLoading">
+                <validation-cell
+                  :ref="`validation-${getIndex(i, k)}-${j}`"
+                  :class="{
+                    'validation-cell': !hiddenColumns[columnId],
+                    'hidden-validation-cell': hiddenColumns[columnId],
+                    'datatable-row-header': true
+                  }"
+                  :key="'sticky-validation-' + columnId + '-' + asset.id"
+                  :canceled="asset.canceled"
+                  :column="taskTypeMap.get(columnId)"
+                  :entity="asset"
+                  :task-test="taskMap.get(asset.validations.get(columnId))"
+                  :selected="isSelected(i, k, j)"
+                  :row-x="getIndex(i, k)"
+                  :column-y="j"
+                  :minimized="hiddenColumns[columnId]"
+                  :is-static="true"
+                  :is-assignees="isShowAssignations"
+                  :left="
+                    offsets['validation-' + j]
+                      ? `${offsets['validation-' + j]}px`
+                      : '0'
+                  "
+                  :sticked="true"
+                  @select="infos => onTaskSelected(infos, true)"
+                  @unselect="infos => onTaskUnselected(infos, true)"
+                  v-for="(columnId, j) in stickedDisplayedValidationColumns"
+                />
+              </template>
+
+              <td
+                class="task-type-name ready-for"
+                v-if="
+                  isCurrentUserManager &&
+                  isShowInfos &&
+                  !isAssetsOnly &&
+                  metadataDisplayHeaders.readyFor
+                "
+              >
+                <combobox-task-type
+                  class="mb0"
+                  :model-value="asset.ready_for"
+                  :task-type-list="readyForTaskTypes"
+                  :shy="true"
+                  @update:model-value="
+                    taskTypeId => onReadyForChanged(asset, taskTypeId)
+                  "
+                />
+              </td>
+
+              <description-cell
+                class="description"
+                @description-changed="
+                  value => onDescriptionChanged(asset, value)
+                "
+                :editable="isCurrentUserManager && !asset.shared"
+                v-if="!isCurrentUserClient && isShowInfos && isAssetDescription"
+                :entry="asset"
               />
-            </td>
 
-            <description-cell
-              class="description"
-              @description-changed="value => onDescriptionChanged(asset, value)"
-              :editable="isCurrentUserManager"
-              v-if="!isCurrentUserClient && isShowInfos && isAssetDescription"
-              :entry="asset"
-            />
+              <td
+                class="time-spent selectable number-cell"
+                v-if="
+                  !isCurrentUserClient &&
+                  isShowInfos &&
+                  isAssetTime &&
+                  metadataDisplayHeaders.timeSpent
+                "
+              >
+                {{ formatDuration(asset.timeSpent) }}
+              </td>
 
-            <td
-              class="time-spent selectable number-cell"
-              v-if="
-                !isCurrentUserClient &&
-                isShowInfos &&
-                isAssetTime &&
-                metadataDisplayHeaders.timeSpent
-              "
-            >
-              {{ formatDuration(asset.timeSpent) }}
-            </td>
+              <td
+                class="estimation selectable number-cell"
+                v-if="
+                  !isCurrentUserClient &&
+                  isShowInfos &&
+                  isAssetEstimation &&
+                  metadataDisplayHeaders.estimation
+                "
+              >
+                {{ formatDuration(asset.estimation) }}
+              </td>
 
-            <td
-              class="estimation selectable number-cell"
-              v-if="
-                !isCurrentUserClient &&
-                isShowInfos &&
-                isAssetEstimation &&
-                metadataDisplayHeaders.estimation
-              "
-            >
-              {{ formatDuration(asset.estimation) }}
-            </td>
+              <td
+                class="resolution"
+                v-if="
+                  isAssetResolution &&
+                  isShowInfos &&
+                  metadataDisplayHeaders.resolution
+                "
+              >
+                <input
+                  :class="{
+                    'input-editor': true,
+                    error: !isValidResolution(asset)
+                  }"
+                  :value="
+                    getMetadataFieldValue({ field_name: 'resolution' }, asset)
+                  "
+                  @input="
+                    event =>
+                      onMetadataFieldChanged(
+                        asset,
+                        { field_name: 'resolution' },
+                        event
+                      )
+                  "
+                  @keyup.ctrl="
+                    event =>
+                      onInputKeyUp(event, getIndex(i, k), descriptorLength + 3)
+                  "
+                  v-if="isCurrentUserManager"
+                />
 
-            <!-- other Metadata cells -->
-            <td
-              class="metadata-descriptor"
-              :title="asset.data ? asset.data[descriptor.field_name] : ''"
-              :key="'desc' + asset.id + '-' + descriptor.id"
-              v-for="(descriptor, j) in nonStickedVisibleMetadataDescriptors"
-              v-if="isShowInfos"
-            >
-              <metadata-input
-                :entity="asset"
-                :descriptor="descriptor"
-                :indexes="{ i, j, k }"
-                v-on="$listeners"
+                <span class="metadata-value selectable" v-else>
+                  {{
+                    getMetadataFieldValue({ field_name: 'resolution' }, asset)
+                  }}
+                </span>
+              </td>
+
+              <!-- other Metadata cells -->
+              <template v-if="isShowInfos">
+                <td
+                  class="metadata-descriptor"
+                  :title="asset.data ? asset.data[descriptor.field_name] : ''"
+                  :key="'desc' + asset.id + '-' + descriptor.id"
+                  v-for="(
+                    descriptor, j
+                  ) in nonStickedVisibleMetadataDescriptors"
+                >
+                  <metadata-input
+                    :entity="asset"
+                    :descriptor="descriptor"
+                    :indexes="{ i, j, k }"
+                    @metadata-changed="$emit('metadata-changed', $event)"
+                  />
+                </td>
+              </template>
+
+              <template v-if="!isLoading">
+                <validation-cell
+                  :ref="`validation-${getIndex(i, k)}-${
+                    j + stickedDisplayedValidationColumns.length
+                  }`"
+                  :class="{
+                    'validation-cell': !hiddenColumns[columnId],
+                    'hidden-validation-cell': hiddenColumns[columnId]
+                  }"
+                  :key="'validation' + columnId + '-' + asset.id"
+                  :canceled="asset.canceled"
+                  :column="taskTypeMap.get(columnId)"
+                  :entity="asset"
+                  :task-test="taskMap.get(asset.validations.get(columnId))"
+                  :selected="
+                    isSelected(
+                      i,
+                      k,
+                      j + stickedDisplayedValidationColumns.length
+                    )
+                  "
+                  :row-x="getIndex(i, k)"
+                  :column-y="j"
+                  :minimized="hiddenColumns[columnId]"
+                  :is-static="true"
+                  :is-assignees="isShowAssignations"
+                  :selectable="isSelectable(asset, columnId)"
+                  :disabled="!isSelectable(asset, columnId)"
+                  @select="onTaskSelected"
+                  @unselect="onTaskUnselected"
+                  v-for="(columnId, j) in nonStickedDisplayedValidationColumns"
+                />
+              </template>
+
+              <row-actions-cell
+                :entry="asset"
+                @edit-clicked="$emit('edit-clicked', asset)"
+                @delete-clicked="$emit('delete-clicked', asset)"
+                @restore-clicked="$emit('restore-clicked', asset)"
+                v-if="isCurrentUserManager && !asset.shared"
               />
-            </td>
 
-            <validation-cell
-              :ref="`validation-${getIndex(i, k)}-${
-                j + stickedDisplayedValidationColumns.length
-              }`"
-              :class="{
-                'validation-cell': !hiddenColumns[columnId],
-                'hidden-validation-cell': hiddenColumns[columnId]
-              }"
-              :key="'validation' + columnId + '-' + asset.id"
-              :canceled="asset.canceled"
-              :column="taskTypeMap.get(columnId)"
-              :entity="asset"
-              :task-test="taskMap.get(asset.validations.get(columnId))"
-              :selected="
-                isSelected(i, k, j + stickedDisplayedValidationColumns.length)
-              "
-              :rowX="getIndex(i, k)"
-              :columnY="j"
-              :minimized="hiddenColumns[columnId]"
-              :is-static="true"
-              :is-assignees="isShowAssignations"
-              :selectable="isSelectable(asset, columnId)"
-              :disabled="!isSelectable(asset, columnId)"
-              @select="onTaskSelected"
-              @unselect="onTaskUnselected"
-              v-for="(columnId, j) in nonStickedDisplayedValidationColumns"
-              v-if="!isLoading"
-            />
-
-            <row-actions-cell
-              :entry="asset"
-              @edit-clicked="$emit('edit-clicked', asset)"
-              @delete-clicked="$emit('delete-clicked', asset)"
-              @restore-clicked="$emit('restore-clicked', asset)"
-              v-if="isCurrentUserManager"
-            />
-            <td class="actions" v-else></td>
-          </tr>
-        </tbody>
+              <td class="actions" v-else></td>
+            </tr>
+          </tbody>
+        </template>
       </table>
 
       <div
@@ -465,9 +543,17 @@
         v-show="displayedAssetsTimeSpent > 0 || displayedAssetsEstimation > 0"
       >
         ({{ formatDuration(displayedAssetsTimeSpent) }}
-        {{ $tc('main.days_spent', displayedAssetsTimeSpent) }},
+        {{
+          isDurationInHours()
+            ? $tc('main.hours_spent', displayedAssetsTimeSpent)
+            : $tc('main.days_spent', displayedAssetsTimeSpent)
+        }},
         {{ formatDuration(displayedAssetsEstimation) }}
-        {{ $tc('main.man_days', displayedAssetsEstimation) }})
+        {{
+          isDurationInHours()
+            ? $tc('main.hours_estimated', displayedAssetsEstimation)
+            : $tc('main.man_days', displayedAssetsEstimation)
+        }})
       </span>
     </p>
   </div>
@@ -479,26 +565,29 @@ import { mapGetters, mapActions } from 'vuex'
 import { descriptorMixin } from '@/components/mixins/descriptors'
 import { entityListMixin } from '@/components/mixins/entity_list'
 import { formatListMixin } from '@/components/mixins/format'
-import { range } from '@/lib/time'
-import { sortTaskTypes } from '@/lib/sorting'
 import { selectionListMixin } from '@/components/mixins/selection'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-import DescriptionCell from '@/components/cells/DescriptionCell'
-import EntityThumbnail from '@/components/widgets/EntityThumbnail'
-import MetadataHeader from '@/components/cells/MetadataHeader'
-import MetadataInput from '@/components/cells/MetadataInput'
-import RowActionsCell from '@/components/cells/RowActionsCell'
-import TableHeaderMenu from '@/components/widgets/TableHeaderMenu'
-import TableInfo from '@/components/widgets/TableInfo'
-import TableMetadataHeaderMenu from '@/components/widgets/TableMetadataHeaderMenu'
-import TableMetadataSelectorMenu from '@/components/widgets/TableMetadataSelectorMenu'
-import ValidationCell from '@/components/cells/ValidationCell'
-import ValidationHeader from '@/components/cells/ValidationHeader'
+import preferences from '@/lib/preferences'
+import { sortTaskTypes } from '@/lib/sorting'
+import { range } from '@/lib/time'
+
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import DescriptionCell from '@/components/cells/DescriptionCell.vue'
+import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
+import MetadataHeader from '@/components/cells/MetadataHeader.vue'
+import MetadataInput from '@/components/cells/MetadataInput.vue'
+import RowActionsCell from '@/components/cells/RowActionsCell.vue'
+import TableHeaderMenu from '@/components/widgets/TableHeaderMenu.vue'
+import TableInfo from '@/components/widgets/TableInfo.vue'
+import TableMetadataHeaderMenu from '@/components/widgets/TableMetadataHeaderMenu.vue'
+import TableMetadataSelectorMenu from '@/components/widgets/TableMetadataSelectorMenu.vue'
+import ValidationCell from '@/components/cells/ValidationCell.vue'
+import ValidationHeader from '@/components/cells/ValidationHeader.vue'
 
 export default {
   name: 'asset-list',
+
   mixins: [
     entityListMixin,
     descriptorMixin,
@@ -545,11 +634,24 @@ export default {
     }
   },
 
+  emits: [
+    'asset-changed',
+    'asset-type-clicked',
+    'create-tasks',
+    'delete-clicked',
+    'edit-clicked',
+    'metadata-changed',
+    'new-clicked',
+    'restore-clicked',
+    'scroll'
+  ],
+
   data() {
     return {
       type: 'asset',
       columnSelectorDisplayed: false,
       hiddenColumns: {},
+      isSelectableMap: {},
       lastSelection: null,
       lastHeaderMenuDisplayed: null,
       lastMetadaDataHeaderMenuDisplayed: null,
@@ -557,6 +659,7 @@ export default {
       metadataDisplayHeaders: {
         estimation: true,
         readyFor: true,
+        resolution: true,
         timeSpent: true
       },
       stickedColumns: {},
@@ -582,7 +685,9 @@ export default {
       'displayedAssetsTimeSpent',
       'displayedAssetsEstimation',
       'nbSelectedTasks',
+      'organisation',
       'isAssetDescription',
+      'isAssetResolution',
       'isBigThumbnails',
       'isCurrentUserClient',
       'isCurrentUserManager',
@@ -683,6 +788,10 @@ export default {
 
     isAssetsOnly() {
       return this.currentProduction.production_type === 'assets'
+    },
+
+    formatDurationInHours() {
+      return this.organisation.format_duration_in_hours
     }
   },
 
@@ -690,6 +799,7 @@ export default {
     ...mapActions(['displayMoreAssets', 'editAsset', 'setAssetSelection']),
 
     assetEpisodes(asset, full) {
+      if (!this.episodeMap) return ''
       const mainEpisode = this.episodeMap.get(asset.episode_id)
       const mainEpisodeName = mainEpisode ? mainEpisode.name : 'MP'
       const episodeNames = (asset.casting_episode_ids || [])
@@ -712,6 +822,9 @@ export default {
 
     // Selectable if the task type is included in the workflow.
     isSelectable(asset, columnId) {
+      if (asset.shared) {
+        return false
+      }
       const key = asset.asset_type_id + columnId
       if (this.isSelectableMap === undefined) this.isSelectableMap = {}
       if (this.isSelectableMap[key] === undefined) {
@@ -759,9 +872,9 @@ export default {
       })
     },
 
-    onBodyScroll(event, position) {
+    onBodyScroll(event) {
+      const position = event.target
       this.$emit('scroll', position.scrollTop)
-
       const maxHeight =
         this.$refs.body.scrollHeight - this.$refs.body.offsetHeight
       if (maxHeight < position.scrollTop + 100) {
@@ -825,9 +938,9 @@ export default {
         ...this.stickedColumns,
         [columnId]: sticked
       }
-      localStorage.setItem(
+      preferences.setObjectPreference(
         this.localStorageStickKey,
-        JSON.stringify(this.stickedColumns)
+        this.stickedColumns
       )
     },
 
@@ -872,12 +985,18 @@ export default {
   },
 
   watch: {
-    displayedAssets() {
-      this.$options.lineIndex = {}
+    displayedAssets: {
+      deep: true,
+      handler() {
+        this.$options.lineIndex = {}
+      }
     },
 
-    validationColumns() {
-      this.initHiddenColumns(this.validationColumns, this.hiddenColumns)
+    validationColumns: {
+      deep: true,
+      handler() {
+        this.initHiddenColumns(this.validationColumns, this.hiddenColumns)
+      }
     },
 
     stickedColumns() {
@@ -900,7 +1019,7 @@ export default {
 
   mounted() {
     this.stickedColumns =
-      JSON.parse(localStorage.getItem(this.localStorageStickKey)) || {}
+      preferences.getObjectPreference(this.localStorageStickKey) || {}
   }
 }
 </script>
@@ -941,6 +1060,12 @@ th.estimation,
 td.estimation {
   min-width: 60px;
   width: 60px;
+}
+
+td.resolution {
+  min-width: 110px;
+  max-width: 110px;
+  width: 110px;
 }
 
 th.ready-for,
@@ -984,6 +1109,29 @@ td.ready-for {
   flex: 1;
 }
 
+.datatable-row.shared {
+  > th,
+  > td {
+    opacity: 0.6;
+    background: color-mix(
+      in srgb,
+      var(--shared-color) 20%,
+      transparent
+    ) !important;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+  > td:not(.description-cell) {
+    font-size: 0;
+
+    > :deep(*) {
+      display: none;
+    }
+  }
+}
+
 .datatable-row th.name {
   font-size: 1.1em;
   padding: 6px;
@@ -1009,6 +1157,7 @@ input[type='number'] {
 
 // Metadata cell CSS
 
+td.resolution,
 td.metadata-descriptor {
   height: 3.1rem;
   max-width: 120px;

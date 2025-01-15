@@ -55,14 +55,12 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
 import { modalMixin } from '@/components/modals/base_modal'
 
 export default {
   name: 'shortcut-modal',
-  mixins: [modalMixin],
 
-  components: {},
+  mixins: [modalMixin],
 
   props: {
     active: {
@@ -70,6 +68,8 @@ export default {
       default: false
     }
   },
+
+  emits: ['cancel'],
 
   data() {
     return {
@@ -163,22 +163,6 @@ export default {
         }
       ]
     }
-  },
-
-  mounted() {
-    this.reset()
-  },
-
-  computed: {
-    ...mapGetters([])
-  },
-
-  methods: {
-    ...mapActions(['loadShotHistory']),
-
-    reset() {},
-
-    formatDate(dateString) {}
   }
 }
 </script>

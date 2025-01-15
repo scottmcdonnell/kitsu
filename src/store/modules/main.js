@@ -7,6 +7,7 @@ import {
   TOGGLE_SUPPORT_CHAT,
   TOGGLE_USER_MENU,
   SET_CONFIG,
+  SET_CURRENT_SECTION,
   SET_LAST_PRODUCTION_SCREEN,
   SET_CURRENT_PRODUCTION,
   SHOW_PREVIEW_FILE,
@@ -16,6 +17,7 @@ import {
 
 const initialState = {
   currentProductionScreen: 'assets',
+  currentSection: 'assets',
   isDarkTheme: false,
   isSidebarHidden: true,
   isSupportChat: true,
@@ -30,6 +32,7 @@ const state = { ...initialState }
 
 const getters = {
   currentProductionScreen: state => state.currentProductionScreen,
+  currentSection: state => state.currentSection,
   isDarkTheme: state => state.isDarkTheme,
   isSidebarHidden: state => state.isSidebarHidden,
   isSupportChat: state => state.isSupportChat,
@@ -61,6 +64,10 @@ const actions = {
     commit(TOGGLE_USER_MENU)
   },
 
+  setCurrentSection({ commit, state }, section) {
+    commit(SET_CURRENT_SECTION, section)
+  },
+
   setLastProductionScreen({ commit, state }, lastProductionScreen) {
     commit(SET_LAST_PRODUCTION_SCREEN, lastProductionScreen)
   },
@@ -74,7 +81,7 @@ const actions = {
     try {
       config = await client.getConfig()
     } catch (error) {
-      console.log(error)
+      console.error(error)
     }
     commit(SET_CONFIG, config)
     return config
@@ -86,8 +93,8 @@ const actions = {
 }
 
 const mutations = {
-  [TOGGLE_DARK_THEME](state) {
-    state.isDarkTheme = !state.isDarkTheme
+  [TOGGLE_DARK_THEME](state, isDarkTheme = undefined) {
+    state.isDarkTheme = isDarkTheme ?? !state.isDarkTheme
   },
 
   [TOGGLE_SUPPORT_CHAT](state, isSupportChat) {
@@ -100,6 +107,10 @@ const mutations = {
 
   [TOGGLE_USER_MENU](state) {
     state.isUserMenuHidden = !state.isUserMenuHidden
+  },
+
+  [SET_CURRENT_SECTION](state, section) {
+    state.currentSection = section
   },
 
   [SET_LAST_PRODUCTION_SCREEN](state, lastProductionScreen) {
@@ -129,9 +140,11 @@ const mutations = {
   },
 
   [RESET_ALL](state) {
-    const isDarkTheme = state.isDarkTheme
-    Object.assign(state, { ...initialState })
-    state.isDarkTheme = isDarkTheme
+    Object.assign(state, {
+      ...initialState,
+      mainConfig: state.mainConfig,
+      isDarkTheme: state.isDarkTheme
+    })
   }
 }
 

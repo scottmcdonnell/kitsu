@@ -34,7 +34,7 @@
                 class="role-field"
                 :key="`${taskStatus.id}-${role}`"
                 :label="$t(`people.role.${role}`)"
-                :value="String(isActiveRole(taskStatus, role))"
+                :model-value="String(isActiveRole(taskStatus, role))"
                 @click="
                   value =>
                     updateRolesForBoard(taskStatus, [role], value === 'true')
@@ -68,8 +68,8 @@ import { mapGetters, mapActions } from 'vuex'
 
 import { sortTaskStatuses } from '@/lib/sorting'
 
-import BooleanField from '@/components/widgets/BooleanField'
-import ValidationTag from '@/components/widgets/ValidationTag'
+import BooleanField from '@/components/widgets/BooleanField.vue'
+import ValidationTag from '@/components/widgets/ValidationTag.vue'
 
 export default {
   name: 'production-board',

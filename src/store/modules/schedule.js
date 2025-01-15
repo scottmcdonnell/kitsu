@@ -4,6 +4,7 @@ import {
   ADD_MILESTONES,
   REMOVE_MILESTONE,
   SET_CURRENT_SCHEDULE_ITEMS,
+  SET_SCHEDULE_ITEM_DATES,
   RESET_ALL
 } from '@/store/mutation-types'
 
@@ -113,11 +114,11 @@ const actions = {
       .catch(console.error)
   },
 
-  loadMilestones({ commit, rootState }) {
-    const production = rootState.productions.currentProduction
-    return scheduleApi.getMilestones(production).then(milestones => {
-      commit(ADD_MILESTONES, milestones)
-    })
+  async loadMilestones({ commit, rootState }, production) {
+    const milestones = production
+      ? await scheduleApi.getMilestones(production)
+      : []
+    commit(ADD_MILESTONES, milestones)
   },
 
   saveMilestone({ commit, rootState }, milestone) {
@@ -162,6 +163,11 @@ const mutations = {
 
   [SET_CURRENT_SCHEDULE_ITEMS](state, items) {
     state.currentScheduleItems = items
+  },
+
+  [SET_SCHEDULE_ITEM_DATES](state, { scheduleItem, dates }) {
+    scheduleItem.startDate = dates.startDate
+    scheduleItem.endDate = dates.endDate
   },
 
   [RESET_ALL](state) {

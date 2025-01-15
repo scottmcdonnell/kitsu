@@ -13,11 +13,11 @@
           {{ $t('playlists.select_task_type') }}
         </h1>
 
-        <form v-on:submit.prevent>
+        <form @submit.prevent>
           <combobox-task-type
             :task-type-list="taskTypeList"
             :value="taskTypeId"
-            @input="onTaskTypeChanged"
+            @update:model-value="onTaskTypeChanged"
           />
         </form>
 
@@ -50,13 +50,15 @@
 </template>
 
 <script>
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-
 import { modalMixin } from '@/components/modals/base_modal'
+
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
 
 export default {
   name: 'select-task-type-modal',
+
   mixins: [modalMixin],
+
   components: {
     ComboboxTaskType
   },
@@ -79,6 +81,8 @@ export default {
       default: () => {}
     }
   },
+
+  emits: ['cancel', 'confirm'],
 
   data() {
     return {

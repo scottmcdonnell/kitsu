@@ -2,3 +2,4 @@ build/*.js
 config/*.js
 src/locales/*
 src/stories/*
+src/components/widgets/At/*

@@ -41,8 +41,8 @@
 </template>
 
 <script>
+import { XIcon } from 'lucide-vue-next'
 import moment from 'moment-timezone'
-import { XIcon } from 'vue-feather-icons'
 
 import { monthToString } from '@/lib/time'
 
@@ -98,6 +98,8 @@ export default {
       default: 0
     }
   },
+
+  emits: ['close'],
 
   computed: {
     startDay() {

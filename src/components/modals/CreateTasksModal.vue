@@ -10,7 +10,7 @@
       <div class="box content">
         <page-title :text="title" />
         <p>{{ text }}</p>
-        <form v-on:submit.prevent class="widden">
+        <form @submit.prevent class="widden">
           <combobox-task-type
             :task-type-list="getApplicableTaskTypes()"
             v-model="form.task_type_id"
@@ -62,12 +62,14 @@
 import { mapGetters } from 'vuex'
 
 import { modalMixin } from '@/components/modals/base_modal'
-import Combobox from '@/components/widgets/Combobox'
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-import PageTitle from '@/components/widgets/PageTitle'
+
+import Combobox from '@/components/widgets/Combobox.vue'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import PageTitle from '@/components/widgets/PageTitle.vue'
 
 export default {
   name: 'create-tasks-modal',
+
   mixins: [modalMixin],
 
   components: {
@@ -110,6 +112,8 @@ export default {
       default: ''
     }
   },
+
+  emits: ['cancel', 'confirm', 'confirm-and-stay'],
 
   data() {
     return {

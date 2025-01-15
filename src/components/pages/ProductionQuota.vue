@@ -51,11 +51,7 @@
         <div class="flexrow-item">
           <info-question-mark
             class="mt2"
-            :text="
-              computeMode === 'weighted'
-                ? $t('quota.explaination')
-                : $t('quota.explaination_feedback')
-            "
+            :text="$t('quota.explanation_' + computeMode)"
           />
         </div>
         <div class="filler"></div>
@@ -87,20 +83,20 @@
 
       <quota
         ref="quota-list"
-        :taskTypeId="taskTypeId"
-        :detailLevel="detailLevelString"
+        :task-type-id="taskTypeId"
+        :detail-level="detailLevelString"
         :year="currentYear"
         :month="currentMonth"
         :week="currentWeek"
         :day="currentDay"
-        :currentPerson="currentPerson"
-        :countMode="currentMode"
-        :computeMode="computeMode"
-        :searchText="searchText"
-        :maxQuota="maxQuota"
+        :current-person="currentPerson"
+        :count-mode="currentMode"
+        :compute-mode="computeMode"
+        :search-text="searchText"
+        :max-quota="maxQuota"
       />
     </div>
-    <div class="column side-column" v-if="showInfo">
+    <div class="column side-column" v-if="showInfo && currentPerson">
       <people-quota-info
         :person="currentPerson"
         :year="currentYear"
@@ -126,17 +122,19 @@ import stringHelpers from '@/lib/string'
 
 import { monthToString, range } from '@/lib/time'
 import { episodifyRoute } from '@/lib/path'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import Combobox from '@/components/widgets/Combobox'
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-import InfoQuestionMark from '@/components/widgets/InfoQuestionMark'
-import PeopleQuotaInfo from '@/components/sides/PeopleQuotaInfo'
-import Quota from '@/components/pages/quota/Quota'
-import SearchField from '@/components/widgets/SearchField'
-import TextField from '@/components/widgets/TextField'
+
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import InfoQuestionMark from '@/components/widgets/InfoQuestionMark.vue'
+import PeopleQuotaInfo from '@/components/sides/PeopleQuotaInfo.vue'
+import Quota from '@/components/pages/quota/Quota.vue'
+import SearchField from '@/components/widgets/SearchField.vue'
+import TextField from '@/components/widgets/TextField.vue'
 
 export default {
   name: 'production-quota',
+
   components: {
     ButtonSimple,
     Combobox,
@@ -164,7 +162,9 @@ export default {
       ],
       computeModeOptions: [
         { label: this.$t('quota.weighted'), value: 'weighted' },
-        { label: this.$t('quota.feedback_date'), value: 'feedback' }
+        { label: this.$t('quota.feedback_date'), value: 'feedback' },
+        { label: this.$t('quota.weighted_done'), value: 'weighteddone' },
+        { label: this.$t('quota.done_date'), value: 'done' }
       ],
       computeMode: 'weighted',
       currentYear: moment().year(),
@@ -316,6 +316,7 @@ export default {
 
     exportQuotas() {
       const quotas = this.$refs['quota-list'].quotaMap
+
       const nameData = ['quotas', this.detailLevel, this.currentYear]
       if (this.detailLevel === 'day') nameData.push(this.currentMonth)
       const name = stringHelpers.slugify(nameData.join('_'))
@@ -338,6 +339,16 @@ export default {
         this.currentMonth,
         this.currentWeek
       )
+    },
+
+    resetRouteQuery() {
+      this.$router.push({
+        query: {
+          countMode: this.countMode,
+          computeMode: this.computeMode,
+          taskTypeId: this.taskTypeId
+        }
+      })
     },
 
     onSearchChange(searchText) {
@@ -399,7 +410,8 @@ export default {
           },
           query: {
             countMode: this.countMode,
-            computeMode: this.computeMode
+            computeMode: this.computeMode,
+            taskTypeId: this.taskTypeId
           }
         }
         this.$router.push(this.episodifyRoute(route))
@@ -409,24 +421,16 @@ export default {
     countMode() {
       if (this.currentMode !== this.countMode) {
         if (this.$route.query.countMode !== this.countMode) {
-          this.$router.push({
-            query: {
-              countMode: this.countMode,
-              computeMode: this.computeMode
-            }
-          })
+          this.resetRouteQuery()
+          this.currentMode = this.countMode
         }
-        this.currentMode = this.countMode
       }
     },
 
     computeMode() {
       if (this.$route.query.computeMode !== this.computeMode) {
-        this.$router.push({
-          query: {
-            computeMode: this.computeMode
-          }
-        })
+        this.resetRouteQuery()
+        this.currentPerson = null
       }
     },
 
@@ -434,11 +438,7 @@ export default {
       const key = `quota:${this.currentProduction.id}:task-type-id`
       localStorage.setItem(key, this.taskTypeId)
       if (this.$route.query.taskTypeId !== this.taskTypeId) {
-        this.$router.push({
-          query: {
-            taskTypeId: this.taskTypeId
-          }
-        })
+        this.resetRouteQuery()
       }
     },
 
@@ -460,6 +460,13 @@ export default {
 
     $route() {
       this.loadRoute()
+    }
+  },
+
+  head() {
+    const prodName = this.currentProduction.name
+    return {
+      title: `${prodName} | ${this.$t('quota.title')} - Kitsu`
     }
   }
 }
@@ -488,16 +495,17 @@ export default {
 }
 
 .fixed-page {
-  padding: 1em;
-  padding-top: 90px;
+  padding-top: 60px;
   padding-left: 2em;
 }
 
 .main-column {
-  display: flex;
   border: 0;
-  overflow: hidden;
+  display: flex;
   flex-direction: column;
+  overflow: hidden;
+  padding-top: 2em;
+  padding-right: 2em;
 }
 
 .zoom-level {
@@ -505,6 +513,8 @@ export default {
 }
 
 .side-column {
+  border-left: 1px solid var(--border);
+  padding: 0;
   margin: 0;
 }
 

@@ -53,11 +53,11 @@ import csv from '@/lib/csv'
 import func from '@/lib/func'
 import stringHelpers from '@/lib/string'
 
-import DeleteModal from '@/components/modals/DeleteModal'
-import EditTaskTypeModal from '@/components/modals/EditTaskTypeModal'
-import ListPageHeader from '@/components/widgets/ListPageHeader'
-import RouteTabs from '@/components/widgets/RouteTabs'
-import TaskTypeList from '@/components/lists/TaskTypeList'
+import DeleteModal from '@/components/modals/DeleteModal.vue'
+import EditTaskTypeModal from '@/components/modals/EditTaskTypeModal.vue'
+import ListPageHeader from '@/components/widgets/ListPageHeader.vue'
+import RouteTabs from '@/components/widgets/RouteTabs.vue'
+import TaskTypeList from '@/components/lists/TaskTypeList.vue'
 
 export default {
   name: 'task-types',
@@ -105,12 +105,7 @@ export default {
   },
 
   computed: {
-    ...mapGetters([
-      'archivedTaskTypes',
-      'departmentMap',
-      'getTaskType',
-      'taskTypes'
-    ]),
+    ...mapGetters(['archivedTaskTypes', 'departmentMap', 'taskTypes']),
 
     isActiveTab() {
       return this.activeTab === 'active'
@@ -243,6 +238,7 @@ export default {
         this.$t('task_types.fields.dedicated_to'),
         this.$t('task_types.fields.department'),
         this.$t('task_types.fields.name'),
+        this.$t('task_types.fields.description'),
         this.$t('task_types.fields.color'),
         this.$t('task_types.fields.allow_timelog')
       ]
@@ -252,6 +248,7 @@ export default {
           taskType.for_entity,
           this.departmentMap.get(taskType.department_id)?.name,
           taskType.name,
+          taskType.description,
           taskType.color,
           taskType.allow_timelog
         ])
@@ -271,7 +268,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('task_types.title')} - Kitsu`
     }

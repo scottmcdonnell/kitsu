@@ -47,7 +47,7 @@
       v-if="isPeopleLoading || currentPeople.length > 0"
     />
     <div class="has-text-centered strong" v-else>
-      <p>{{ $t('bots.no_bots') }}</p>
+      <p>{{ $t('bots.no_bot') }}</p>
       <button-simple
         class="mt1"
         :text="$t('bots.new_bot')"
@@ -104,17 +104,18 @@
 <script>
 import { mapGetters, mapActions } from 'vuex'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import ComboboxDepartment from '@/components/widgets/ComboboxDepartment'
-import ComboboxStyled from '@/components/widgets/ComboboxStyled'
-import EditAvatarModal from '@/components/modals/EditAvatarModal'
-import EditPersonModal from '@/components/modals/EditPersonModal'
-import HardDeleteModal from '@/components/modals/HardDeleteModal'
-import NewTokenModal from '@/components/modals/NewTokenModal'
-import PageTitle from '@/components/widgets/PageTitle'
-import PeopleList from '@/components/lists/PeopleList'
-import SearchField from '@/components/widgets/SearchField'
 import { searchMixin } from '@/components/mixins/search'
+
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
+import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
+import EditAvatarModal from '@/components/modals/EditAvatarModal.vue'
+import EditPersonModal from '@/components/modals/EditPersonModal.vue'
+import HardDeleteModal from '@/components/modals/HardDeleteModal.vue'
+import NewTokenModal from '@/components/modals/NewTokenModal.vue'
+import PageTitle from '@/components/widgets/PageTitle.vue'
+import PeopleList from '@/components/lists/PeopleList.vue'
+import SearchField from '@/components/widgets/SearchField.vue'
 
 export default {
   name: 'bots',
@@ -289,9 +290,8 @@ export default {
         })
         .catch(err => {
           console.error(err)
-          const message = err.body?.message
           const isUserLimitReached =
-            typeof message === 'string' && message.includes('limit')
+            err.body?.message?.includes('limit') ?? false
           if (isUserLimitReached) {
             this.errors.userLimit = true
           } else {
@@ -368,7 +368,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('bots.title')} - Kitsu`
     }

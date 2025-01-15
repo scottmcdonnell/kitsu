@@ -35,8 +35,10 @@
 import firstBy from 'thenby'
 import { mapGetters } from 'vuex'
 
-import ComboboxStyled from '@/components/widgets/ComboboxStyled'
-import ValidationTag from '@/components/widgets/ValidationTag'
+import editStore from '@/store/modules/edits'
+
+import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
+import ValidationTag from '@/components/widgets/ValidationTag.vue'
 
 export default {
   name: 'previews-per-task-type',
@@ -46,6 +48,8 @@ export default {
     ValidationTag
   },
 
+  emits: ['preview-changed'],
+
   data() {
     return {
       taskTypeId: null,
@@ -54,10 +58,6 @@ export default {
   },
 
   props: {
-    entityMap: {
-      default: () => {},
-      type: Map
-    },
     index: {
       default: 0,
       type: Number
@@ -81,7 +81,7 @@ export default {
     ]),
 
     taskTypeOptions() {
-      const entity = this.entityMap.get(this.entity.id)
+      const entity = editStore.cache.editMap.get(this.entity.id)
       return entity.tasks
         .map(taskId => this.taskMap.get(taskId))
         .map(task => this.taskTypeMap.get(task.task_type_id))
@@ -103,9 +103,9 @@ export default {
     },
 
     taskStatus() {
-      if (!this.entityMap) return ''
+      if (!editStore.cache.editMap) return ''
 
-      const entity = this.entityMap.get(this.entity.id)
+      const entity = editStore.cache.editMap.get(this.entity.id)
       if (!entity) return ''
 
       const taskId = entity.validations.get(this.taskTypeId)
@@ -178,8 +178,6 @@ export default {
       this.$emit('preview-changed', this.entity, previewFile)
     },
 
-    'entity.preview_files': function () {},
-
     'entity.preview_file_id': function () {
       if (this.previewFileId !== this.entity.preview_file_id) {
         this.previewFileId = this.entity.preview_file_id
@@ -191,7 +189,7 @@ export default {
 
 <style lang="scss" scoped>
 .field {
-  margin-bottom: 0em;
+  margin-bottom: 0;
 }
 .text {
   color: var(--text);

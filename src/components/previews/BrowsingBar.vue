@@ -47,8 +47,7 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
 
 export default {
   name: 'browsing-bar',
@@ -84,9 +83,15 @@ export default {
     }
   },
 
-  computed: {
-    ...mapGetters([]),
+  emits: [
+    'add-preview-clicked',
+    'current-index-clicked',
+    'next-clicked',
+    'previous-clicked',
+    'remove-preview-clicked'
+  ],
 
+  computed: {
     isBigDisplay() {
       return (!this.light || this.fullScreen) && this.previews.length > 1
     },
@@ -98,13 +103,7 @@ export default {
         return this.previews[this.currentIndex - 1].extension === 'mp4'
       }
     }
-  },
-
-  methods: {
-    ...mapActions([])
-  },
-
-  watch: {}
+  }
 }
 </script>
 

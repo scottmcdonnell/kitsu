@@ -45,6 +45,7 @@
       />
       <button-simple
         class="flexrow-item"
+        :disabled="isLoading"
         icon="download"
         @click="exportStatisticsToCsv"
       />
@@ -75,14 +76,15 @@
 <script>
 import moment from 'moment'
 import { mapGetters, mapActions } from 'vuex'
+
 import csv from '@/lib/csv'
 import preferences from '@/lib/preferences'
 import stringHelpers from '@/lib/string'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import Combobox from '@/components/widgets/Combobox'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
 import EpisodeStatsList from '@/components/lists/EpisodeStatsList.vue'
-import SearchField from '@/components/widgets/SearchField'
+import SearchField from '@/components/widgets/SearchField.vue'
 
 export default {
   name: 'episode-stats',
@@ -233,7 +235,8 @@ export default {
           this.taskTypeMap,
           this.taskStatusMap,
           this.episodeMap,
-          this.countMode
+          this.countMode,
+          this.currentProduction
         )
       } else {
         csv.generateStatReports(
@@ -242,7 +245,8 @@ export default {
           this.taskTypeMap,
           this.taskStatusMap,
           this.episodeMap,
-          this.countMode
+          this.countMode,
+          this.currentProduction
         )
       }
     },
@@ -278,14 +282,12 @@ export default {
       this.reset()
     },
 
-    displayedEpisodes() {},
-
     dataMode() {
       preferences.setPreference('stats:episode-mode', this.dataMode)
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.currentProduction.name} ${this.$t(
         'episodes.title'
@@ -294,5 +296,3 @@ export default {
   }
 }
 </script>
-
-<style lang="scss" scoped></style>

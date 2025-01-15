@@ -12,7 +12,7 @@
 
       <div class="search-field">
         <span class="search-icon">
-          <search-icon width="20" />
+          <search-icon :size="20" />
         </span>
         <input
           ref="search-field"
@@ -45,7 +45,7 @@
           class="search-limit flexrow-item"
           :options="limitOptions"
           :with-margin="false"
-          @input="search"
+          @update:model-value="search"
           v-model="limit"
         />
       </div>
@@ -61,11 +61,11 @@
         <spinner />
       </div>
       <div v-else>
-        <div class="pb1" v-if="this.searchFilter.assets">
+        <div class="pb1" v-if="searchFilter.assets">
           <h2 class="mt0">
-            {{ $t('assets.title') }} ({{ this.results.assets?.length || 0 }})
+            {{ $t('assets.title') }} ({{ results.assets?.length || 0 }})
           </h2>
-          <div class="has-text-centered" v-if="!this.results.assets?.length">
+          <div class="has-text-centered" v-if="!results.assets?.length">
             {{ $t('main.search.no_result') }}
           </div>
           <div class="result-list" v-else>
@@ -76,7 +76,7 @@
               }"
               :key="entity.id"
               @mouseover="selectResultById(entity.id)"
-              v-for="entity in this.results.assets"
+              v-for="entity in results.assets"
             >
               <entity-preview
                 :empty-height="200"
@@ -98,7 +98,9 @@
                   {{ entity.asset_type_name }} / {{ entity.name }}
                 </div>
                 <div class="match">
-                  <span class="match-icon"><search-icon width="15" /></span>
+                  <span class="match-icon">
+                    <search-icon :size="15" />
+                  </span>
                   {{ getMatchDetails(entity) }}
                 </div>
               </router-link>
@@ -120,11 +122,11 @@
             <spinner v-else />
           </p>
         </div>
-        <div class="pb1" v-if="this.searchFilter.shots">
+        <div class="pb1" v-if="searchFilter.shots">
           <h2 class="mt1">
-            {{ $t('shots.title') }} ({{ this.results.shots?.length || 0 }})
+            {{ $t('shots.title') }} ({{ results.shots?.length || 0 }})
           </h2>
-          <div class="has-text-centered" v-if="!this.results.shots?.length">
+          <div class="has-text-centered" v-if="!results.shots?.length">
             {{ $t('main.search.no_result') }}
           </div>
           <div class="result-list" v-else>
@@ -135,7 +137,7 @@
               }"
               :key="entity.id"
               @mouseover="selectResultById(entity.id)"
-              v-for="entity in this.results.shots"
+              v-for="entity in results.shots"
             >
               <entity-preview
                 :empty-height="200"
@@ -160,7 +162,9 @@
                   {{ entity.sequence_name }} / {{ entity.name }}
                 </div>
                 <div class="match">
-                  <span class="match-icon"><search-icon width="15" /></span>
+                  <span class="match-icon">
+                    <search-icon :size="15" />
+                  </span>
                   <span class="match-details">{{
                     getMatchDetails(entity)
                   }}</span>
@@ -194,20 +198,19 @@
 import { mapGetters, mapActions } from 'vuex'
 import { getEntityPath, getPersonPath } from '@/lib/path'
 
-import { SearchIcon } from 'vue-feather-icons'
+import { SearchIcon } from 'lucide-vue-next'
 import stringHelpers from '@/lib/string'
 
-import Checkbox from '@/components/widgets/Checkbox'
-import Combobox from '@/components/widgets/Combobox'
-import ComboboxProduction from '@/components/widgets/ComboboxProduction'
-import EntityPreview from '@/components/widgets/EntityPreview'
-import Spinner from '@/components/widgets/Spinner'
+import Checkbox from '@/components/widgets/Checkbox.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
+import ComboboxProduction from '@/components/widgets/ComboboxProduction.vue'
+import EntityPreview from '@/components/widgets/EntityPreview.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
 
 const AVAILABLE_LIMITS = [12, 24, 48]
 
 export default {
   name: 'entity-search',
-  mixins: [],
 
   components: {
     Checkbox,
@@ -240,8 +243,6 @@ export default {
       }
     }
   },
-
-  props: {},
 
   mounted() {
     window.addEventListener('keydown', event => {
@@ -435,7 +436,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('search.title')} - Kitsu`
     }
@@ -468,7 +469,7 @@ export default {
     position: absolute;
     color: $grey;
     z-index: 4;
-    top: 15px;
+    top: 17px;
     left: 10px;
   }
 }
@@ -541,7 +542,7 @@ export default {
       opacity: 0.7;
 
       .match-icon {
-        margin-top: -2px;
+        margin-top: 2px;
         margin-right: 0.5em;
       }
     }

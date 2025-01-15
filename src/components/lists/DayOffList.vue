@@ -1,5 +1,5 @@
 <template>
-  <div class="days-off-list data-list">
+  <div class="day-off-list data-list">
     <div class="flexrow header">
       <div class="filler"></div>
       <button-simple
@@ -98,6 +98,8 @@
 </template>
 
 <script>
+import moment from 'moment-timezone'
+
 import { formatSimpleDate } from '@/lib/time'
 
 import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
@@ -106,7 +108,7 @@ import DeleteModal from '@/components/modals/DeleteModal.vue'
 import TableInfo from '@/components/widgets/TableInfo.vue'
 
 export default {
-  name: 'days-off-list',
+  name: 'day-off-list',
 
   components: {
     ButtonSimple,
@@ -133,6 +135,8 @@ export default {
       type: [String, Boolean]
     }
   },
+
+  emits: ['set-day-off', 'unset-day-off'],
 
   data() {
     return {
@@ -170,8 +174,8 @@ export default {
               dayOff.date !== dayOff.end_date
                 ? `${dayOff.date} - ${dayOff.end_date}`
                 : dayOff.date,
-            date: new Date(dayOff.date),
-            end_date: new Date(dayOff.end_date || dayOff.date)
+            date: moment.utc(dayOff.date).toDate(),
+            end_date: moment.utc(dayOff.end_date || dayOff.date).toDate()
           }
         })
     }
@@ -205,7 +209,7 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.days-off-list {
+.day-off-list {
   max-width: 800px;
 }
 

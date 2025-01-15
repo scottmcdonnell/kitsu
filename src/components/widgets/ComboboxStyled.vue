@@ -1,12 +1,12 @@
 <template>
-  <div :class="{ active }">
+  <div :class="{ active }" :disabled="disabled || null">
     <label class="label" v-if="label.length">
       {{ label }}
     </label>
     <div
+      class="combo"
       :class="{
-        combo: true,
-        thin: thin,
+        thin,
         compact: isCompact,
         reversed: isReversed,
         open: showList
@@ -59,8 +59,8 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex'
-import { ChevronDownIcon } from 'vue-feather-icons'
+import { ChevronDownIcon } from 'lucide-vue-next'
+
 import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
 
 export default {
@@ -70,6 +70,8 @@ export default {
     ChevronDownIcon,
     EntityThumbnail
   },
+
+  emits: ['change', 'update:modelValue'],
 
   data() {
     return {
@@ -86,6 +88,10 @@ export default {
       default: false,
       type: Boolean
     },
+    disabled: {
+      default: false,
+      type: Boolean
+    },
     label: {
       default: '',
       type: String
@@ -94,7 +100,7 @@ export default {
       default: () => [],
       type: Array
     },
-    value: {
+    modelValue: {
       default: '',
       type: [String, Object]
     },
@@ -125,8 +131,6 @@ export default {
   },
 
   computed: {
-    ...mapGetters(['isDarkTheme']),
-
     optionList() {
       if (this.isReversed && !this.keepOrder) {
         return [...this.options].reverse()
@@ -147,7 +151,7 @@ export default {
     },
 
     selectOption(option) {
-      this.$emit('input', option.value)
+      this.$emit('update:modelValue', option.value)
       this.$emit('change', option.value)
       this.selectedOption = option
     },
@@ -174,10 +178,13 @@ export default {
 
   watch: {
     options: {
+      deep: true,
       immediate: true,
       handler() {
         if (this.options.length > 0) {
-          const option = this.options.find(({ value }) => value === this.value)
+          const option = this.options.find(
+            ({ value }) => value === this.modelValue
+          )
           this.selectedOption = option || this.options[0]
         }
       }
@@ -197,8 +204,8 @@ export default {
       }
     },
 
-    value() {
-      this.selectedOption = this.options.find(o => o.value === this.value)
+    modelValue() {
+      this.selectedOption = this.options.find(o => o.value === this.modelValue)
     }
   }
 }
@@ -244,8 +251,8 @@ export default {
   vertical-align: middle;
 
   &.open {
-    border-bottom-left-radius: 0em;
-    border-bottom-right-radius: 0em;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
   }
 }
 
@@ -332,8 +339,8 @@ export default {
 
 .reversed {
   &.open {
-    border-top-left-radius: 0em;
-    border-top-right-radius: 0em;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
     border-bottom-left-radius: 1em;
     border-bottom-right-radius: 1em;
   }
@@ -341,8 +348,8 @@ export default {
   .select-input {
     border-top-left-radius: 1em;
     border-top-right-radius: 1em;
-    border-bottom-left-radius: 0em;
-    border-bottom-right-radius: 0em;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
     height: 180px;
     top: -180px;
   }

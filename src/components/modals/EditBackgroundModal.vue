@@ -16,7 +16,7 @@
           {{ $t('backgrounds.new_background') }}
         </h1>
 
-        <form v-on:submit.prevent>
+        <form @submit.prevent>
           <div class="field" v-if="!isEditing">
             <label class="label"> {{ $t('backgrounds.fields.file') }}</label>
             <file-upload
@@ -36,6 +36,7 @@
             v-model.trim="form.name"
           />
           <boolean-field
+            is-field
             :label="$t('backgrounds.fields.is_default')"
             @enter="confirmClicked"
             v-model="form.is_default"
@@ -61,17 +62,19 @@
 </template>
 
 <script>
-import ModalFooter from '@/components/modals/ModalFooter'
 import { modalMixin } from '@/components/modals/base_modal'
 
-import BooleanField from '@/components/widgets/BooleanField'
-import ComboboxBoolean from '@/components/widgets/ComboboxBoolean'
+import BooleanField from '@/components/widgets/BooleanField.vue'
+import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
 import FileUpload from '@/components/widgets/FileUpload.vue'
-import TextField from '@/components/widgets/TextField'
+import ModalFooter from '@/components/modals/ModalFooter.vue'
+import TextField from '@/components/widgets/TextField.vue'
 
 export default {
-  name: 'edit-task-status-modal',
+  name: 'edit-background-modal',
+
   mixins: [modalMixin],
+
   components: {
     BooleanField,
     ComboboxBoolean,
@@ -98,6 +101,8 @@ export default {
       default: () => {}
     }
   },
+
+  emits: ['cancel', 'confirm'],
 
   data() {
     return {

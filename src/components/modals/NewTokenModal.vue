@@ -13,9 +13,9 @@
             {{ $t('bots.new_token_warning') }}
           </p>
           <date-field
-            :disabled-dates="{ to: new Date() }"
             :invalid="!isValidExpirationDate"
             :label="$t('bots.fields.expiration_date')"
+            :min-date="today"
             v-model="form.expiration_date"
           />
           <div class="flexrow right">
@@ -37,9 +37,8 @@
 
         <template v-else>
           <p class="mb2 warning-text">
-            <alert-triangle-icon class="icon mr05 warning" />{{
-              $t('bots.copy_token_warning')
-            }}
+            <alert-triangle-icon class="icon mr05 warning" />
+            {{ $t('bots.copy_token_warning') }}
           </p>
           <div class="token">
             <text-field
@@ -48,7 +47,7 @@
               input-class=" token-input"
               :readonly="true"
               :type="visible ? 'text' : 'password'"
-              :value="person.access_token"
+              :model-value="person.access_token"
             />
             <eye-off-icon
               v-if="visible"
@@ -81,16 +80,18 @@
 </template>
 
 <script>
-import { AlertTriangleIcon, EyeIcon, EyeOffIcon } from 'vue-feather-icons'
+import { AlertTriangleIcon, EyeIcon, EyeOffIcon } from 'lucide-vue-next'
 
 import { modalMixin } from '@/components/modals/base_modal'
+import { timeMixin } from '@/components/mixins/time'
+
 import DateField from '@/components/widgets/DateField.vue'
 import TextField from '@/components/widgets/TextField.vue'
 
 export default {
   name: 'new-token-modal',
 
-  mixins: [modalMixin],
+  mixins: [modalMixin, timeMixin],
 
   components: {
     AlertTriangleIcon,
@@ -110,6 +111,8 @@ export default {
       default: () => {}
     }
   },
+
+  emits: ['cancel', 'close', 'generate-token'],
 
   data() {
     return {
@@ -169,11 +172,6 @@ export default {
 <style lang="scss" scoped>
 .warning {
   color: $orange;
-}
-
-.form :deep(.vdp-datepicker__calendar) {
-  top: -175px;
-  left: -10px;
 }
 
 .token {

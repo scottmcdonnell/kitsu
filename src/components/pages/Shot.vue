@@ -26,7 +26,7 @@
       <div class="entity-data block">
         <route-section-tabs
           class="section-tabs"
-          :activeTab="currentSection"
+          :active-tab="currentSection"
           :route="$route"
           :tabs="entityTabs"
         />
@@ -230,6 +230,7 @@
                   >
                     <entity-thumbnail
                       class="entity-thumbnail"
+                      :class="{ shared: asset.shared }"
                       :entity="asset"
                       :square="true"
                       :empty-width="103"
@@ -238,11 +239,14 @@
                     />
                     <div class="break-word">
                       {{ asset.asset_name }}
-                      <span v-if="asset.nb_occurences > 1">
+                      <template v-if="asset.nb_occurences > 1">
                         ({{ asset.nb_occurences }})
-                      </span>
+                      </template>
                     </div>
-                    <div class="ready-for flexrow">
+                    <div
+                      class="ready-for flexrow"
+                      v-if="!asset.shared && asset.ready_for"
+                    >
                       <task-type-name
                         class="flexrow-item"
                         :task-type="taskTypeMap.get(asset.ready_for)"
@@ -250,7 +254,6 @@
                         :title="
                           'Ready for: ' + taskTypeMap.get(asset.ready_for).name
                         "
-                        v-if="asset.ready_for"
                       />
                     </div>
                   </router-link>
@@ -322,7 +325,9 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
-import { CornerLeftUpIcon } from 'vue-feather-icons'
+import { CornerLeftUpIcon } from 'lucide-vue-next'
+
+import shotStore from '@/store/modules/shots'
 
 import { episodifyRoute } from '@/lib/path'
 import { entityMixin } from '@/components/mixins/entity'
@@ -347,7 +352,9 @@ import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
 
 export default {
   name: 'shot',
+
   mixins: [entityMixin, formatListMixin],
+
   components: {
     ButtonSimple,
     ComboboxNumber,
@@ -489,7 +496,7 @@ export default {
     getCurrentShot() {
       return new Promise((resolve, reject) => {
         const shotId = this.route.params.shot_id
-        const shot = this.shotMap.get(shotId) || null
+        const shot = shotStore.cache.shotMap.get(shotId) || null
         if (!shot) {
           return this.loadShot(shotId).then(resolve)
         } else {
@@ -600,7 +607,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.title} - Kitsu`
     }
@@ -676,11 +683,16 @@ h2.subtitle {
 
 .asset-link {
   color: inherit;
-  margin-right: 1em;
+  margin-left: 0.5em;
+  margin-right: 0.5em;
   display: flex;
   flex-direction: column;
   align-items: center;
   font-size: 0.8em;
+
+  .entity-thumbnail.shared {
+    box-shadow: 0 0 3px 2px var(--shared-color);
+  }
 
   .ready-for .no-link {
     cursor: inherit;

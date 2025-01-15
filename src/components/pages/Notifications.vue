@@ -1,29 +1,52 @@
 <template>
   <div class="columns fixed-page">
     <div class="column main-column">
-      <div class="notifications page" v-scroll="onBodyScroll" ref="body">
+      <div class="notifications page" @scroll.passive="onBodyScroll" ref="body">
         <div class="flexrow">
-          <page-title
-            class="flexrow-item title"
-            :text="$t('notifications.title')"
-          />
           <combobox-task-type
             class="flexrow-item selector"
             :label="$t('news.task_type')"
             :task-type-list="taskTypeList"
-            v-model="taskTypeId"
+            v-model="parameters.taskTypeId"
           />
           <combobox-status
             class="flexrow-item selector"
             :label="$t('news.task_status')"
             :task-status-list="taskStatusList"
-            v-model="taskStatusId"
+            v-model="parameters.taskStatusId"
           />
           <combobox-styled
             class="flexrow-item selector field"
             :label="$t('main.type')"
             :options="typeOptions"
-            v-model="typeMode"
+            v-model="parameters.typeMode"
+          />
+          <combobox-styled
+            class="flexrow-item selector field"
+            :label="$t('main.status')"
+            :options="statusOptions"
+            v-model="parameters.statusMode"
+          />
+          <combobox-styled
+            class="flexrow-item selector field"
+            :label="$t('notifications.watching')"
+            :options="watchingOptions"
+            v-model="parameters.watchingMode"
+          />
+        </div>
+        <div class="flexrow mb1">
+          <button-simple
+            class="flexrow-item"
+            :text="$t('notifications.show_comments')"
+            :active="parameters.showComments"
+            @click="parameters.showComments = !parameters.showComments"
+          />
+          <span class="filler"></span>
+          <button-simple
+            class="flexrow-item"
+            :is-loading="loading.markAll"
+            :text="$t('notifications.mark_all_as_read')"
+            @click="markAllNotificationsRead"
           />
         </div>
         <div
@@ -41,113 +64,169 @@
         <div
           :class="{
             notification: true,
+            'mention-notification': isMention(notification),
             unread: !notification.read,
-            selected: notification.id === currentNotificationId
+            selected: isSelected(notification)
           }"
           :key="notification.id"
-          @click="onNotificationSelected(notification)"
+          @click="onNotificationSelected($event, notification)"
           v-for="notification in notifications"
           v-show="!loading.notifications"
         >
-          <div class="flexrow notification-line">
-            <div class="flexrow-item">
-              <div class="flexrow">
-                <at-sign-icon
-                  class="icon flexrow-item"
-                  v-if="isMention(notification) || isReplyMention(notification)"
-                />
-                <message-square-icon
-                  class="icon flexrow-item"
-                  v-if="isComment(notification)"
-                />
-                <corner-up-left-icon
-                  class="icon flexrow-item"
-                  v-if="isReply(notification)"
-                />
-                <user-icon
-                  class="icon flexrow-item"
-                  v-if="isAssignation(notification)"
-                />
-
-                <task-type-name
-                  class="task-type-name"
-                  :task-type="buildTaskTypeFromNotification(notification)"
-                  :production-id="notification.project_id"
-                />
-              </div>
-
-              <div class="mt1 has-text-right">
-                <validation-tag
-                  class="validation-tag mt1"
-                  :task="buildTaskFromNotification(notification)"
-                  v-if="notification.change"
-                />
-              </div>
-
-              <div class="date has-text-right">
+          <div class="flexcolumn notification-line">
+            <div class="flexrow notification-header">
+              <at-sign-icon
+                class="icon flexrow-item"
+                :title="$t('notifications.mention')"
+                v-if="isMention(notification) || isReplyMention(notification)"
+              />
+              <corner-up-left-icon
+                class="icon flexrow-item"
+                :title="$t('notifications.reply')"
+                v-else-if="isReply(notification)"
+              />
+              <user-icon
+                class="icon flexrow-item"
+                :title="$t('notifications.assignation')"
+                v-else-if="isAssignation(notification)"
+              />
+              <image-icon
+                class="icon flexrow-item"
+                :title="$t('notifications.publish')"
+                v-else-if="isPublish(notification)"
+              />
+              <message-square-icon
+                class="icon flexrow-item"
+                :title="$t('notifications.comment')"
+                v-else-if="isComment(notification)"
+              />
+              <people-avatar
+                class="flexrow-item"
+                :person="personMap.get(notification.author_id)"
+                :size="30"
+                :is-link="false"
+                v-if="personMap.get(notification.author_id)"
+              />
+              <entity-thumbnail
+                class="flexrow-item"
+                :entity="{
+                  preview_file_id: notification.entity_preview_file_id
+                }"
+                :height="40"
+              />
+              <task-type-name
+                class="task-type-name flexrow-item ml1"
+                :task-type="buildTaskTypeFromNotification(notification)"
+                :production-id="notification.project_id"
+              />
+              <router-link class="flexrow-item" :to="entityPath(notification)">
+                {{ notification.project_name }} /
+                {{ notification.full_entity_name }}
+              </router-link>
+              <validation-tag
+                class="validation-tag flexrow-item"
+                :task="buildTaskFromNotification(notification)"
+                v-if="notification.change"
+              />
+              <span class="date flexrow-item">
                 {{ formatDate(notification.created_at) }}
+              </span>
+              <div class="filler"></div>
+              <div class="has-text-right flexrow-item mr0">
+                <boolean-field
+                  class="selector"
+                  :label="$t('notifications.read')"
+                  is-small
+                  @click="value => toggleNotificationRead(notification, value)"
+                  :model-value="notification.read ? 'true' : 'false'"
+                />
               </div>
             </div>
 
             <div class="flexrow-item comment-content">
-              <div>
-                <div class="notification-info flexrow">
-                  <people-avatar
-                    class="flexrow-item"
-                    :person="personMap.get(notification.author_id)"
-                    :size="30"
-                    :is-link="false"
-                    v-if="personMap.get(notification.author_id)"
-                  />
+              <div
+                class="notification-info flexrow"
+                v-if="parameters.showComments || isSelected(notification)"
+              >
+                <span class="person-name flexrow-item ml0">
+                  {{ personName(notification) }}
+                </span>
 
-                  <span class="person-name flexrow-item">
-                    {{ personName(notification) }}
-                  </span>
+                <div class="flexrow-item">
+                  <template v-if="isPublish(notification)">
+                    {{ $t('notifications.published') }}
+                  </template>
 
-                  <span
-                    class="explaination flexrow-item"
-                    v-if="isComment(notification)"
+                  <template
+                    v-if="isComment(notification) && !isPublish(notification)"
                   >
                     {{ $t('notifications.commented_on') }}
-                  </span>
+                  </template>
 
-                  <span
-                    class="explaination flexrow-item"
-                    v-if="isReply(notification)"
+                  <template
+                    v-if="
+                      (isComment(notification) || isPublish(notification)) &&
+                      notification.change
+                    "
                   >
+                    {{ $t('notifications.and_change_status') }}
+                  </template>
+
+                  <template v-if="isReply(notification)">
                     {{ $t('notifications.replied_on') }}
-                  </span>
+                  </template>
 
-                  <span
-                    class="explaination flexrow-item"
-                    v-if="isAssignation(notification)"
-                  >
+                  <template v-if="isAssignation(notification)">
                     {{ $t('notifications.assigned_you') }}
-                  </span>
+                  </template>
 
-                  <span
-                    class="explaination flexrow-item"
+                  <template
                     v-if="
                       isMention(notification) || isReplyMention(notification)
                     "
                   >
                     {{ $t('notifications.mention_you_on') }}
                     <template v-if="isReplyMention(notification)">
-                      (reply)
+                      ({{ $t('main.reply').toLowerCase() }})
                     </template>
-                  </span>
-
-                  <router-link
-                    class="flexrow-item"
-                    :to="entityPath(notification)"
-                  >
-                    {{ notification.project_name }} /
-                    {{ notification.full_entity_name }}
-                  </router-link>
+                  </template>
                 </div>
               </div>
               <div
-                class="comment-text"
+                class="comment-text content reply-text"
+                v-html="
+                  renderComment(
+                    notification.reply_text,
+                    notification.reply_mentions || [],
+                    notification.reply_department_mentions || [],
+                    personMap,
+                    departmentMap
+                  )
+                "
+                v-if="
+                  (isReply(notification) || isReplyMention(notification)) &&
+                  (parameters.showComments || isSelected(notification))
+                "
+              ></div>
+
+              <div
+                class="reply-title mt1"
+                v-if="
+                  (isReply(notification) || isReplyMention(notification)) &&
+                  notification.comment_text &&
+                  (parameters.showComments || isSelected(notification))
+                "
+              >
+                <em>{{ $t('notifications.initial_comment') }}</em>
+              </div>
+              <div
+                class="comment-text content"
+                :style="{
+                  opacity:
+                    isReply(notification) || isReplyMention(notification)
+                      ? '0.8'
+                      : '1'
+                }"
                 v-html="
                   renderComment(
                     notification.comment_text,
@@ -158,55 +237,12 @@
                   )
                 "
                 v-if="
-                  isComment(notification) ||
-                  isMention(notification) ||
-                  isReplyMention(notification) ||
-                  notification.comment_text
-                "
-              ></div>
-              <div v-if="isReply(notification) || isReplyMention(notification)">
-                ...
-              </div>
-              <div
-                v-if="notification.preview_file_id && !isReply(notification)"
-              >
-                <h3>
-                  {{ $t('notifications.new_revision') }}
-                </h3>
-                <!--div
-                  class="thumbnail-picture-wrapper"
-                  v-if="notification.preview_file_id"
-                >
-                  <entity-thumbnail
-                    :entity="{ preview_file_id: notification.preview_file_id }"
-                    :height="40"
-                  />
-                </div-->
-              </div>
-              <!--div
-                class="comment-text"
-                v-if="
-                  (isComment(notification) ||
-                    isMention(notification) ||
+                  (((isComment(notification) || isMention(notification)) &&
+                    notification.comment_text) ||
+                    isReply(notification) ||
                     isReplyMention(notification)) &&
-                  !notification.comment_text
+                  (parameters.showComments || isSelected(notification))
                 "
-              >
-                {{ $t('comments.empty_text') }}
-              </div-->
-
-              <div
-                class="comment-text reply-text"
-                v-html="
-                  renderComment(
-                    notification.reply_text,
-                    notification.reply_mentions || [],
-                    notification.reply_department_mentions || [],
-                    personMap,
-                    departmentMap
-                  )
-                "
-                v-if="isReply(notification) || isReplyMention(notification)"
               ></div>
             </div>
           </div>
@@ -225,35 +261,46 @@ import { mapGetters, mapActions } from 'vuex'
 import {
   AtSignIcon,
   CornerUpLeftIcon,
+  ImageIcon,
   MessageSquareIcon,
   UserIcon
-} from 'vue-feather-icons'
-import { marked } from 'marked'
+} from 'lucide-vue-next'
 import moment from 'moment-timezone'
+
+import { parametersMixin } from '@/components/mixins/parameters'
+
 import { pluralizeEntityType } from '@/lib/path'
 import { renderComment } from '@/lib/render'
 
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-import ComboboxStatus from '@/components/widgets/ComboboxStatus'
-import ComboboxStyled from '@/components/widgets/ComboboxStyled'
-import PageTitle from '@/components/widgets/PageTitle'
-import PeopleAvatar from '@/components/widgets/PeopleAvatar'
-import Spinner from '@/components/widgets/Spinner'
-import TaskInfo from '@/components/sides/TaskInfo'
-import TaskTypeName from '@/components/widgets/TaskTypeName'
-import ValidationTag from '@/components/widgets/ValidationTag'
+import BooleanField from '@/components/widgets/BooleanField.vue'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
+import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
+import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
+import TaskInfo from '@/components/sides/TaskInfo.vue'
+import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
+import ValidationTag from '@/components/widgets/ValidationTag.vue'
 
 export default {
   name: 'notifications',
+
+  mixins: [parametersMixin],
+
   components: {
     AtSignIcon,
-    ComboboxTaskType,
+    BooleanField,
+    ButtonSimple,
     ComboboxStatus,
     ComboboxStyled,
+    ComboboxTaskType,
     CornerUpLeftIcon,
+    EntityThumbnail,
+    ImageIcon,
     MessageSquareIcon,
     PeopleAvatar,
-    PageTitle,
     Spinner,
     TaskInfo,
     TaskTypeName,
@@ -263,19 +310,40 @@ export default {
 
   data() {
     return {
-      loading: {
-        more: false,
-        notifications: false,
-        currentTask: true
-      },
+      currentTask: null,
+      currentNotificationId: null,
       errors: {
         notifications: false
       },
-      currentTask: null,
-      currentNotificationId: null,
-      taskTypeId: '',
-      taskStatusId: '',
-      typeMode: '',
+      loading: {
+        currentTask: true,
+        markAll: false,
+        more: false,
+        notifications: false
+      },
+      parameterNamespace: 'notifications',
+      parameters: {
+        taskTypeId: '',
+        taskStatusId: '',
+        typeMode: '',
+        showComments: false,
+        statusMode: null,
+        watchingMode: null
+      },
+      statusOptions: [
+        {
+          label: this.$t('notifications.all_statuses'),
+          value: null
+        },
+        {
+          label: this.$t('notifications.only_read'),
+          value: 'read'
+        },
+        {
+          label: this.$t('notifications.only_unread'),
+          value: 'unread'
+        }
+      ],
       typeOptions: [
         {
           label: this.$t('notifications.all_types'),
@@ -297,6 +365,20 @@ export default {
           label: this.$t('notifications.only_replies'),
           value: 'reply'
         }
+      ],
+      watchingOptions: [
+        {
+          label: this.$t('notifications.all_notifications'),
+          value: null
+        },
+        {
+          label: this.$t('notifications.only_watching'),
+          value: 'watching'
+        },
+        {
+          label: this.$t('notifications.only_non_watching'),
+          value: 'non-watching'
+        }
       ]
     }
   },
@@ -306,6 +388,14 @@ export default {
   },
 
   mounted() {
+    const params = this.getParametersFromPreferences(this.parameters) || {}
+    this.applyQueryParameters(params)
+    if (params.showComments === 'true' || params.showComments === true) {
+      params.showComments = true
+    } else {
+      params.showComments = false
+    }
+    this.parameters = params
     this.reloadData()
   },
 
@@ -317,7 +407,6 @@ export default {
       'taskStatus',
       'taskTypes',
       'taskTypeMap',
-      'taskStatusMap',
       'user'
     ]),
 
@@ -349,18 +438,26 @@ export default {
       'loadNotification',
       'loadNotifications',
       'loadTask',
-      'markAllNotificationsAsRead'
+      'markAllNotificationsAsRead',
+      'toggleNotificationReadStatus'
     ]),
 
     reloadData() {
       this.loading.notifications = true
       this.errors.notifications = false
       this.currentTask = null
-      this.loadNotifications({
-        task_status_id: this.taskStatusId,
-        task_type_id: this.taskTypeId,
-        type: this.typeMode
-      })
+      const params = {
+        task_status_id: this.parameters.taskStatusId,
+        task_type_id: this.parameters.taskTypeId,
+        type: this.parameters.typeMode
+      }
+      if (this.parameters.statusMode) {
+        params.read = this.parameters.statusMode === 'read'
+      }
+      if (this.parameters.watchingMode !== null) {
+        params.watching = this.parameters.watchingMode === 'watching'
+      }
+      this.loadNotifications(params)
         .then(() => {
           this.loading.notifications = false
         })
@@ -370,7 +467,8 @@ export default {
         })
     },
 
-    onBodyScroll(event, position) {
+    onBodyScroll(event) {
+      const position = event.target
       const maxHeight =
         this.$refs.body.scrollHeight - this.$refs.body.offsetHeight
       if (maxHeight < position.scrollTop + 100) {
@@ -378,16 +476,22 @@ export default {
       }
     },
 
-    loadFollowingNotifications() {
+    async loadFollowingNotifications() {
       if (!this.loading.more && !this.loading.notifications) {
         this.loading.more = true
-        this.loadMoreNotifications({
-          task_status_id: this.taskStatusId,
-          task_type_id: this.taskTypeId,
-          type: this.typeMode
-        }).then(() => {
-          this.loading.more = false
-        })
+        const params = {
+          task_status_id: this.parameters.taskStatusId,
+          task_type_id: this.parameters.taskTypeId,
+          type: this.parameters.typeMode
+        }
+        if (this.parameters.statusMode) {
+          params.read = this.parameters.statusMode === 'read'
+        }
+        if (this.parameters.watchingMode) {
+          params.watching = this.parameters.watchingMode === 'watching'
+        }
+        await this.loadMoreNotifications(params)
+        this.loading.more = false
       }
     },
 
@@ -416,10 +520,6 @@ export default {
       return date[0].toUpperCase() + date.slice(1)
     },
 
-    compileMarkdown(input) {
-      return marked.parse(input || '')
-    },
-
     personName(notification) {
       const person = this.personMap.get(notification.author_id)
       return person ? person.full_name : ''
@@ -441,33 +541,79 @@ export default {
       }
     },
 
-    onNotificationSelected(notification) {
-      this.loading.currentTask = true
-      this.loadTask({
-        taskId: notification.task_id
-      })
-        .then(task => {
-          this.loading.currentTask = false
-          this.currentTask = task
-          this.currentNotificationId = notification.id
+    onNotificationSelected(event, notification) {
+      if (
+        event.target.classList.contains('bool-field') ||
+        event.target.parentElement?.classList.contains('bool-field') ||
+        event.target.parentElement?.parentElement?.classList.contains(
+          'bool-field'
+        )
+      ) {
+        return
+      }
+      if (this.currentNotificationId !== notification.id) {
+        this.loading.currentTask = true
+        this.loadTask({
+          taskId: notification.task_id
         })
-        .catch(console.error)
+          .then(task => {
+            this.loading.currentTask = false
+            this.currentTask = task
+            this.currentNotificationId = notification.id
+          })
+          .catch(console.error)
+      } else {
+        this.currentTask = null
+        this.currentNotificationId = null
+      }
     },
 
     renderComment,
+
     isAssignation: notification => {
       return notification.notification_type === 'assignation'
     },
+
     isComment: notification => {
       return (
         !notification.notification_type ||
-        notification.notification_type === 'comment'
+        (notification.notification_type === 'comment' &&
+          !notification.preview_file_id)
       )
     },
+
     isMention: notification => notification.notification_type === 'mention',
+
     isReplyMention: notification =>
       notification.notification_type === 'reply-mention',
-    isReply: notification => notification.notification_type === 'reply'
+
+    isReply: notification => notification.notification_type === 'reply',
+
+    isPublish(notification) {
+      return (
+        notification &&
+        notification.preview_file_id &&
+        !this.isMention(notification) &&
+        !this.isReply(notification) &&
+        !this.isReplyMention(notification)
+      )
+    },
+
+    isSelected(notification) {
+      return notification.id === this.currentNotificationId
+    },
+
+    toggleNotificationRead(notification, value) {
+      if (value !== notification.read) {
+        this.toggleNotificationReadStatus(notification)
+      }
+    },
+
+    async markAllNotificationsRead() {
+      this.loading.markAll = true
+      await this.markAllNotificationsAsRead()
+      this.loading.markAll = false
+    }
   },
 
   socket: {
@@ -491,24 +637,24 @@ export default {
   },
 
   watch: {
-    taskTypeId() {
+    'parameters.taskTypeId'() {
       this.reloadData()
     },
-
-    taskStatusId() {
+    'parameters.taskStatusId'() {
       this.reloadData()
     },
-
-    typeMode() {
+    'parameters.typeMode'() {
+      this.reloadData()
+    },
+    'parameters.statusMode'() {
+      this.reloadData()
+    },
+    'parameters.watchingMode'() {
       this.reloadData()
     }
   },
 
-  beforeDestroy() {
-    this.markAllNotificationsAsRead()
-  },
-
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('notifications.title')} - Kitsu`
     }
@@ -525,7 +671,7 @@ export default {
   .notification {
     background: $dark-grey-lighter;
     color: $white-grey;
-    box-shadow: 0px 1px 1px 1px $dark-grey;
+    box-shadow: 0 1px 1px 1px $dark-grey;
   }
 
   .icon,
@@ -535,6 +681,14 @@ export default {
 
   a {
     color: $light-grey-light;
+  }
+
+  .notification.unread {
+    border: 4px solid #906571;
+
+    &:hover {
+      border: 4px solid #6065a1; //;var(--background-selectable);
+    }
   }
 }
 
@@ -550,22 +704,26 @@ a {
 .notification {
   align-items: flex-start;
   background: white;
-  border: 5px solid transparent;
+  border: 4px solid transparent;
   border-radius: 1em;
   box-shadow: 0 0 4px $light-grey;
   cursor: pointer;
   margin-bottom: 0.5em;
   padding: 1rem;
   transition: all 0.2s ease-in-out;
+  overflow-x: auto;
+
+  &.unread {
+    border: 4px solid #f0c5d1;
+  }
 
   &:hover {
-    border: 5px solid var(--background-selectable);
-    transform: scale(1.01);
-  }
-}
+    border: 4px solid var(--background-selectable);
 
-.unread {
-  border: 5px solid $orange;
+    .dark & {
+      border: 4px solid #6065a1; //;var(--background-selectable);
+    }
+  }
 }
 
 .person-name {
@@ -579,26 +737,32 @@ a {
   margin-top: 1em;
 }
 
-.validation-tag {
-  padding-top: 1em;
-}
-
 .notification-info {
+  margin-top: 0.5em;
   vertical-align: middle;
-  margin-bottom: 1em;
+
+  span,
+  a {
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    line-height: 2.1em;
+  }
 }
 
-.notification-info span,
-.notification-info a {
-  vertical-align: middle;
-  display: inline-flex;
-  align-items: center;
-  line-height: 2.1em;
+.icon {
+  width: 20px;
+  margin-right: 0;
+  font-size: 0.8em;
+  color: $grey;
+}
+
+.thumbnail-picture-wrapper {
+  margin-left: 0.5em;
 }
 
 .date {
-  font-size: 0.8em;
-  margin-top: 0.5em;
+  font-size: 0.9em;
   color: $grey;
 
   span {
@@ -606,23 +770,23 @@ a {
   }
 }
 
-.thumbnail-picture-wrapper {
-  margin-left: 0.5em;
-}
-
-.icon {
-  width: 20px;
-  margin-right: 0em;
-  font-size: 0.8em;
-  color: $grey;
-}
-
 .notification-line {
   border-radius: 1em;
   align-items: start;
 }
 
+.notification-header {
+  width: 100%;
+}
+
+.notification-metadata {
+  height: 100%;
+  padding-right: 1em;
+}
+
 .comment-content {
+  flex: 1;
+
   .flexrow-item {
     margin-right: 0.5em;
     margin-left: 0;
@@ -635,8 +799,8 @@ a {
 
 .selected,
 .selected:hover {
-  border: 5px solid var(--background-selected);
-  transform: scale(1.01);
+  border: 4px solid var(--background-selected);
+  // transform: scale(1.01);
 }
 
 .columns {
@@ -660,7 +824,7 @@ a {
 .notifications {
   background: $white-grey-light;
   width: 100%;
-  padding: 2em;
+  padding: 1em 1.5em;
   overflow-y: auto;
   height: 100%;
 }
@@ -671,9 +835,31 @@ a {
   max-width: 450px;
 }
 
-h3 {
-  text-transform: uppercase;
-  color: var(--text);
-  margin-bottom: 0.5em;
+.flexrow-item.mr0 {
+  margin-right: 0;
+}
+
+.comment-text {
+  background: $white-grey;
+  border: 1px solid var(--border);
+  border-radius: 0.5em;
+  padding: 1em 1em 0 1em;
+  margin-top: 0.3em;
+  margin-bottom: 0;
+
+  .dark & {
+    background: var(--background);
+  }
+}
+
+.notification.mention-notification,
+.notification.mention-notification.unread {
+  .icon {
+    color: $orange;
+  }
+}
+
+.person-name.ml0 {
+  margin-left: 0;
 }
 </style>

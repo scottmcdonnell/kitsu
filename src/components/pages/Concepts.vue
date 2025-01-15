@@ -18,12 +18,12 @@
               :task-status-list="taskStatusList"
               v-model="filters.taskStatusId"
             />
-            <span class="field small">
+            <span class="field">
               <label class="label">
                 {{ $t('concepts.fields.publisher') }}
               </label>
               <people-field
-                :big="true"
+                small
                 :people="publishers"
                 v-model="filters.publisher"
               />
@@ -77,11 +77,11 @@
               :class="{
                 'selected-item': isSelected(concept)
               }"
-              v-for="concept in filteredConcepts"
               :key="concept.id"
               @click="
                 onSelectConcept(concept, $event.ctrlKey || $event.metaKey)
               "
+              v-for="concept in filteredConcepts"
             >
               <concept-card :concept="concept" />
             </li>
@@ -132,19 +132,20 @@ import { domMixin } from '@/components/mixins/dom'
 
 import files from '@/lib/files'
 
-import AddPreviewModal from '@/components/modals/AddPreviewModal'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
+import AddPreviewModal from '@/components/modals/AddPreviewModal.vue'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
 import Combobox from '@/components/widgets/Combobox.vue'
 import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
-import ConceptCard from '@/components/widgets/ConceptCard'
-import PeopleField from '@/components/widgets/PeopleField'
-import SearchField from '@/components/widgets/SearchField'
-import SearchQueryList from '@/components/widgets/SearchQueryList'
-import TableInfo from '@/components/widgets/TableInfo'
-import TaskInfo from '@/components/sides/TaskInfo'
+import ConceptCard from '@/components/widgets/ConceptCard.vue'
+import PeopleField from '@/components/widgets/PeopleField.vue'
+import SearchField from '@/components/widgets/SearchField.vue'
+import SearchQueryList from '@/components/widgets/SearchQueryList.vue'
+import TableInfo from '@/components/widgets/TableInfo.vue'
+import TaskInfo from '@/components/sides/TaskInfo.vue'
 
 export default {
   name: 'concepts',
+
   mixins: [searchMixin, domMixin],
 
   components: {
@@ -320,7 +321,6 @@ export default {
       'setCurrentEpisode'
     ]),
 
-    // TODO: module actions
     setConceptSearch: searchQuery => Promise.resolve(),
     saveConceptSearch: searchQuery => Promise.resolve(),
     removeConceptSearch: searchQuery => Promise.resolve(),
@@ -358,8 +358,10 @@ export default {
     async refreshConcepts() {
       this.loading.loadingConcepts = true
       try {
-        this.setCurrentEpisode('all') // mandatory to load all assets
-        await this.loadAssets(true)
+        if (this.isTVShow) {
+          this.setCurrentEpisode('all') // mandatory to load all assets of a TV show
+        }
+        await this.loadAssets({ all: true })
         await this.loadConcepts()
       } catch (err) {
         console.error(err)
@@ -454,9 +456,9 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
-      title: `${this.$t('concepts.title')} - Kitsu`
+      title: `${this.currentProduction.name} | ${this.$t('concepts.title')} - Kitsu`
     }
   }
 }

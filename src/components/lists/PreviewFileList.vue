@@ -30,7 +30,7 @@
 
     <table-info :is-loading="isLoading" :is-error="isError" />
 
-    <div v-scroll="onBodyScroll" v-if="previewFiles.length > 0">
+    <div @scroll.passive="onBodyScroll" v-if="previewFiles.length > 0">
       <table class="datatable">
         <tbody class="datatable-body">
           <tr
@@ -81,13 +81,14 @@ import { mapGetters, mapActions } from 'vuex'
 import { formatListMixin } from '@/components/mixins/format'
 import { getTaskPath } from '@/lib/path'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import TableInfo from '@/components/widgets/TableInfo'
-import ProductionNameCell from '@/components/cells/ProductionNameCell'
-import TaskTypeCell from '@/components/cells/TaskTypeCell'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import TableInfo from '@/components/widgets/TableInfo.vue'
+import ProductionNameCell from '@/components/cells/ProductionNameCell.vue'
+import TaskTypeCell from '@/components/cells/TaskTypeCell.vue'
 
 export default {
   name: 'preview-file-list',
+
   mixins: [formatListMixin],
 
   components: {
@@ -112,6 +113,8 @@ export default {
     }
   },
 
+  emits: ['mark-broken-clicked'],
+
   data() {
     return {
       currentTask: null
@@ -125,7 +128,8 @@ export default {
   methods: {
     ...mapActions(['loadTask', 'markBroken']),
 
-    onBodyScroll(event, position) {
+    onBodyScroll(event) {
+      const position = event.target
       this.$refs.headerWrapper.style.left = `-${position.scrollLeft}px`
     },
 

@@ -35,11 +35,11 @@
             v-model="taskStatusId"
           />
 
-          <div class="field flexrow-item selector small">
+          <div class="field flexrow-item selector">
             <label class="label person-label">
               {{ $t('main.person') }}
             </label>
-            <people-field :people="assignees" :big="true" v-model="person" />
+            <people-field :people="assignees" small v-model="person" />
           </div>
 
           <combobox
@@ -77,9 +77,6 @@
           :is-error="isLoadingError"
           :selection-grid="selectionGrid"
           :is-to-check="true"
-          @task-selection-cleared="onTaskSelectionCleared"
-          @task-selection-addition="onTaskSelectionAdded"
-          @task-selection-removal="onTaskSelectionRemoved"
         />
       </div>
     </div>
@@ -106,15 +103,15 @@ import { sortByName, sortPeople } from '@/lib/sorting'
 import { buildSelectionGrid } from '@/lib/selection'
 import { parseDate } from '@/lib/time'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import Combobox from '@/components/widgets/Combobox'
-import ComboboxStatus from '@/components/widgets/ComboboxStatus'
-import ComboboxProduction from '@/components/widgets/ComboboxProduction'
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-import PeopleField from '@/components/widgets/PeopleField'
-import TaskInfo from '@/components/sides/TaskInfo'
-import TodosList from '@/components/lists/TodosList'
-import ViewPlaylistModal from '@/components/modals/ViewPlaylistModal'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
+import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
+import ComboboxProduction from '@/components/widgets/ComboboxProduction.vue'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import PeopleField from '@/components/widgets/PeopleField.vue'
+import TaskInfo from '@/components/sides/TaskInfo.vue'
+import TodosList from '@/components/lists/TodosList.vue'
+import ViewPlaylistModal from '@/components/modals/ViewPlaylistModal.vue'
 
 export default {
   name: 'my-checks',
@@ -277,7 +274,7 @@ export default {
       const isName = this.currentSort === 'entity_name'
       const isPriority = this.currentSort === 'priority'
       const isDueDate = this.currentSort === 'due_date'
-      const tasks = this.filteredTasks
+      const tasks = [...this.filteredTasks]
       if (isName) {
         return tasks.sort(
           firstBy('project_name')
@@ -383,18 +380,6 @@ export default {
           short_name: this.$t('news.all')
         }
       ].concat(sortByName(taskStatusList))
-    },
-
-    onTaskSelectionCleared() {
-      this.buildSelectionGrid(this.sortedTasks)
-    },
-
-    onTaskSelectionAdded(selection) {
-      this.selectionGrid[selection.x][selection.y] = true
-    },
-
-    onTaskSelectionRemoved(selection) {
-      this.selectionGrid[selection.x][selection.y] = false
     }
   },
 
@@ -418,7 +403,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('tasks.my_checks')} - Kitsu`
     }

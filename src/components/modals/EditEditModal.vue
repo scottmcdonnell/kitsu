@@ -9,14 +9,14 @@
 
     <div class="modal-content">
       <div class="box">
-        <h1 class="title" v-if="editToEdit && this.editToEdit.id">
+        <h1 class="title" v-if="editToEdit && editToEdit.id">
           {{ $t('edits.edit_title') }} {{ editToEdit.name }}
         </h1>
         <h1 class="title" v-else>
           {{ $t('edits.new_edit') }}
         </h1>
 
-        <form v-on:submit.prevent>
+        <form @submit.prevent>
           <combobox
             :label="$t('edits.fields.episode')"
             :options="episodeOptions"
@@ -26,9 +26,15 @@
           <text-field
             ref="nameField"
             :label="$t('edits.fields.name')"
-            v-model="form.name"
+            v-model.trim="form.name"
             @enter="runConfirmation"
             v-focus
+          />
+          <text-field
+            ref="resolutionField"
+            :label="$t('shots.fields.resolution')"
+            @enter="runConfirmation"
+            v-model="form.data.resolution"
           />
           <textarea-field
             ref="descriptionField"
@@ -37,15 +43,16 @@
             @keyup.ctrl.enter="runConfirmation"
             @keyup.meta.enter="runConfirmation"
           />
-          <metadata-field
-            :key="descriptor.id"
-            :descriptor="descriptor"
-            :entity="editToEdit"
-            @enter="runConfirmation"
-            v-model="form.data[descriptor.field_name]"
-            v-for="descriptor in editMetadataDescriptors"
-            v-if="editToEdit"
-          />
+          <template v-if="editToEdit">
+            <metadata-field
+              :key="descriptor.id"
+              :descriptor="descriptor"
+              :entity="editToEdit"
+              @enter="runConfirmation"
+              v-model="form.data[descriptor.field_name]"
+              v-for="descriptor in editMetadataDescriptors"
+            />
+          </template>
         </form>
 
         <modal-footer
@@ -61,17 +68,19 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
+import { mapGetters } from 'vuex'
+
 import { modalMixin } from '@/components/modals/base_modal'
 
-import Combobox from '@/components/widgets/Combobox'
-import MetadataField from '@/components/widgets/MetadataField'
-import ModalFooter from '@/components/modals/ModalFooter'
-import TextField from '@/components/widgets/TextField'
-import TextareaField from '@/components/widgets/TextareaField'
+import Combobox from '@/components/widgets/Combobox.vue'
+import MetadataField from '@/components/widgets/MetadataField.vue'
+import ModalFooter from '@/components/modals/ModalFooter.vue'
+import TextField from '@/components/widgets/TextField.vue'
+import TextareaField from '@/components/widgets/TextareaField.vue'
 
 export default {
   name: 'edit-edit-modal',
+
   mixins: [modalMixin],
 
   components: {
@@ -95,19 +104,13 @@ export default {
       type: Boolean,
       default: false
     },
-    isLoadingStay: {
-      type: Boolean,
-      default: false
-    },
-    isSuccess: {
-      type: Boolean,
-      default: false
-    },
     editToEdit: {
       type: Object,
       default: () => {}
     }
   },
+
+  emits: ['cancel', 'confirm', 'confirm-and-stay'],
 
   data() {
     return {
@@ -115,7 +118,9 @@ export default {
         name: '',
         description: '',
         parent_id: null,
-        data: {}
+        data: {
+          resolution: ''
+        }
       },
       editSuccessText: ''
     }
@@ -127,9 +132,7 @@ export default {
       'currentEpisode',
       'editCreated',
       'editMetadataDescriptors',
-      'edits',
       'episodes',
-      'getOpenProductionOptions',
       'isTVShow',
       'openProductions'
     ]),
@@ -147,8 +150,6 @@ export default {
   },
 
   methods: {
-    ...mapActions([]),
-
     runConfirmation() {
       if (this.isEditing()) {
         this.confirmClicked()
@@ -158,7 +159,7 @@ export default {
     },
 
     confirmAndStayClicked() {
-      this.$emit('confirmAndStay', this.form)
+      this.$emit('confirm-and-stay', this.form)
     },
 
     confirmClicked() {
@@ -182,14 +183,20 @@ export default {
         this.form.parent_id = this.currentEpisode
           ? this.currentEpisode.id
           : null
-        this.form.data = {}
+        this.form.data = {
+          resolution: ''
+        }
       } else {
         this.form = {
           project_id: this.editToEdit.project_id,
           name: this.editToEdit.name,
           description: this.editToEdit.description,
           parent_id: this.editToEdit.parent_id,
-          data: { ...this.editToEdit.data } || {}
+          data:
+            {
+              ...this.editToEdit.data,
+              resolution: this.editToEdit.data.resolution || ''
+            } || {}
         }
       }
     }

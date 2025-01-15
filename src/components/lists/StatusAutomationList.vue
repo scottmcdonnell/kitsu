@@ -31,8 +31,8 @@
         <tbody class="datatable-body">
           <tr
             class="datatable-row"
-            v-for="statusAutomation in entries"
             :key="statusAutomation.id"
+            v-for="statusAutomation in entries"
           >
             <td scope="row" class="name">
               <div class="flexrow">
@@ -54,7 +54,7 @@
             />
             <task-status-cell
               class="in-task-status"
-              :entry="getTaskStatus(statusAutomation.in_task_status_id)"
+              :entry="taskStatusMap.get(statusAutomation.in_task_status_id)"
             />
             <td class="input-separator">
               {{
@@ -70,7 +70,7 @@
             <task-status-cell
               class="out-task-status"
               v-if="statusAutomation.out_field_type === 'status'"
-              :entry="getTaskStatus(statusAutomation.out_task_status_id)"
+              :entry="taskStatusMap.get(statusAutomation.out_task_status_id)"
             />
             <td class="name out-task-status" v-else></td>
             <td class="import-last-revision">
@@ -105,17 +105,19 @@
 </template>
 
 <script>
+import { AlertTriangleIcon } from 'lucide-vue-next'
 import { mapGetters, mapActions } from 'vuex'
+
 import { formatListMixin } from '@/components/mixins/format'
 
-import { AlertTriangleIcon } from 'vue-feather-icons'
-import RowActionsCell from '@/components/cells/RowActionsCell'
-import TableInfo from '@/components/widgets/TableInfo'
-import TaskStatusCell from '@/components/cells/TaskStatusCell'
-import TaskTypeCell from '@/components/cells/TaskTypeCell'
+import RowActionsCell from '@/components/cells/RowActionsCell.vue'
+import TableInfo from '@/components/widgets/TableInfo.vue'
+import TaskStatusCell from '@/components/cells/TaskStatusCell.vue'
+import TaskTypeCell from '@/components/cells/TaskTypeCell.vue'
 
 export default {
   name: 'status-automation-list',
+
   mixins: [formatListMixin],
 
   components: {
@@ -145,15 +147,12 @@ export default {
     }
   },
 
-  data() {
-    return {}
-  },
+  emits: ['delete-clicked', 'edit-clicked'],
 
   computed: {
     ...mapGetters([
-      'getTaskStatus',
+      'taskStatusMap',
       'getTaskType',
-      'isTaskTypePriorityHigherById',
       'isStatusAutomationDisabled',
       'remainingStatusAutomations'
     ])

@@ -25,18 +25,20 @@
               {{ $t('comments.text') }}
             </label>
             <at-ta
-              :members="atOptions"
+              :ats="['#', '@']"
+              :members="[...membersForAts['@'], ...membersForAts['#']]"
               name-key="full_name"
               limit="2"
-              @input="onAtTextChanged"
+              :filter-match="atOptionsFilter"
+              @update:value="onAtTextChanged"
             >
-              <template slot="item" slot-scope="team">
-                <template v-if="team.item.isTime"> ⏱️ frame </template>
-                <template v-else-if="team.item.isDepartment">
+              <template #item="{ item }">
+                <template v-if="item.isTime"> ⏱️ frame </template>
+                <template v-else-if="item.isDepartment">
                   <span
                     class="mr05"
                     :style="{
-                      background: team.item.color,
+                      background: item.color,
                       width: '10px',
                       height: '10px',
                       'border-radius': '50%'
@@ -44,17 +46,30 @@
                   >
                     &nbsp;
                   </span>
-                  {{ team.item.full_name }}
+                  {{ item.full_name }}
+                </template>
+                <template v-else-if="item.isTaskType">
+                  <span
+                    class="mr05"
+                    :style="{
+                      background: item.color,
+                      width: '10px',
+                      height: '10px'
+                    }"
+                  >
+                    &nbsp;
+                  </span>
+                  {{ item.full_name }}
                 </template>
                 <template v-else>
                   <div class="flexrow">
                     <people-avatar
                       class="flexrow-item"
-                      :person="team.item"
+                      :person="item"
                       :size="20"
                     />
                     <span class="flexrow-item">
-                      {{ team.item.full_name }}
+                      {{ item.full_name }}
                     </span>
                   </div>
                 </template>
@@ -108,7 +123,7 @@
             >
               {{ attachment.name }}
               <span @click="removeAttachment(attachment)">
-                <x-icon size="0.9x" />
+                <x-icon :size="12" />
               </span>
             </div>
           </div>
@@ -156,8 +171,8 @@
 </template>
 
 <script>
+import { XIcon } from 'lucide-vue-next'
 import AtTa from 'vue-at/dist/vue-at-textarea'
-import { XIcon } from 'vue-feather-icons'
 import { mapGetters } from 'vuex'
 
 import files from '@/lib/files'
@@ -165,6 +180,7 @@ import { remove } from '@/lib/models'
 import { replaceTimeWithTimecode } from '@/lib/render'
 
 import { modalMixin } from '@/components/modals/base_modal'
+
 import Checklist from '@/components/widgets/Checklist.vue'
 import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
 import FileUpload from '@/components/widgets/FileUpload.vue'
@@ -209,6 +225,10 @@ export default {
       type: Boolean,
       default: false
     },
+    taskTypes: {
+      type: Array,
+      default: () => []
+    },
     team: {
       type: Array,
       default: () => []
@@ -223,8 +243,11 @@ export default {
     }
   },
 
+  emits: ['cancel', 'confirm'],
+
   data() {
     return {
+      membersForAts: { '@': [], '#': [] },
       attachmentFiles: [],
       extensions: files.ALL_EXTENSIONS_STRING,
       form: {
@@ -341,6 +364,15 @@ export default {
       }
     },
 
+    atOptionsFilter(name, chunk, at, v) {
+      // filter the list by the given at symbol
+      const option_at = v?.isTaskType ? '#' : '@'
+      // @ for team, # for task type
+      if (at !== option_at) return false
+      // match at lower-case
+      return name.toLowerCase().indexOf(chunk.toLowerCase()) > -1
+    },
+
     onAtTextChanged(input) {
       if (input.includes('@frame')) {
         this.form.text = replaceTimeWithTimecode(
@@ -367,18 +399,43 @@ export default {
       }
     },
 
+    taskTypes: {
+      deep: true,
+      immediate: true,
+      handler(values) {
+        const taskTypeOptions = values.map(taskType => {
+          return {
+            isTaskType: true,
+            full_name: taskType.name,
+            color: taskType.color,
+            id: taskType.id,
+            url: taskType.url
+          }
+        })
+        taskTypeOptions.push({
+          isTaskType: true,
+          color: '#000',
+          full_name: 'All'
+        })
+        this.membersForAts['#'] = taskTypeOptions
+      }
+    },
+
     team: {
       deep: true,
       immediate: true,
       handler() {
+        let teamOptions = []
         if (this.isCurrentUserClient) {
-          this.atOptions = this.team.filter(person =>
-            ['admin', 'manager', 'supervisor', 'client'].includes(person.role)
-          )
+          teamOptions = [
+            ...this.team.filter(person =>
+              ['admin', 'manager', 'supervisor', 'client'].includes(person.role)
+            )
+          ]
         } else {
-          this.atOptions = [...this.team]
+          teamOptions = [...this.team]
         }
-        this.atOptions = this.atOptions.concat(
+        teamOptions = teamOptions.concat(
           this.productionDepartmentIds.map(departmentId => {
             const department = this.departmentMap.get(departmentId)
             return {
@@ -389,10 +446,11 @@ export default {
             }
           })
         )
-        this.atOptions.push({
+        teamOptions.push({
           isTime: true,
           full_name: 'frame'
         })
+        this.membersForAts['@'] = teamOptions
       }
     }
   }

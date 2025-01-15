@@ -5,7 +5,7 @@
         <div class="profile-header-content has-text-centered">
           <people-avatar
             :is-lazy="false"
-            :person="this.user"
+            :person="user"
             :size="150"
             :font-size="60"
           />
@@ -38,17 +38,17 @@
         </h2>
         <text-field
           :label="$t('people.fields.first_name')"
-          :disabled="this.user.is_generated_from_ldap"
+          :disabled="user.is_generated_from_ldap"
           v-model="form.first_name"
         />
         <text-field
           :label="$t('people.fields.last_name')"
-          :disabled="this.user.is_generated_from_ldap"
+          :disabled="user.is_generated_from_ldap"
           v-model="form.last_name"
         />
         <text-field
           :label="$t('people.fields.email')"
-          :disabled="this.user.is_generated_from_ldap"
+          :disabled="user.is_generated_from_ldap"
           v-model="form.email"
         />
         <text-field :label="$t('people.fields.phone')" v-model="form.phone" />
@@ -76,6 +76,7 @@
             >
               <option value="zh_Hans_CN">Chinese</option>
               <option value="zh_Hant_TW">Chinese (TW)</option>
+              <option value="da_DA">Dannish</option>
               <option value="nl_NL">Dutch</option>
               <option value="en_US">English</option>
               <option value="fr_FR">French</option>
@@ -162,19 +163,19 @@
         </h2>
         <text-field
           :label="$t('people.fields.old_password')"
-          :disabled="this.user.is_generated_from_ldap"
+          :disabled="user.is_generated_from_ldap"
           type="password"
           v-model="passwordForm.oldPassword"
         />
         <text-field
           :label="$t('people.fields.password')"
-          :disabled="this.user.is_generated_from_ldap"
+          :disabled="user.is_generated_from_ldap"
           type="password"
           v-model="passwordForm.password"
         />
         <text-field
           :label="$t('people.fields.password_2')"
-          :disabled="this.user.is_generated_from_ldap"
+          :disabled="user.is_generated_from_ldap"
           type="password"
           v-model="passwordForm.password2"
         />
@@ -186,7 +187,7 @@
             'is-medium': true,
             'is-loading': changePassword.isLoading
           }"
-          :disabled="this.user.is_generated_from_ldap"
+          :disabled="user.is_generated_from_ldap"
           @click="passwordChangeRequested()"
         >
           {{ $t('profile.change_password.button') }}
@@ -226,11 +227,9 @@
           {{ $t('profile.two_factor_authentication.title') }}
         </h2>
         <p v-if="twoFAButtonsDisabled" class="cancel-two-factor-action">
-          <x-circle-icon
-            width="20"
-            height="20"
-            @click="cancelCurrentTwoFactorAuthAction"
-          />
+          <a @click="cancelCurrentTwoFactorAuthAction">
+            <x-circle-icon :size="20" />
+          </a>
         </p>
 
         <div v-if="twoFA.TOTPPreEnabled" class="qrcode-informations">
@@ -268,7 +267,7 @@
               v-focus
             />
             <span class="icon">
-              <lock-icon width="20" height="20" />
+              <lock-icon :size="20" />
             </span>
           </p>
         </div>
@@ -279,11 +278,17 @@
           </label>
           <x-circle-icon
             class="action-icon"
+            :size="20"
             @click="cancelCurrentTwoFactorAuthAction"
           />
-          <save-icon class="action-icon" @click="saveRecoveryCodesToFile" />
+          <save-icon
+            class="action-icon"
+            :size="20"
+            @click="saveRecoveryCodesToFile"
+          />
           <copy-icon
             class="action-icon"
+            :size="20"
             @click="copyRecoveryCodesToClipboard"
           />
           <textarea
@@ -357,7 +362,7 @@
               v-focus
             />
             <span class="icon">
-              <key-icon width="20" height="20" />
+              <key-icon :size="20" />
             </span>
           </p>
         </div>
@@ -536,19 +541,19 @@
           }}
         </h3>
 
-        <div>
-          <ul>
-            <li v-for="device in user.fido_devices" :key="device">
-              {{ device }}
-              <trash-icon
-                class="trash-icon-fido-device"
-                width="15"
-                height="15"
-                @click="unregisterFIDORequested(device)"
-              />
-            </li>
-          </ul>
-        </div>
+        <ul class="pa1">
+          <li
+            :key="`${device}-${index}`"
+            v-for="(device, index) in user.fido_devices"
+          >
+            {{ device }}
+            <trash-icon
+              class="trash-icon-fido-device"
+              :size="15"
+              @click="unregisterFIDORequested(device)"
+            />
+          </li>
+        </ul>
 
         <p
           :class="{
@@ -585,14 +590,16 @@ import {
   XCircleIcon,
   KeyIcon,
   TrashIcon
-} from 'vue-feather-icons'
+} from 'lucide-vue-next'
 import { mapGetters, mapActions } from 'vuex'
 
+import lang from '@/lib/lang'
+
+import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
+import ChangeAvatarModal from '@/components/modals/ChangeAvatarModal.vue'
+import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
+import TextField from '@/components/widgets/TextField.vue'
 import TwoFactorAuthentication from '@/components/widgets/TwoFactorAuthentication.vue'
-import ComboboxBoolean from '@/components/widgets/ComboboxBoolean'
-import ChangeAvatarModal from '@/components/modals/ChangeAvatarModal'
-import PeopleAvatar from '@/components/widgets/PeopleAvatar'
-import TextField from '@/components/widgets/TextField'
 
 export default {
   name: 'profile',
@@ -678,14 +685,11 @@ export default {
   computed: {
     ...mapGetters([
       'changePassword',
-      'isCurrentUserAdmin',
       'isSaveProfileLoading',
       'isSaveProfileLoadingError',
       'user'
     ]),
-    departments() {
-      return [{ name: 'Animation' }, { name: 'Modeling' }]
-    },
+
     timezones() {
       return moment.tz.names().filter(timezone => {
         return timezone.indexOf('/') > 0 && timezone.indexOf('Etc') < 0
@@ -810,15 +814,7 @@ export default {
     ]),
 
     localeChanged() {
-      this.$i18n.locale = this.form.locale.substring(0, 2)
-      if (this.form.locale === 'zh_Hans_CN') {
-        moment.locale('zh_CN')
-      } else if (this.form.locale === 'zh_Hant_TW') {
-        moment.locale('zh_TW')
-        this.$i18n.locale = 'zw'
-      } else {
-        moment.locale(this.form.locale.substring(0, 2))
-      }
+      lang.setLocale(this.form.locale)
     },
 
     passwordChangeRequested() {
@@ -1171,7 +1167,7 @@ export default {
     window.addEventListener('keydown', this.onKeyDown, false)
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('profile.title')} - Kitsu`
     }
@@ -1203,7 +1199,7 @@ export default {
   margin: auto;
   margin-top: 6em;
   margin-bottom: 2em;
-  box-shadow: rgba(0, 0, 0, 0.15) 0px 1px 4px 2px;
+  box-shadow: rgba(0, 0, 0, 0.15) 0 1px 4px 2px;
 }
 
 .profile-body {
@@ -1248,7 +1244,7 @@ span.select {
 
 .profile-header h1 {
   font-size: 2em;
-  margin-top: 0em;
+  margin-top: 0;
 }
 
 .profile-header,
@@ -1257,7 +1253,7 @@ span.select {
 }
 
 h2:first-child {
-  margin-top: 0em;
+  margin-top: 0;
 }
 
 .big-number {
@@ -1341,7 +1337,7 @@ select {
 .action-icon {
   cursor: pointer;
   float: right;
-  margin-bottom: 5px;
+  margin: 0 5px 5px;
 }
 
 .label-recovery-codes {
@@ -1366,10 +1362,6 @@ select {
 
 .icon {
   padding: 0.25em;
-}
-
-.feather-x-circle {
-  cursor: pointer;
 }
 
 .trash-icon-fido-device {

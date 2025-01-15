@@ -33,17 +33,20 @@
 
 <script>
 import panzoom from 'panzoom'
+
 import { fullScreenMixin } from '@/components/mixins/fullscreen'
 import { domMixin } from '@/components/mixins/dom'
-import Spinner from '@/components/widgets/Spinner'
+
+import Spinner from '@/components/widgets/Spinner.vue'
 
 export default {
   name: 'picture-viewer',
 
+  mixins: [domMixin, fullScreenMixin],
+
   components: {
     Spinner
   },
-  mixins: [domMixin, fullScreenMixin],
 
   props: {
     big: {
@@ -59,6 +62,10 @@ export default {
       default: 0
     },
     fullScreen: {
+      type: Boolean,
+      default: false
+    },
+    highQuality: {
       type: Boolean,
       default: false
     },
@@ -80,6 +87,8 @@ export default {
     }
   },
 
+  emits: ['loaded', 'size-changed'],
+
   data() {
     return {
       isLoading: true,
@@ -91,8 +100,16 @@ export default {
   },
 
   mounted() {
+    this.container = this.$refs.container
+    this.picture = this.$refs.picture
+    this.pictureBig = this.$refs['picture-big']
+    this.pictureGif = this.$refs['picture-gif']
+    this.pictureWrapper = this.$refs['picture-wrapper']
+    this.pictureSubWrapper = this.$refs['picture-subwrapper']
+
     this.container.style.height = this.defaultHeight + 'px'
     this.isLoading = true
+
     this.setPictureEmptyPath()
     if (this.picture.complete) {
       this.onWindowResize()
@@ -116,37 +133,13 @@ export default {
     }
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('resize', this.onWindowResize)
     this.panzoomInstances.forEach(panzoom => panzoom.dispose())
   },
 
   computed: {
     // Elements
-
-    container() {
-      return this.$refs.container
-    },
-
-    picture() {
-      return this.$refs.picture
-    },
-
-    pictureBig() {
-      return this.$refs['picture-big']
-    },
-
-    pictureGif() {
-      return this.$refs['picture-gif']
-    },
-
-    pictureWrapper() {
-      return this.$refs['picture-wrapper']
-    },
-
-    pictureSubWrapper() {
-      return this.$refs['picture-subwrapper']
-    },
 
     status() {
       return this.preview && this.preview.status ? this.preview.status : 'ready'
@@ -210,7 +203,10 @@ export default {
       const dimensions = this.getNaturalDimensions()
       if (dimensions.width > 0) ratio = dimensions.height / dimensions.width
       let width = dimensions.width
-      if (width > this.container.offsetWidth) {
+      if (
+        width > this.container.offsetWidth &&
+        this.container.offsetWidth > 0
+      ) {
         width = this.container.offsetWidth
       }
       let height = Math.floor(width * ratio)
@@ -228,6 +224,9 @@ export default {
     // Configuration
 
     endLoading() {
+      if (!this.picture) {
+        this.picture = this.$refs.picture
+      }
       if (
         this.fullScreen &&
         (this.pictureBig.complete || this.pictureGif.complete)
@@ -247,6 +246,7 @@ export default {
       if (this.pictureSubWrapper) {
         this.pictureWrapper.style['max-height'] = heightValue
         this.pictureSubWrapper.style['max-height'] = heightValue
+        this.pictureSubWrapper.style['height'] = heightValue
       }
       let { width, height } = this.getDimensions()
       this.picture.style.width = width + 'px'
@@ -309,7 +309,11 @@ export default {
         this.pictureGifPath = `/api/pictures/originals/preview-files/${previewId}.gif`
       } else if (this.preview && this.isAvailable && this.isPicture) {
         const previewId = this.preview.id
-        this.picturePath = `/api/pictures/previews/preview-files/${previewId}.png`
+        if (this.highQuality) {
+          this.picturePath = `/api/pictures/originals/preview-files/${previewId}.png`
+        } else {
+          this.picturePath = `/api/pictures/previews/preview-files/${previewId}.png`
+        }
       }
       this.setPictureDlPath()
     },
@@ -473,6 +477,8 @@ export default {
 
 .picture-subwrapper {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .picture-player {

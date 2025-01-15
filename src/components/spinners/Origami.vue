@@ -1,6 +1,6 @@
 <template>
-  <div v-bind:style="styles" class="spinner spinner-origami">
-    <div v-bind:style="innerStyles" class="spinner-inner loading">
+  <div :style="styles" class="spinner spinner-origami">
+    <div :style="innerStyles" class="spinner-inner loading">
       <span class="slice"></span>
       <span class="slice"></span>
       <span class="slice"></span>
@@ -89,7 +89,7 @@ export default {
     border-bottom: 16px solid transparent;
     border-left: 30px solid #f7484e;
     position: absolute;
-    top: 0px;
+    top: 0;
     left: 50%;
     transform-origin: left bottom;
     border-radius: 3px 3px 0 0;

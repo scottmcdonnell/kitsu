@@ -1,6 +1,6 @@
 <template>
   <div class="data-list">
-    <div class="datatable-wrapper" ref="body" v-scroll="onBodyScroll">
+    <div class="datatable-wrapper" ref="body" @scroll.passive="onBodyScroll">
       <table-header-menu
         ref="headerMenu"
         :is-minimized="hiddenColumns[lastHeaderMenuDisplayed]"
@@ -16,9 +16,6 @@
       <table-metadata-header-menu
         ref="headerMetadataMenu"
         :is-edit-allowed="isCurrentUserManager"
-        :is-sequence-allowed="
-          isMetadataColumnEditAllowed(lastMetadaDataHeaderMenuDisplayed)
-        "
         :is-sticked="stickedColumns[lastMetadaDataHeaderMenuDisplayed]"
         @edit-clicked="onEditMetadataClicked()"
         @delete-clicked="onDeleteMetadataClicked()"
@@ -54,20 +51,21 @@
                 />
               </div>
             </th>
-            <metadata-header
-              :ref="`editor-${j}`"
-              :key="descriptor.id"
-              :descriptor="descriptor"
-              :left="
-                offsets['editor-' + j] ? `${offsets['editor-' + j]}px` : '0'
-              "
-              is-stick
-              @show-metadata-header-menu="
-                event => showMetadataHeaderMenu(descriptor.id, event)
-              "
-              v-for="(descriptor, j) in stickedVisibleMetadataDescriptors"
-              v-if="isShowInfos"
-            />
+            <template v-if="isShowInfos">
+              <metadata-header
+                :ref="`editor-${j}`"
+                :key="descriptor.id"
+                :descriptor="descriptor"
+                :left="
+                  offsets['editor-' + j] ? `${offsets['editor-' + j]}px` : '0'
+                "
+                is-stick
+                @show-metadata-header-menu="
+                  event => showMetadataHeaderMenu(descriptor.id, event)
+                "
+                v-for="(descriptor, j) in stickedVisibleMetadataDescriptors"
+              />
+            </template>
             <validation-header
               :ref="`validation-${columnIndexInGrid}`"
               :key="columnId"
@@ -87,7 +85,6 @@
               v-for="(
                 columnId, columnIndexInGrid
               ) in stickedDisplayedValidationColumns"
-              v-if="!isLoading"
             />
 
             <th
@@ -100,15 +97,24 @@
               {{ $t('sequences.fields.description') }}
             </th>
 
-            <metadata-header
-              :key="descriptor.id"
-              :descriptor="descriptor"
-              @show-metadata-header-menu="
-                event => showMetadataHeaderMenu(descriptor.id, event)
-              "
-              v-for="descriptor in nonStickedVisibleMetadataDescriptors"
-              v-if="isShowInfos"
-            />
+            <th
+              scope="col"
+              class="resolution"
+              v-if="isSequenceResolution && isShowInfos"
+            >
+              {{ $t('shots.fields.resolution') }}
+            </th>
+
+            <template v-if="isShowInfos">
+              <metadata-header
+                :key="descriptor.id"
+                :descriptor="descriptor"
+                @show-metadata-header-menu="
+                  event => showMetadataHeaderMenu(descriptor.id, event)
+                "
+                v-for="descriptor in nonStickedVisibleMetadataDescriptors"
+              />
+            </template>
             <th
               scope="col"
               class="time-spent"
@@ -137,22 +143,23 @@
               {{ $t('main.estimation_short') }}
             </th>
 
-            <validation-header
-              :key="columnId"
-              :hidden-columns="hiddenColumns"
-              :column-id="columnId"
-              :validation-style="getValidationStyle(columnId)"
-              type="sequences"
-              @show-header-menu="
-                event => {
-                  showHeaderMenu(columnId, columnIndexInGrid, event)
-                }
-              "
-              v-for="(
-                columnId, columnIndexInGrid
-              ) in nonStickedDisplayedValidationColumns"
-              v-if="!isLoading"
-            />
+            <template v-if="!isLoading">
+              <validation-header
+                :key="columnId"
+                :hidden-columns="hiddenColumns"
+                :column-id="columnId"
+                :validation-style="getValidationStyle(columnId)"
+                type="sequences"
+                @show-header-menu="
+                  event => {
+                    showHeaderMenu(columnId, columnIndexInGrid, event)
+                  }
+                "
+                v-for="(
+                  columnId, columnIndexInGrid
+                ) in nonStickedDisplayedValidationColumns"
+              />
+            </template>
             <th scope="col" class="actions" ref="actionsSection">
               <button-simple
                 :class="{
@@ -170,15 +177,15 @@
               />
 
               <table-metadata-selector-menu
-                ref="headerMetadataSelectorMenu"
-                :metadataDisplayHeaders.sync="metadataDisplayHeaders"
                 :descriptors="sequenceMetadataDescriptors"
                 :exclude="{
                   timeSpent: !isSequenceTime,
                   estimation: !isSequenceEstimation
                 }"
                 namespace="sequences"
-                v-show="columnSelectorDisplayed && isShowInfos"
+                v-model="metadataDisplayHeaders"
+                v-show="columnSelectorDisplayed"
+                v-if="isShowInfos"
               />
 
               <button-simple
@@ -191,182 +198,230 @@
           </tr>
         </thead>
         <tbody class="datatable-body">
-          <tr
-            class="datatable-row"
-            scope="row"
-            :key="sequence.id"
-            :class="{ canceled: sequence.canceled }"
-            v-for="(sequence, i) in displayedSequences"
-            v-if="!isLoading && isListVisible"
-          >
-            <th
-              :class="{
-                'datatable-row-header': true,
-                'sequence-name': true,
-                name: true,
-                strong: !sequence.canceled
-              }"
+          <template v-if="!isLoading && isListVisible">
+            <tr
+              class="datatable-row"
+              scope="row"
+              :key="sequence.id"
+              :class="{ canceled: sequence.canceled }"
+              v-for="(sequence, i) in displayedSequences"
             >
-              <div class="flexrow">
-                <entity-thumbnail
-                  :entity="sequence"
-                  :width="isBigThumbnails ? 150 : 50"
-                  :height="isBigThumbnails ? 100 : 33"
-                  :empty-width="isBigThumbnails ? 150 : 50"
-                  :empty-height="isBigThumbnails ? 100 : 34"
-                />
-                <router-link
-                  tabindex="-1"
-                  :title="sequence.name"
-                  :to="sequencePath(sequence.id)"
+              <th
+                :class="{
+                  'datatable-row-header': true,
+                  'sequence-name': true,
+                  name: true,
+                  strong: !sequence.canceled
+                }"
+              >
+                <div class="flexrow">
+                  <entity-thumbnail
+                    :entity="sequence"
+                    :width="isBigThumbnails ? 150 : 50"
+                    :height="isBigThumbnails ? 100 : 33"
+                    :empty-width="isBigThumbnails ? 150 : 50"
+                    :empty-height="isBigThumbnails ? 100 : 34"
+                  />
+                  <router-link
+                    tabindex="-1"
+                    :title="sequence.name"
+                    :to="sequencePath(sequence.id)"
+                  >
+                    {{ sequence.name }}
+                  </router-link>
+                </div>
+              </th>
+
+              <!-- Metadata stick -->
+              <template v-if="isShowInfos && !isLoading">
+                <td
+                  :ref="`editor-${i}-${j}`"
+                  class="metadata-descriptor datatable-row-header"
+                  :title="
+                    sequence.data ? sequence.data[descriptor.field_name] : ''
+                  "
+                  :style="{
+                    'z-index': 1000 - i, // Need for combo to be above the next cell
+                    left: offsets['editor-' + j]
+                      ? `${offsets['editor-' + j]}px`
+                      : '0'
+                  }"
+                  :key="sequence.id + '-' + descriptor.id"
+                  v-for="(descriptor, j) in stickedVisibleMetadataDescriptors"
                 >
-                  {{ sequence.name }}
-                </router-link>
-              </div>
-            </th>
+                  <metadata-input
+                    :entity="sequence"
+                    :descriptor="descriptor"
+                    @metadata-changed="$emit('metadata-changed', $event)"
+                    :indexes="{ i, j }"
+                  />
+                </td>
+              </template>
 
-            <!-- Metadata stick -->
-            <td
-              :ref="`editor-${i}-${j}`"
-              class="metadata-descriptor datatable-row-header"
-              :title="sequence.data ? sequence.data[descriptor.field_name] : ''"
-              :style="{
-                'z-index': 1000 - i, // Need for combo to be above the next cell
-                left: offsets['editor-' + j]
-                  ? `${offsets['editor-' + j]}px`
-                  : '0'
-              }"
-              :key="sequence.id + '-' + descriptor.id"
-              v-for="(descriptor, j) in stickedVisibleMetadataDescriptors"
-              v-if="isShowInfos"
-            >
-              <metadata-input
-                :entity="sequence"
-                :descriptor="descriptor"
-                :indexes="{ i, j }"
-                v-on="$listeners"
+              <template v-if="!isLoading">
+                <validation-cell
+                  :ref="`validation-${i}-${j}`"
+                  :key="columnId + '-' + sequence.id"
+                  :class="{
+                    'validation-cell': !hiddenColumns[columnId],
+                    'hidden-validation-cell': hiddenColumns[columnId],
+                    'datatable-row-header': true
+                  }"
+                  :column="taskTypeMap.get(columnId)"
+                  :column-y="j"
+                  :entity="sequence"
+                  :is-assignees="isShowAssignations"
+                  :is-static="true"
+                  :left="
+                    offsets['validation-' + j]
+                      ? `${offsets['validation-' + j]}px`
+                      : '0'
+                  "
+                  :minimized="hiddenColumns[columnId]"
+                  :row-x="i"
+                  :selected="isSelected(i, j)"
+                  :sticked="true"
+                  :task-test="taskMap.get(sequence.validations.get(columnId))"
+                  @select="infos => onTaskSelected(infos, true)"
+                  @unselect="infos => onTaskUnselected(infos, true)"
+                  v-for="(columnId, j) in stickedDisplayedValidationColumns"
+                />
+              </template>
+
+              <description-cell
+                class="description"
+                :entry="sequence"
+                :editable="isCurrentUserManager"
+                @description-changed="
+                  value => onDescriptionChanged(sequence, value)
+                "
+                v-if="
+                  !isCurrentUserClient && isShowInfos && isSequenceDescription
+                "
               />
-            </td>
 
-            <validation-cell
-              :ref="`validation-${i}-${j}`"
-              :key="columnId + '-' + sequence.id"
-              :class="{
-                'validation-cell': !hiddenColumns[columnId],
-                'hidden-validation-cell': hiddenColumns[columnId],
-                'datatable-row-header': true
-              }"
-              :column="taskTypeMap.get(columnId)"
-              :columnY="j"
-              :entity="sequence"
-              :is-assignees="isShowAssignations"
-              :is-static="true"
-              :left="
-                offsets['validation-' + j]
-                  ? `${offsets['validation-' + j]}px`
-                  : '0'
-              "
-              :minimized="hiddenColumns[columnId]"
-              :rowX="i"
-              :selected="isSelected(i, j)"
-              :sticked="true"
-              :task-test="taskMap.get(sequence.validations.get(columnId))"
-              @select="infos => onTaskSelected(infos, true)"
-              @unselect="infos => onTaskUnselected(infos, true)"
-              v-for="(columnId, j) in stickedDisplayedValidationColumns"
-              v-if="!isLoading"
-            />
+              <td class="resolution" v-if="isSequenceResolution && isShowInfos">
+                <input
+                  :class="{
+                    'input-editor': true,
+                    error: !isValidResolution(sequence)
+                  }"
+                  :value="
+                    getMetadataFieldValue(
+                      { field_name: 'resolution' },
+                      sequence
+                    )
+                  "
+                  @input="
+                    event =>
+                      onMetadataFieldChanged(
+                        sequence,
+                        { field_name: 'resolution' },
+                        event
+                      )
+                  "
+                  @keyup.ctrl="
+                    event =>
+                      onInputKeyUp(event, getIndex(i, k), descriptorLength + 3)
+                  "
+                  v-if="isCurrentUserManager"
+                />
 
-            <description-cell
-              class="description"
-              :entry="sequence"
-              :editable="isCurrentUserManager"
-              @description-changed="
-                value => onDescriptionChanged(sequence, value)
-              "
-              v-if="
-                !isCurrentUserClient && isShowInfos && isSequenceDescription
-              "
-            />
+                <span class="metadata-value selectable" v-else>
+                  {{
+                    getMetadataFieldValue(
+                      { field_name: 'resolution' },
+                      sequence
+                    )
+                  }}
+                </span>
+              </td>
 
-            <!-- other Metadata cells -->
-            <td
-              class="metadata-descriptor"
-              :title="sequence.data ? sequence.data[descriptor.field_name] : ''"
-              :key="sequence.id + '-' + descriptor.id"
-              v-for="(descriptor, j) in nonStickedVisibleMetadataDescriptors"
-              v-if="isShowInfos"
-            >
-              <metadata-input
-                :entity="sequence"
-                :descriptor="descriptor"
-                :indexes="{ i, j }"
-                v-on="$listeners"
+              <!-- other Metadata cells -->
+              <template v-if="isShowInfos">
+                <td
+                  class="metadata-descriptor"
+                  :title="
+                    sequence.data ? sequence.data[descriptor.field_name] : ''
+                  "
+                  :key="sequence.id + '-' + descriptor.id"
+                  v-for="(
+                    descriptor, j
+                  ) in nonStickedVisibleMetadataDescriptors"
+                >
+                  <metadata-input
+                    :entity="sequence"
+                    :descriptor="descriptor"
+                    :indexes="{ i, j }"
+                    @metadata-changed="$emit('metadata-changed', $event)"
+                  />
+                </td>
+              </template>
+
+              <td
+                class="time-spent selectable"
+                v-if="
+                  !isCurrentUserClient &&
+                  isShowInfos &&
+                  isSequenceTime &&
+                  metadataDisplayHeaders.timeSpent
+                "
+              >
+                {{ formatDuration(sequence.timeSpent) }}
+              </td>
+
+              <td
+                class="estimation selectable"
+                v-if="
+                  !isCurrentUserClient &&
+                  isShowInfos &&
+                  isSequenceEstimation &&
+                  metadataDisplayHeaders.estimation
+                "
+              >
+                {{ formatDuration(sequence.estimation) }}
+              </td>
+
+              <template v-if="!isLoading">
+                <validation-cell
+                  :ref="`validation-${i}-${
+                    j + stickedDisplayedValidationColumns.length
+                  }`"
+                  :class="{
+                    'validation-cell': !hiddenColumns[columnId],
+                    'hidden-validation-cell': hiddenColumns[columnId]
+                  }"
+                  :key="`${columnId}-${sequence.id}`"
+                  :column="taskTypeMap.get(columnId)"
+                  :entity="sequence"
+                  :task-test="
+                    taskMap.get(
+                      sequence.validations
+                        ? sequence.validations.get(columnId)
+                        : null
+                    )
+                  "
+                  :minimized="hiddenColumns[columnId]"
+                  :selected="
+                    isSelected(i, j + stickedDisplayedValidationColumns.length)
+                  "
+                  :row-x="i"
+                  :column-y="j"
+                  :is-assignees="isShowAssignations"
+                  @select="onTaskSelected"
+                  @unselect="onTaskUnselected"
+                  v-for="(columnId, j) in nonStickedDisplayedValidationColumns"
+                />
+              </template>
+              <row-actions-cell
+                :entry="sequence"
+                @delete-clicked="$emit('delete-clicked', sequence)"
+                @edit-clicked="$emit('edit-clicked', sequence)"
+                v-if="isCurrentUserManager"
               />
-            </td>
-
-            <td
-              class="time-spent selectable"
-              v-if="
-                !isCurrentUserClient &&
-                isShowInfos &&
-                isSequenceTime &&
-                metadataDisplayHeaders.timeSpent
-              "
-            >
-              {{ formatDuration(sequence.timeSpent) }}
-            </td>
-
-            <td
-              class="estimation selectable"
-              v-if="
-                !isCurrentUserClient &&
-                isShowInfos &&
-                isSequenceEstimation &&
-                metadataDisplayHeaders.estimation
-              "
-            >
-              {{ formatDuration(sequence.estimation) }}
-            </td>
-
-            <validation-cell
-              :ref="`validation-${i}-${
-                j + stickedDisplayedValidationColumns.length
-              }`"
-              :class="{
-                'validation-cell': !hiddenColumns[columnId],
-                'hidden-validation-cell': hiddenColumns[columnId]
-              }"
-              :key="`${columnId}-${sequence.id}`"
-              :column="taskTypeMap.get(columnId)"
-              :entity="sequence"
-              :task-test="
-                taskMap.get(
-                  sequence.validations
-                    ? sequence.validations.get(columnId)
-                    : null
-                )
-              "
-              :minimized="hiddenColumns[columnId]"
-              :selected="
-                isSelected(i, j + stickedDisplayedValidationColumns.length)
-              "
-              :rowX="i"
-              :columnY="j"
-              :is-assignees="isShowAssignations"
-              @select="onTaskSelected"
-              @unselect="onTaskUnselected"
-              v-for="(columnId, j) in nonStickedDisplayedValidationColumns"
-              v-if="!isLoading"
-            />
-            <row-actions-cell
-              :entry="sequence"
-              @delete-clicked="$emit('delete-clicked', sequence)"
-              @edit-clicked="$emit('edit-clicked', sequence)"
-              v-if="isCurrentUserManager"
-            />
-            <td class="actions" v-else></td>
-          </tr>
+              <td class="actions" v-else></td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -410,21 +465,22 @@ import { entityListMixin } from '@/components/mixins/entity_list'
 import { formatListMixin } from '@/components/mixins/format'
 import { selectionListMixin } from '@/components/mixins/selection'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import DescriptionCell from '@/components/cells/DescriptionCell'
-import EntityThumbnail from '@/components/widgets/EntityThumbnail'
-import MetadataHeader from '@/components/cells/MetadataHeader'
-import MetadataInput from '@/components/cells/MetadataInput'
-import RowActionsCell from '@/components/cells/RowActionsCell'
-import TableMetadataHeaderMenu from '@/components/widgets/TableMetadataHeaderMenu'
-import TableMetadataSelectorMenu from '@/components/widgets/TableMetadataSelectorMenu'
-import TableHeaderMenu from '@/components/widgets/TableHeaderMenu'
-import TableInfo from '@/components/widgets/TableInfo'
-import ValidationCell from '@/components/cells/ValidationCell'
-import ValidationHeader from '@/components/cells/ValidationHeader'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import DescriptionCell from '@/components/cells/DescriptionCell.vue'
+import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
+import MetadataHeader from '@/components/cells/MetadataHeader.vue'
+import MetadataInput from '@/components/cells/MetadataInput.vue'
+import RowActionsCell from '@/components/cells/RowActionsCell.vue'
+import TableMetadataHeaderMenu from '@/components/widgets/TableMetadataHeaderMenu.vue'
+import TableMetadataSelectorMenu from '@/components/widgets/TableMetadataSelectorMenu.vue'
+import TableHeaderMenu from '@/components/widgets/TableHeaderMenu.vue'
+import TableInfo from '@/components/widgets/TableInfo.vue'
+import ValidationCell from '@/components/cells/ValidationCell.vue'
+import ValidationHeader from '@/components/cells/ValidationHeader.vue'
 
 export default {
   name: 'sequence-list',
+
   mixins: [
     descriptorMixin,
     domMixin,
@@ -455,6 +511,8 @@ export default {
       default: () => []
     }
   },
+
+  emits: ['create-tasks', 'delete-clicked', 'edit-clicked', 'metadata-changed'],
 
   data() {
     return {
@@ -505,16 +563,19 @@ export default {
       'isSingleSequence',
       'isSequenceDescription',
       'isSequenceEstimation',
+      'isSequenceResolution',
       'isSequenceTime',
       'isShowAssignations',
       'isShowInfos',
       'nbSelectedTasks',
+      'selectedTasks',
       'sequenceMap',
       'sequenceFilledColumns',
       'sequenceMetadataDescriptors',
       'sequences',
       'sequenceSearchText',
       'sequenceSelectionGrid',
+      'sequences',
       'taskMap',
       'taskTypeMap',
       'user'
@@ -690,6 +751,12 @@ th.actions {
   min-width: 70px;
   max-width: 70px;
   width: 70px;
+}
+
+td.resolution {
+  min-width: 110px;
+  max-width: 110px;
+  width: 110px;
 }
 
 td.name {

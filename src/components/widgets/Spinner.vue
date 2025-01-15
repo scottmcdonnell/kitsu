@@ -37,13 +37,11 @@ export default {
   },
 
   computed: {
-    sizeStyle: function () {
+    sizeStyle() {
       return {
-        width: this.size ? this.size + 'px' : 'auto'
+        width: this.size ? `${this.size}px` : null
       }
     }
   }
 }
 </script>
-
-<style lang="scss" scoped></style>

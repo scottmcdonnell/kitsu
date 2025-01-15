@@ -4,11 +4,22 @@ import drafts from '@/lib/drafts'
  * Helpers to display task information
  */
 export const taskMixin = {
-  created() {},
+  computed: {
+    currentFps() {
+      const task = this.getTask()
+      if (!task) return 25
+      return parseInt(this.productionMap.get(task.project_id)?.fps) || 25
+    },
 
-  mounted() {},
+    entityFrames() {
+      const task = this.getTask()
+      if (!task || !task.entity) return 0
+      const shot = this.shotMap.get(task.entity.id)
+      if (!shot || !shot.nb_frames) return 0
 
-  computed: {},
+      return shot.nb_frames
+    }
+  },
 
   methods: {
     getTask() {
@@ -83,9 +94,5 @@ export const taskMixin = {
           this.errors.editComment = true
         })
     }
-  },
-
-  socket: {
-    events: {}
   }
 }

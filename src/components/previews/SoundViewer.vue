@@ -18,7 +18,8 @@
 
 <script>
 import WaveSurfer from 'wavesurfer.js'
-import Spinner from '@/components/widgets/Spinner'
+
+import Spinner from '@/components/widgets/Spinner.vue'
 
 export default {
   name: 'sound-viewer',
@@ -26,6 +27,8 @@ export default {
   components: {
     Spinner
   },
+
+  emits: ['play-ended'],
 
   data() {
     return {
@@ -59,8 +62,7 @@ export default {
       container: '#waveform',
       waveColor: '#00B242', // green
       progressColor: '#008732', // dark-green,
-      height: this.defaultHeight,
-      responsive: true
+      height: this.defaultHeight
     })
     this.wavesurfer.on('ready', () => {
       this.isLoading = false
@@ -93,16 +95,12 @@ export default {
   },
 
   watch: {
-    defaultHeight() {},
-
     previewUrl() {
       if (this.previewUrl && this.previewUrl.length > 0) {
         this.isLoading = true
         this.wavesurfer.load(this.previewUrl)
       }
-    },
-
-    light() {}
+    }
   }
 }
 </script>

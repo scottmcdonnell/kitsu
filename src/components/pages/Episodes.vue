@@ -20,6 +20,14 @@
             />
             <div class="filler"></div>
             <div class="flexrow flexrow-item" v-if="!isCurrentUserClient">
+              <combobox-department
+                class="combobox-department flexrow-item"
+                :selectable-departments="selectableDepartments('Episode')"
+                :display-all-and-my-departments="true"
+                rounded
+                v-model="selectedDepartment"
+                v-if="departments.length > 0"
+              />
               <show-assignations-button class="flexrow-item" />
               <show-infos-button class="flexrow-item" />
               <big-thumbnails-button class="flexrow-item" />
@@ -46,12 +54,10 @@
         </div>
 
         <sorting-info
-          :label="$t('main.sorted_by')"
           :sorting="episodeSorting"
           @clear-sorting="onChangeSortClicked(null)"
-          v-if="episodeSorting && episodeSorting.length > 0"
+          v-if="episodeSorting?.length"
         />
-
         <episode-list
           ref="episode-list"
           :displayed-episodes="displayedEpisodes"
@@ -138,7 +144,6 @@
     <add-metadata-modal
       :active="modals.isAddMetadataDisplayed"
       :is-loading="loading.addMetadata"
-      :is-loading-stay="loading.addMetadata"
       :is-error="errors.addMetadata"
       :descriptor-to-edit="descriptorToEdit"
       entity-type="Episode"
@@ -191,6 +196,7 @@
 <script>
 import moment from 'moment'
 import { mapGetters, mapActions } from 'vuex'
+
 import csv from '@/lib/csv'
 import { sortByName } from '@/lib/sorting'
 import stringHelpers from '@/lib/string'
@@ -198,25 +204,27 @@ import stringHelpers from '@/lib/string'
 import { searchMixin } from '@/components/mixins/search'
 import { entitiesMixin } from '@/components/mixins/entities'
 
-import AddMetadataModal from '@/components/modals/AddMetadataModal'
-import AddThumbnailsModal from '@/components/modals/AddThumbnailsModal'
-import BigThumbnailsButton from '@/components/widgets/BigThumbnailsButton'
-import BuildFilterModal from '@/components/modals/BuildFilterModal'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import CreateTasksModal from '@/components/modals/CreateTasksModal'
-import DeleteModal from '@/components/modals/DeleteModal'
-import EditEpisodeModal from '@/components/modals/EditEpisodeModal'
+import AddMetadataModal from '@/components/modals/AddMetadataModal.vue'
+import AddThumbnailsModal from '@/components/modals/AddThumbnailsModal.vue'
+import BigThumbnailsButton from '@/components/widgets/BigThumbnailsButton.vue'
+import BuildFilterModal from '@/components/modals/BuildFilterModal.vue'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
+import CreateTasksModal from '@/components/modals/CreateTasksModal.vue'
+import DeleteModal from '@/components/modals/DeleteModal.vue'
+import EditEpisodeModal from '@/components/modals/EditEpisodeModal.vue'
 import EpisodeList from '@/components/lists/EpisodeList.vue'
-import HardDeleteModal from '@/components/modals/HardDeleteModal'
-import SearchField from '@/components/widgets/SearchField'
-import SearchQueryList from '@/components/widgets/SearchQueryList'
-import SortingInfo from '@/components/widgets/SortingInfo'
-import ShowAssignationsButton from '@/components/widgets/ShowAssignationsButton'
-import ShowInfosButton from '@/components/widgets/ShowInfosButton'
+import HardDeleteModal from '@/components/modals/HardDeleteModal.vue'
+import SearchField from '@/components/widgets/SearchField.vue'
+import SearchQueryList from '@/components/widgets/SearchQueryList.vue'
+import SortingInfo from '@/components/widgets/SortingInfo.vue'
+import ShowAssignationsButton from '@/components/widgets/ShowAssignationsButton.vue'
+import ShowInfosButton from '@/components/widgets/ShowInfosButton.vue'
 import TaskInfo from '@/components/sides/TaskInfo.vue'
 
 export default {
   name: 'episodes',
+
   mixins: [searchMixin, entitiesMixin],
 
   components: {
@@ -225,6 +233,7 @@ export default {
     BigThumbnailsButton,
     BuildFilterModal,
     ButtonSimple,
+    ComboboxDepartment,
     CreateTasksModal,
     DeleteModal,
     EditEpisodeModal,
@@ -298,7 +307,7 @@ export default {
     }
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     this.clearSelectedEpisodes()
   },
 
@@ -333,6 +342,9 @@ export default {
         this.$refs['episode-list'].setScrollPosition(
           this.episodeListScrollPosition
         )
+        this.$nextTick(() => {
+          this.$refs['episode-list']?.selectTaskFromQuery()
+        })
       }
     }
 
@@ -343,7 +355,9 @@ export default {
     ) {
       this.loadEpisodesWithTasks()
         .then(() => {
-          this.initialLoading = false
+          setTimeout(() => {
+            finalize()
+          }, 200)
         })
         .catch(console.error)
     } else {
@@ -357,13 +371,12 @@ export default {
       'currentEpisode',
       'currentProduction',
       'departmentMap',
-      'displayedEpisodes',
       'departments',
+      'displayedEpisodes',
       'episodeMap',
       'episodes',
       'episodeMap',
       'episodeFilledColumns',
-      'episodesCsvFormData',
       'episodeSearchText',
       'episodeValidationColumns',
       'episodeListScrollPosition',
@@ -551,23 +564,25 @@ export default {
       })
     },
 
-    onFieldChanged({ entry, fieldName, value }) {
+    async onFieldChanged({ entry, fieldName, value }) {
       const data = {
         id: entry.id,
-        description: entry.description
+        description: entry.description,
+        [fieldName]: value
       }
-      data[fieldName] = value
-      this.editEpisode(data)
+      await this.editEpisode(data)
+      this.onSearchChange(false)
     },
 
-    onMetadataChanged({ entry, descriptor, value }) {
-      const metadata = {}
-      metadata[descriptor.field_name] = value
+    async onMetadataChanged({ entry, descriptor, value }) {
       const data = {
         id: entry.id,
-        data: metadata
+        data: {
+          [descriptor.field_name]: value
+        }
       }
-      this.editEpisode(data)
+      await this.editEpisode(data)
+      this.onSearchChange(false)
     },
 
     onEditClicked(episode) {
@@ -589,6 +604,7 @@ export default {
           .then(() => {
             this.loading.edit = false
             this.modals.isNewDisplayed = false
+            this.onSearchChange(false)
           })
           .catch(err => {
             console.error(err)
@@ -656,7 +672,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.currentProduction.name} ${this.$t(
         'episodes.title'

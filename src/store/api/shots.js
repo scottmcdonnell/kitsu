@@ -186,10 +186,17 @@ export default {
   },
 
   getQuotas(productionId, taskTypeId, detailLevel, computeMode) {
-    const weighted = computeMode === 'weighted'
     return client.pget(
       `/api/data/projects/${productionId}/quotas/` +
-        `${taskTypeId}?detail=${detailLevel}&weighted=${weighted}`
+        `${taskTypeId}?detail=${detailLevel}&count_mode=${computeMode}`
     )
+  },
+
+  setNbFramesFromTaskTypePreviews(taskTypeId, productionId, episodeId) {
+    let path =
+      `/api/actions/projects/${productionId}/task-types/` +
+      `${taskTypeId}/set-shot-nb-frames`
+    if (episodeId) path += `?episode_id=${episodeId}`
+    return client.ppost(path)
   }
 }

@@ -13,7 +13,7 @@
           {{ $t('main.search_query_edit') }}
         </h1>
 
-        <form v-on:submit.prevent>
+        <form @submit.prevent>
           <text-field
             ref="nameField"
             :label="$t('assets.fields.name')"
@@ -31,17 +31,31 @@
           <boolean-field
             :label="$t('main.is_shared')"
             v-model="form.is_shared"
-            v-if="isCurrentUserManager && currentProduction"
             @click="form.search_filter_group_id = null"
+            v-if="isCurrentUserManager && currentProduction"
+          />
+
+          <combobox-department
+            class="mt2"
+            :label="$t('main.department')"
+            :top="true"
+            v-model="form.department_id"
+            v-if="form.is_shared === 'true'"
           />
 
           <combobox
+            class="mt2"
             :label="$t('main.filter_group')"
             :options="allowedGroups"
             v-model="form.search_filter_group_id"
-            v-if="isGroupEnabled"
+            v-if="isGroupEnabled && allowedGroups.length > 1"
           />
         </form>
+
+        <div v-if="searchQueryToEdit?.id" class="mt2">
+          {{ $t('main.created_by') }}:
+          <people-name :person="personMap.get(searchQueryToEdit.person_id)" />
+        </div>
 
         <modal-footer
           :error-text="$t('main.search_query_edit_error')"
@@ -61,20 +75,27 @@
    filter label when it's too complex to read or too long.
  */
 import { mapGetters } from 'vuex'
-import { modalMixin } from '@/components/modals/base_modal'
-import ModalFooter from '@/components/modals/ModalFooter'
 
-import BooleanField from '@/components/widgets/BooleanField'
-import Combobox from '@/components/widgets/Combobox'
-import TextField from '@/components/widgets/TextField'
+import { modalMixin } from '@/components/modals/base_modal'
+
+import BooleanField from '@/components/widgets/BooleanField.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
+import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
+import ModalFooter from '@/components/modals/ModalFooter.vue'
+import PeopleName from '@/components/widgets/PeopleName.vue'
+import TextField from '@/components/widgets/TextField.vue'
 
 export default {
   name: 'edit-search-filter-modal',
+
   mixins: [modalMixin],
+
   components: {
     BooleanField,
     Combobox,
+    ComboboxDepartment,
     ModalFooter,
+    PeopleName,
     TextField
   },
 
@@ -105,6 +126,8 @@ export default {
     }
   },
 
+  emits: ['cancel', 'confirm'],
+
   data() {
     return {
       form: {
@@ -118,7 +141,7 @@ export default {
   },
 
   computed: {
-    ...mapGetters(['currentProduction', 'isCurrentUserManager']),
+    ...mapGetters(['currentProduction', 'isCurrentUserManager', 'personMap']),
 
     allowedGroups() {
       return this.groupOptions.filter(
@@ -155,7 +178,8 @@ export default {
           name: this.searchQueryToEdit.name,
           search_filter_group_id: this.searchQueryToEdit.search_filter_group_id,
           search_query: this.searchQueryToEdit.search_query,
-          is_shared: this.searchQueryToEdit.is_shared ? 'true' : 'false'
+          is_shared: this.searchQueryToEdit.is_shared ? 'true' : 'false',
+          department_id: this.searchQueryToEdit.department_id
         }
       } else {
         this.form = {
@@ -163,7 +187,8 @@ export default {
           name: '',
           search_filter_group_id: null,
           search_query: '',
-          is_shared: 'false'
+          is_shared: 'false',
+          department_id: null
         }
       }
     },

@@ -32,17 +32,13 @@
  */
 import { mapGetters } from 'vuex'
 
-import LightEntityThumbnail from '@/components/widgets/LightEntityThumbnail'
+import LightEntityThumbnail from '@/components/widgets/LightEntityThumbnail.vue'
 
 export default {
   name: 'revision-preview',
 
   components: {
     LightEntityThumbnail
-  },
-
-  data() {
-    return {}
   },
 
   props: {
@@ -59,6 +55,8 @@ export default {
       type: Object
     }
   },
+
+  emits: ['preview-dropped', 'selected'],
 
   mounted() {
     this.setListeners()
@@ -109,9 +107,7 @@ export default {
         newIndex: this.index
       })
     }
-  },
-
-  watch: {}
+  }
 }
 </script>
 

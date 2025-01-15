@@ -3,7 +3,7 @@
     <template v-if="full">
       <div
         class="description-shorten-text"
-        v-html="compileMarkdown(entry.description)"
+        v-html="renderMarkdown(entry.description)"
       ></div>
     </template>
     <template v-else>
@@ -11,7 +11,7 @@
       <span
         class="description-shorten-text selectable"
         v-html="
-          compileMarkdown(shortenText(entry.description, 20), {
+          renderMarkdown(shortenText(entry.description, 20), {
             allowedLinkTag: false
           })
         "
@@ -26,7 +26,7 @@
         <div
           class="tooltip-text"
           @keyup.esc="onClick"
-          v-html="compileMarkdown(entry.description)"
+          v-html="renderMarkdown(entry.description)"
           v-if="!isEditing"
         ></div>
         <textarea
@@ -53,8 +53,7 @@ export default {
   data() {
     return {
       isEditing: false,
-      isOpen: false,
-      timeout: null
+      isOpen: false
     }
   },
 
@@ -73,17 +72,17 @@ export default {
     }
   },
 
+  emits: ['description-changed'],
+
   methods: {
-    compileMarkdown(input, options) {
-      return renderMarkdown(input, options)
-    },
+    renderMarkdown,
 
     shortenText: stringHelpers.shortenText,
 
     onClick(event) {
       if (
-        event.target.className.substring(0, 11) === 'description' ||
-        event.target.parentNode.className.substring(0, 11) === 'description' ||
+        (event.currentTarget.classList.contains('description-cell') &&
+          !event.target.closest('.description-cell .tooltip')) ||
         event.keyCode === 27
       ) {
         this.isOpen = !this.isOpen

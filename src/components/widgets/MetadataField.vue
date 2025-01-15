@@ -8,12 +8,12 @@
     :key="`${descriptor.id}-checklist-wrapper`"
   >
     <label class="label" :key="`${descriptor.id}-${descriptor.name}`">
-      {{ descriptor.name }}</label
-    >
+      {{ descriptor.name }}
+    </label>
     <div
       class="checkbox-wrapper"
-      v-for="(option, i) in descriptorChecklistValues"
       :key="`${descriptor.id}-${i}-${option.text}-wrapper`"
+      v-for="(option, i) in descriptorChecklistValues"
     >
       <input
         type="checkbox"
@@ -37,54 +37,55 @@
   <!-- list field -->
   <combobox
     v-else-if="descriptor.data_type === 'list'"
-    :label="descriptor.name"
+    :label="label ?? descriptor.name"
     :options="getDescriptorChoicesOptions(descriptor)"
-    :value="value"
+    :model-value="modelValue"
     @enter="onEnter"
-    @input="updateValue"
+    @update:model-value="updateValue"
   />
   <!-- boolean field -->
   <combobox-boolean
-    :label="descriptor.name"
-    :value="value === 'true' ? value : 'false'"
+    :label="label ?? descriptor.name"
+    :model-value="modelValue === 'true' ? modelValue : 'false'"
     @enter="onEnter"
-    @input="updateValue"
+    @update:model-value="updateValue"
     v-else-if="descriptor.data_type === 'boolean'"
   />
   <!-- tag list field -->
   <combobox-tag
-    :label="descriptor.name"
+    :label="label ?? descriptor.name"
     :options="getDescriptorChoicesOptions(descriptor, false)"
-    :value="value"
+    :model-value="modelValue"
     @enter="onEnter"
-    @input="updateValue"
+    @update:model-value="updateValue"
     v-else-if="descriptor.data_type === 'taglist'"
   />
   <!-- number or text field-->
   <text-field
-    :label="descriptor.name"
+    :label="label ?? descriptor.name"
     :type="descriptor.data_type"
-    :value="value"
+    :model-value="modelValue"
     :min="null"
     @enter="onEnter"
-    @input="updateValue"
+    @update:model-value="updateValue"
     v-else
   />
 </template>
 
 <script>
 import { mapGetters } from 'vuex'
-import { descriptorMixin } from '@/components/mixins/descriptors'
-import { entityListMixin } from '@/components/mixins/entity_list'
 
-import Combobox from '@/components/widgets/Combobox'
-import ComboboxBoolean from '@/components/widgets/ComboboxBoolean'
-import ComboboxTag from '@/components/widgets/ComboboxTag'
-import TextField from '@/components/widgets/TextField'
+import { descriptorMixin } from '@/components/mixins/descriptors'
+
+import Combobox from '@/components/widgets/Combobox.vue'
+import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
+import ComboboxTag from '@/components/widgets/ComboboxTag.vue'
+import TextField from '@/components/widgets/TextField.vue'
 
 export default {
   name: 'metadata-field',
-  mixins: [entityListMixin, descriptorMixin],
+
+  mixins: [descriptorMixin],
 
   components: {
     Combobox,
@@ -94,19 +95,24 @@ export default {
   },
 
   props: {
-    entity: {
-      type: Object,
-      required: true
-    },
     descriptor: {
       type: Object,
       required: true
     },
-    value: {
-      type: [Number, String],
+    entity: {
+      type: Object,
+      required: true
+    },
+    label: {
+      type: String
+    },
+    modelValue: {
+      type: [Number, String, Object],
       default: ''
     }
   },
+
+  emits: ['enter', 'update:modelValue'],
 
   computed: {
     ...mapGetters(['isCurrentUserManager', 'isCurrentUserSupervisor', 'user']),
@@ -129,7 +135,7 @@ export default {
 
   methods: {
     updateValue(value) {
-      this.$emit('input', value)
+      this.$emit('update:modelValue', value)
     },
 
     onEnter() {

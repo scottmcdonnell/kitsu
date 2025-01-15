@@ -1,7 +1,7 @@
 <template>
   <div class="columns fixed-page">
     <div class="column main-column">
-      <div class="news page" ref="body" v-scroll="onBodyScroll">
+      <div class="news page" ref="body" @scroll.passive="onBodyScroll">
         <div class="timeline-wrapper">
           <div class="has-text-right filler filter-button">
             <button-simple
@@ -37,9 +37,9 @@
                 {{ $t('main.person') }}
               </label>
               <people-field
-                class="person-field small"
-                big
+                class="person-field"
                 :people="team"
+                small
                 v-model="person"
               />
             </div>
@@ -48,15 +48,15 @@
           <div class="filters flexrow mt1" v-if="isFiltersDisplayed">
             <date-field
               class="flexrow-item"
-              :disabled-dates="{ from: today }"
+              :max-date="today"
               :label="$t('main.from')"
               :with-margin="false"
               v-model="after"
             />
             <date-field
               class="flexrow-item"
+              :max-date="today"
               :label="$t('main.to')"
-              :disabled-dates="{ from: today }"
               :with-margin="false"
               v-model="before"
             />
@@ -79,82 +79,83 @@
               <spinner />
             </div>
 
-            <div
-              :key="dayList.length > 0 ? dayList[0].created_at : ''"
-              v-for="dayList in newsListByDay(timezone)"
-              v-if="!loading.news"
-            >
-              <div class="has-text-centered subtitle timeline-entry">
-                <span class="big-dot"></span>
-                {{ dayList.length > 0 ? formatDay(dayList[0].created_at) : '' }}
-              </div>
+            <template v-if="!loading.news">
               <div
-                :key="'news-' + news.id"
-                :ref="'news-' + news.id"
-                v-for="(news, index) in dayList"
+                :key="dayList.length > 0 ? dayList[0].created_at : ''"
+                v-for="dayList in newsListByDay(timezone)"
               >
-                <div v-if="previewMode === 'comments'">
-                  <div
-                    :class="{
-                      'news-line': true,
-                      'timeline-entry': true,
-                      flexrow: true,
-                      selected: news.id === currentNewsId
-                    }"
-                    @click.prevent="onNewsSelected(news)"
-                  >
-                    <span
-                      :class="{
-                        dot: true,
-                        red: hasRetakeValue(news),
-                        green: hasDoneValue(news)
-                      }"
-                    ></span>
-                    <span class="date flexrow-item">
-                      {{ formatTime(news.created_at) }}
-                    </span>
-
+                <div class="has-text-centered subtitle timeline-entry">
+                  <span class="big-dot"></span>
+                  {{
+                    dayList.length > 0 ? formatDay(dayList[0].created_at) : ''
+                  }}
+                </div>
+                <div
+                  :key="'news-' + news.id"
+                  :ref="'news-' + news.id"
+                  v-for="(news, index) in dayList"
+                >
+                  <div v-if="previewMode === 'comments'">
                     <div
-                      class="flexrow-item production-name-wrapper"
-                      v-if="isStudio"
+                      :class="{
+                        'news-line': true,
+                        'timeline-entry': true,
+                        flexrow: true,
+                        selected: news.id === currentNewsId
+                      }"
+                      @click.prevent="onNewsSelected(news)"
                     >
-                      <production-name
-                        :production="productionMap.get(news.project_id)"
-                        only-avatar
+                      <span
+                        :class="{
+                          dot: true,
+                          red: hasRetakeValue(news),
+                          green: hasDoneValue(news)
+                        }"
+                      ></span>
+                      <span class="date flexrow-item">
+                        {{ formatTime(news.created_at) }}
+                      </span>
+
+                      <div
+                        class="flexrow-item production-name-wrapper"
+                        v-if="isStudio"
+                      >
+                        <production-name
+                          :production="productionMap.get(news.project_id)"
+                          only-avatar
+                        />
+                      </div>
+
+                      <people-avatar
+                        class="flexrow-item"
+                        :person="personMap.get(news.author_id)"
+                        :size="30"
+                        :font-size="14"
+                        :is-link="false"
+                        v-if="personMap.get(news.author_id)"
                       />
-                    </div>
 
-                    <people-avatar
-                      class="flexrow-item"
-                      :person="personMap.get(news.author_id)"
-                      :size="30"
-                      :font-size="14"
-                      :is-link="false"
-                      v-if="personMap.get(news.author_id)"
-                    />
+                      <div class="flexrow-item task-type-wrapper">
+                        <task-type-name
+                          class="task-type-name"
+                          :task-type="buildTaskTypeFromNews(news)"
+                          :production-id="news.project_id"
+                          :is-static="true"
+                        />
+                      </div>
 
-                    <div class="flexrow-item task-type-wrapper">
-                      <task-type-name
-                        class="task-type-name"
-                        :task-type="buildTaskTypeFromNews(news)"
-                        :production-id="currentProduction.id"
-                        :is-static="true"
-                      />
-                    </div>
+                      <div class="flexrow-item validation-wrapper">
+                        <validation-tag
+                          class="validation-tag"
+                          :task="buildTaskFromNews(news)"
+                          :is-static="true"
+                          :thin="!news.change"
+                        />
+                      </div>
 
-                    <div class="flexrow-item validation-wrapper">
-                      <validation-tag
-                        class="validation-tag"
-                        :task="buildTaskFromNews(news)"
-                        :is-static="true"
-                        :thin="!news.change"
-                      />
-                    </div>
-
-                    <div class="flexrow-item comment-content">
-                      <div>
+                      <div class="flexrow-item comment-content">
                         <div class="news-info flexrow">
-                          <span class="explaination flexrow-item flexrow">
+                          <span class="flexrow-item flexrow">
                             <entity-thumbnail
                               class="ml1 entity-thumbnail mr1 flexrow-item"
                               :entity="{
@@ -163,7 +164,6 @@
                               }"
                               :with-link="false"
                             />
-
                             <span class="strong ml05">
                               {{ news.full_entity_name }}
                             </span>
@@ -172,52 +172,50 @@
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div
-                  class="preview"
-                  v-if="news.preview_file_id && previewMode === 'previews'"
-                >
                   <div
-                    :class="{
-                      'news-line': true,
-                      'timeline-entry': true,
-                      flexrow: true,
-                      selected: news.id === currentNewsId
-                    }"
-                    @click.prevent="onNewsSelected(news)"
+                    class="preview"
+                    v-if="news.preview_file_id && previewMode === 'previews'"
                   >
-                    <span
+                    <div
                       :class="{
-                        dot: true,
-                        red: hasRetakeValue(news),
-                        green: hasDoneValue(news)
+                        'news-line': true,
+                        'timeline-entry': true,
+                        flexrow: true,
+                        selected: news.id === currentNewsId
                       }"
-                    ></span>
-                    <span class="date flexrow-item">
-                      {{ formatTime(news.created_at) }}
-                    </span>
+                      @click.prevent="onNewsSelected(news)"
+                    >
+                      <span
+                        :class="{
+                          dot: true,
+                          red: hasRetakeValue(news),
+                          green: hasDoneValue(news)
+                        }"
+                      ></span>
+                      <span class="date flexrow-item">
+                        {{ formatTime(news.created_at) }}
+                      </span>
 
-                    <people-avatar
-                      class="flexrow-item"
-                      :person="personMap.get(news.author_id)"
-                      :size="30"
-                      :no-link="true"
-                      v-if="personMap.get(news.author_id)"
-                    />
-
-                    <div class="flexrow-item task-type-wrapper">
-                      <task-type-name
-                        class="task-type-name"
-                        :task-type="buildTaskTypeFromNews(news)"
-                        :production-id="currentProduction.id"
+                      <people-avatar
+                        class="flexrow-item"
+                        :person="personMap.get(news.author_id)"
+                        :size="30"
+                        :no-link="true"
+                        v-if="personMap.get(news.author_id)"
                       />
-                    </div>
 
-                    <div class="flexrow-item comment-content">
-                      <div>
+                      <div class="flexrow-item task-type-wrapper">
+                        <task-type-name
+                          class="task-type-name"
+                          :task-type="buildTaskTypeFromNews(news)"
+                          :production-id="news.project_id"
+                        />
+                      </div>
+
+                      <div class="flexrow-item comment-content">
                         <div class="news-info flexrow">
-                          <span class="explaination flexrow-item flexrow">
+                          <span class="flexrow-item flexrow">
                             <entity-thumbnail
                               class="ml1"
                               :entity="{
@@ -234,36 +232,38 @@
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div
-                    class="has-text-centered"
-                    v-if="previewMode == 'previews'"
-                  >
-                    <preview-player
-                      :canvas-id="`annotation-canvas-${dayList[0].created_at.substring(
-                        0,
-                        10
-                      )}-${index}`"
-                      :previews="[
-                        {
-                          id: news.preview_file_id,
-                          extension: news.preview_file_extension,
-                          annotations: news.preview_file_annotations
-                        }
-                      ]"
-                      :task="{
-                        id: news.task_id,
-                        project_id: news.project_id
-                      }"
-                      :read-only="true"
-                      :light="true"
-                      :big="true"
-                    />
+                    <div
+                      class="has-text-centered"
+                      v-if="previewMode === 'previews'"
+                    >
+                      <preview-player
+                        :canvas-id="`annotation-canvas-${dayList[0].created_at.substring(
+                          0,
+                          10
+                        )}-${index}`"
+                        :previews="[
+                          {
+                            id: news.preview_file_id,
+                            extension: news.preview_file_extension,
+                            annotations: news.preview_file_annotations
+                          }
+                        ]"
+                        :task="{
+                          id: news.task_id,
+                          project_id: news.project_id,
+                          task_type_id: news.task_type_id,
+                          assignees: []
+                        }"
+                        :read-only="true"
+                        :light="true"
+                        :big="true"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            </template>
           </div>
         </div>
       </div>
@@ -315,24 +315,26 @@ import { sortByName, sortPeople } from '@/lib/sorting'
 import { formatFullDateWithRevertedTimezone } from '@/lib/time'
 import { timeMixin } from '@/components/mixins/time'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import Combobox from '@/components/widgets/Combobox'
-import ComboboxStatus from '@/components/widgets/ComboboxStatus'
-import ComboboxTaskType from '@/components/widgets/ComboboxTaskType'
-import DateField from '@/components/widgets/DateField'
-import PeopleField from '@/components/widgets/PeopleField'
-import EntityThumbnail from '@/components/widgets/EntityThumbnail'
-import PeopleAvatar from '@/components/widgets/PeopleAvatar'
-import ProductionName from '@/components/widgets/ProductionName'
-import TaskInfo from '@/components/sides/TaskInfo'
-import TaskTypeName from '@/components/widgets/TaskTypeName'
-import Spinner from '@/components/widgets/Spinner'
-import ValidationTag from '@/components/widgets/ValidationTag'
-import PreviewPlayer from '@/components/previews/PreviewPlayer'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
+import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
+import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
+import DateField from '@/components/widgets/DateField.vue'
+import PeopleField from '@/components/widgets/PeopleField.vue'
+import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
+import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
+import PreviewPlayer from '@/components/previews/PreviewPlayer.vue'
+import ProductionName from '@/components/widgets/ProductionName.vue'
+import TaskInfo from '@/components/sides/TaskInfo.vue'
+import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
+import ValidationTag from '@/components/widgets/ValidationTag.vue'
 
 export default {
   name: 'production-news-feed',
+
   mixins: [timeMixin],
+
   components: {
     ButtonSimple,
     Combobox,
@@ -401,17 +403,12 @@ export default {
     this.$options.silent = false
     window.addEventListener('keydown', this.onKeyDown, false)
 
-    if (
-      (this.newsList.length === 0 ||
-        (this.currentProduction &&
-          this.newsList[0].project_id !== this.currentProduction.id)) &&
-      !this.loading.news
-    ) {
+    if (!this.loading.news) {
       this.init()
     }
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('keydown', this.onKeyDown)
   },
 
@@ -431,8 +428,6 @@ export default {
       'taskStatusMap',
       'taskTypeMap',
       'taskStatusMap',
-      'taskStatus',
-      'taskTypes',
       'user'
     ]),
 
@@ -447,12 +442,13 @@ export default {
     },
 
     isStudio() {
-      return this.$route.path.indexOf('productions') < 0
+      return !this.$route.path.includes('productions')
     },
 
     params() {
-      const params = {
-        productionId: this.currentProduction?.id,
+      return {
+        isStudio: this.isStudio || undefined,
+        productionId: !this.isStudio ? this.currentProduction?.id : undefined,
         only_preview: this.previewMode === 'previews',
         page_size: this.previewMode === 'previews' ? 6 : 50,
         task_type_id: this.taskTypeId !== '' ? this.taskTypeId : undefined,
@@ -460,12 +456,10 @@ export default {
           this.taskStatusId !== '' ? this.taskStatusId : undefined,
         person_id: this.person ? this.person.id : undefined,
         page: this.currentPage,
-        episode_id: this.episodeId,
+        episode_id: this.episodeId !== 'all' ? this.episodeId : undefined,
         before: formatFullDateWithRevertedTimezone(this.before, this.timezone),
         after: formatFullDateWithRevertedTimezone(this.after, this.timezone)
       }
-      if (this.episodeId === 'all') delete params['episode_id']
-      return params
     },
 
     taskStatusList() {
@@ -644,9 +638,6 @@ export default {
           task_type_id: this.params.task_type_id
         }
         if (this.$router) this.$router.push({ query })
-        if (this.$route.path.indexOf('productions') < 0) {
-          this.params.isStudio = true
-        }
         this.loadNews(this.params)
           .then(() => {
             this.loading.news = false
@@ -659,7 +650,8 @@ export default {
       }
     },
 
-    onBodyScroll(event, position) {
+    onBodyScroll(event) {
+      const position = event.target
       const maxHeight =
         this.$refs.body.scrollHeight - this.$refs.body.offsetHeight
       if (maxHeight < position.scrollTop + 200) {
@@ -778,10 +770,10 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     if (this.currentProduction) {
       return {
-        title: `${this.currentProduction.name} ${this.$t('news.title')} - Kitsu`
+        title: `${this.currentProduction.name} | ${this.$t('news.title')} - Kitsu`
       }
     } else {
       return {
@@ -974,10 +966,6 @@ export default {
 .person-label {
   margin-top: 5px;
   margin-bottom: 4px;
-}
-
-.person-field ::v-deep .v-autocomplete {
-  z-index: 501; // +1 relative to the z-index of canvas-wrapper
 }
 
 .filter-button {

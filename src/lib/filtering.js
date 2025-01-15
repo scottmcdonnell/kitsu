@@ -76,15 +76,11 @@ const applyFiltersFunctions = {
 
   descriptor(entry, filter, taskMap) {
     let isOk = false
-    if (
-      entry.data &&
-      entry.data[filter.descriptor.field_name] &&
-      filter.values
-    ) {
-      let dataValue = entry.data[filter.descriptor.field_name]
+    let dataValue = entry.data?.[filter.descriptor.field_name]
+    if ((dataValue || dataValue === 0) && filter.values) {
       if (typeof dataValue === 'string') dataValue = dataValue.toLowerCase()
 
-      // Boolean case
+      // Checklist case
       if (
         filter.values.length === 1 &&
         filter.values[0].match(new RegExp('(:true)|(:false)$'))
@@ -103,6 +99,8 @@ const applyFiltersFunctions = {
         } catch {
           isOk = false
         }
+
+        // Number case
       } else if (filter.descriptor.data_type === 'number') {
         try {
           dataValue = parseFloat(dataValue)
@@ -118,7 +116,7 @@ const applyFiltersFunctions = {
       } else {
         filter.values.forEach(value => {
           dataValue = `${dataValue}`
-          isOk = isOk || dataValue.indexOf(value.toLowerCase()) >= 0
+          isOk = isOk || dataValue.includes(value.toLowerCase())
         })
       }
     } else {
@@ -542,12 +540,9 @@ export const getAssignedToFilters = (persons, taskTypes, queryText) => {
       const pattern = rgxMatch.split('=')
       let taskTypeName = pattern[0].substring('assignedto'.length)
       taskTypeName = cleanParenthesis(taskTypeName)
-      let taskType = null
-      if (taskTypeName !== '') {
-        const taskTypes = taskTypeNameIndex[taskTypeName.toLowerCase()]
-        taskType = taskTypes[0]
-      }
-
+      const taskType = taskTypeName
+        ? taskTypeNameIndex[taskTypeName.toLowerCase()]?.[0]
+        : null
       let value = pattern[1]
       value = cleanParenthesis(value)
       const excluding = value.startsWith('-')
@@ -557,7 +552,7 @@ export const getAssignedToFilters = (persons, taskTypes, queryText) => {
       if (person) {
         results.push({
           personId: person.id,
-          taskType: taskType,
+          taskType,
           value,
           type: 'assignedto',
           excluding

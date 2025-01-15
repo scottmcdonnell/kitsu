@@ -68,6 +68,7 @@ $yellow: #FFC107;
   --text-selected: #8F91EB;
   --poster-color: #000;
   --purple: #CFD1FF;
+  --shared-color: #F9E04B;
 }
 
 .dark {
@@ -97,4 +98,8 @@ $yellow: #FFC107;
   --text-selectable: #BEC0FA;
   --text-selected: #9EA0FA;
   --purple: #5E60BA;
+}
+
+.dp__theme_dark {
+  --dp-background-color: #26292F;
 }

@@ -1,315 +1,314 @@
 <template>
   <div>
     <div class="action-topbar unselectable">
-      <div class="menu">
-        <div class="flexrow">
-          <div
-            class="menu-item status-item"
-            :class="{
-              active: selectedBar === 'change-status'
-            }"
-            :title="$t('menu.change_status')"
-            @click="selectBar('change-status')"
-            v-if="
-              (isCurrentUserManager ||
-                isSupervisorInDepartment ||
-                isInDepartment ||
-                isCurrentViewTodos) &&
-              !isEntitySelection &&
-              isTaskSelection &&
-              nbSelectedTasks > 1
-            "
-          >
-            {{ $t('main.status') }}
-          </div>
+      <div class="menu flexrow">
+        <div
+          class="menu-item status-item"
+          :class="{
+            active: selectedBar === 'change-status'
+          }"
+          :title="$t('menu.change_status')"
+          @click="selectBar('change-status')"
+          v-if="
+            (isCurrentUserManager ||
+              isSupervisorInDepartment ||
+              isInDepartment ||
+              isCurrentViewTodos) &&
+            !isEntitySelection &&
+            isTaskSelection &&
+            nbSelectedTasks > 1
+          "
+        >
+          {{ $t('main.status') }}
+        </div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'assignation'
-            }"
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'assignation'
+          }"
+          :title="$t('menu.assign_tasks')"
+          @click="selectBar('assignation')"
+          v-if="
+            (isCurrentViewSingleEntity || isCurrentViewEntity) &&
+            (isCurrentUserManager ||
+              isSupervisorInDepartment ||
+              isInDepartment ||
+              isCurrentViewSingleEntity) &&
+            !isEntitySelection &&
+            isTaskSelection &&
+            !isCurrentUserArtist
+          "
+        >
+          <kitsu-icon
+            name="user-check"
+            :active="selectedBar === 'assignation'"
             :title="$t('menu.assign_tasks')"
-            @click="selectBar('assignation')"
-            v-if="
-              (isCurrentViewSingleEntity || isCurrentViewEntity) &&
-              (isCurrentUserManager ||
-                isSupervisorInDepartment ||
-                isInDepartment ||
-                isCurrentViewSingleEntity) &&
-              !isEntitySelection &&
-              isTaskSelection &&
-              !isCurrentUserArtist
-            "
-          >
-            <kitsu-icon
-              name="user-check"
-              :active="selectedBar === 'assignation'"
-              :title="$t('menu.assign_tasks')"
-            />
-          </div>
+          />
+        </div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'priorities'
-            }"
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'priorities'
+          }"
+          :title="$t('menu.change_priority')"
+          v-if="
+            (isCurrentViewSingleEntity ||
+              isCurrentViewEntity ||
+              isCurrentViewPerson ||
+              isCurrentViewSingleEntity) &&
+            (isCurrentUserManager || isSupervisorInDepartment) &&
+            !isEntitySelection &&
+            isTaskSelection
+          "
+          @click="selectBar('priorities')"
+        >
+          <kitsu-icon
+            name="priority"
+            :active="selectedBar === 'priorities'"
             :title="$t('menu.change_priority')"
-            v-if="
-              (isCurrentViewSingleEntity ||
-                isCurrentViewEntity ||
-                isCurrentViewPerson ||
-                isCurrentViewSingleEntity) &&
-              (isCurrentUserManager || isSupervisorInDepartment) &&
-              !isEntitySelection &&
-              isTaskSelection
-            "
-            @click="selectBar('priorities')"
-          >
-            <kitsu-icon
-              name="priority"
-              :active="selectedBar === 'priorities'"
-              :title="$t('menu.change_priority')"
-            />
-          </div>
+          />
+        </div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'thumbnails'
-            }"
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'thumbnails'
+          }"
+          :title="$t('menu.set_thumbnails')"
+          v-if="
+            isTaskSelection && !isCurrentUserArtist && !isCurrentViewConcept
+          "
+          @click="selectBar('thumbnails')"
+        >
+          <kitsu-icon
+            name="add-thumbnail"
+            :active="selectedBar === 'thumbnails'"
             :title="$t('menu.set_thumbnails')"
-            v-if="
-              isTaskSelection &&
-              !this.isCurrentUserArtist &&
-              !isCurrentViewConcept
-            "
-            @click="selectBar('thumbnails')"
-          >
-            <kitsu-icon
-              name="add-thumbnail"
-              :active="selectedBar === 'thumbnails'"
-              :title="$t('menu.set_thumbnails')"
-            />
-          </div>
+          />
+        </div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'subscribe'
-            }"
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'subscribe'
+          }"
+          :title="$t('menu.subscribe')"
+          v-if="
+            isTaskSelection &&
+            !isCurrentViewSingleEntity &&
+            !isCurrentViewTodos &&
+            !isCurrentViewConcept
+          "
+          @click="selectBar('subscribe')"
+        >
+          <kitsu-icon
+            name="watch"
+            :active="selectedBar === 'subscribe'"
             :title="$t('menu.subscribe')"
-            v-if="
-              isTaskSelection &&
-              !isCurrentViewSingleEntity &&
-              !isCurrentViewTodos &&
-              !isCurrentViewConcept
-            "
-            @click="selectBar('subscribe')"
-          >
-            <kitsu-icon
-              name="watch"
-              :active="selectedBar === 'subscribe'"
-              :title="$t('menu.subscribe')"
-            />
-          </div>
+          />
+        </div>
 
-          <div
-            class="menu-item ml05"
-            :class="{
-              active: selectedBar === 'edit-concepts'
-            }"
-            :title="$t('menu.edit_concepts')"
-            @click="selectBar('edit-concepts')"
-            v-if="
-              isCurrentViewConcept &&
-              (isCurrentUserManager || isConceptPublisher) &&
-              isTaskSelection
-            "
-          >
-            <link-icon />
-          </div>
+        <div
+          class="menu-item ml05"
+          :class="{
+            active: selectedBar === 'edit-concepts'
+          }"
+          :title="$t('menu.edit_concepts')"
+          @click="selectBar('edit-concepts')"
+          v-if="
+            isCurrentViewConcept &&
+            (isCurrentUserManager || isConceptPublisher) &&
+            isTaskSelection
+          "
+        >
+          <link-icon />
+        </div>
 
-          <div
-            class="menu-separator"
-            v-if="!isEntitySelection && isTaskSelection && nbSelectedTasks > 1"
-          ></div>
+        <div
+          class="menu-separator"
+          v-if="!isEntitySelection && isTaskSelection && nbSelectedTasks > 1"
+        ></div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'playlists'
-            }"
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'playlists'
+          }"
+          :title="$t('menu.generate_playlist')"
+          v-if="
+            (isCurrentViewAsset ||
+              isCurrentViewShot ||
+              isCurrentViewSequence ||
+              isCurrentViewTodos ||
+              isCurrentViewTaskType) &&
+            !isEntitySelection &&
+            !isCurrentViewSingleEntity &&
+            isTaskSelection &&
+            nbSelectedTasks > 0
+          "
+          @click="selectBar('playlists')"
+        >
+          <kitsu-icon
+            name="playlists"
+            :active="selectedBar === 'playlists'"
             :title="$t('menu.generate_playlist')"
-            v-if="
-              (isCurrentViewAsset ||
-                isCurrentViewShot ||
-                isCurrentViewSequence ||
-                isCurrentViewTodos ||
-                isCurrentViewTaskType) &&
-              !isEntitySelection &&
-              !isCurrentViewSingleEntity &&
-              isTaskSelection &&
-              nbSelectedTasks > 0
-            "
-            @click="selectBar('playlists')"
-          >
-            <kitsu-icon
-              name="playlists"
-              :active="selectedBar === 'playlists'"
-              :title="$t('menu.generate_playlist')"
-            />
-          </div>
+          />
+        </div>
 
-          <div
-            v-if="
-              (isCurrentViewAsset ||
-                isCurrentViewShot ||
-                isCurrentViewTaskType) &&
-              !isEntitySelection &&
-              !isCurrentViewSingleEntity &&
-              isTaskSelection &&
-              isCurrentUserManager
-            "
-            class="menu-separator"
-          ></div>
+        <div
+          v-if="
+            (isCurrentViewAsset ||
+              isCurrentViewShot ||
+              isCurrentViewTaskType) &&
+            !isEntitySelection &&
+            !isCurrentViewSingleEntity &&
+            isTaskSelection &&
+            isCurrentUserManager
+          "
+          class="menu-separator"
+        ></div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'create-tasks'
-            }"
-            :title="$t('menu.create_tasks')"
-            @click="selectBar('create-tasks')"
-            v-if="
-              isCurrentViewEntity &&
-              !isCurrentViewTaskType &&
-              isCurrentUserManager &&
-              !isEntitySelection &&
-              nbSelectedTasks !== 1
-            "
-          >
-            <check-square-icon />
-          </div>
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'create-tasks'
+          }"
+          :title="$t('menu.create_tasks')"
+          @click="selectBar('create-tasks')"
+          v-if="
+            isCurrentViewEntity &&
+            !isCurrentViewTaskType &&
+            isCurrentUserManager &&
+            !isEntitySelection &&
+            nbSelectedTasks !== 1
+          "
+        >
+          <check-square-icon />
+        </div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'delete-tasks'
-            }"
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'delete-tasks'
+          }"
+          :title="$t('menu.delete_tasks')"
+          @click="selectBar('delete-tasks')"
+          v-if="
+            isCurrentViewEntity &&
+            isCurrentUserManager &&
+            !isEntitySelection &&
+            !isCurrentViewSingleEntity &&
+            isTaskSelection
+          "
+        >
+          <kitsu-icon
+            name="trash"
+            :active="selectedBar === 'delete-tasks'"
             :title="$t('menu.delete_tasks')"
-            @click="selectBar('delete-tasks')"
-            v-if="
-              isCurrentViewEntity &&
-              isCurrentUserManager &&
-              !isEntitySelection &&
-              !isCurrentViewSingleEntity &&
-              isTaskSelection
-            "
-          >
-            <kitsu-icon
-              name="trash"
-              :active="selectedBar === 'delete-tasks'"
-              :title="$t('menu.delete_tasks')"
-            />
-          </div>
+          />
+        </div>
 
-          <div
-            class="menu-separator"
-            v-if="
-              !isEntitySelection &&
-              isTaskSelection &&
-              !isCurrentViewEpisode &&
-              !isCurrentViewConcept &&
-              customActions &&
-              customActions.length > 0
-            "
-          ></div>
+        <div
+          class="menu-separator"
+          v-if="
+            !isEntitySelection &&
+            isTaskSelection &&
+            !isCurrentViewEpisode &&
+            !isCurrentViewConcept &&
+            customActions &&
+            customActions.length > 0
+          "
+        ></div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'custom-actions'
-            }"
-            :title="$t('menu.run_custom_action')"
-            @click="selectBar('custom-actions')"
-            v-if="
-              (isCurrentUserManager || isSupervisorInDepartment) &&
-              !isEntitySelection &&
-              isTaskSelection &&
-              !isCurrentViewEpisode &&
-              !isCurrentViewConcept &&
-              customActions &&
-              customActions.length > 0
-            "
-          >
-            <play-circle-icon />
-          </div>
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'custom-actions'
+          }"
+          :title="$t('menu.run_custom_action')"
+          @click="selectBar('custom-actions')"
+          v-if="
+            (isCurrentUserManager || isSupervisorInDepartment) &&
+            !isEntitySelection &&
+            isTaskSelection &&
+            !isCurrentViewEpisode &&
+            !isCurrentViewConcept &&
+            customActions &&
+            customActions.length > 0
+          "
+        >
+          <play-circle-icon />
+        </div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'delete-assets'
-            }"
-            :title="$t('menu.delete_assets')"
-            @click="selectBar('delete-assets')"
-            v-if="
-              isCurrentViewAsset && isCurrentUserManager && !isTaskSelection
-            "
-          >
-            <kitsu-icon name="trash" :title="$t('menu.delete_assets')" />
-          </div>
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'delete-assets'
+          }"
+          :title="$t('menu.delete_assets')"
+          @click="selectBar('delete-assets')"
+          v-if="isCurrentViewAsset && isCurrentUserManager && !isTaskSelection"
+        >
+          <kitsu-icon name="trash" :title="$t('menu.delete_assets')" />
+        </div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'delete-shots'
-            }"
-            :title="$t('menu.delete_shots')"
-            @click="selectBar('delete-shots')"
-            v-if="isCurrentViewShot && isCurrentUserManager && !isTaskSelection"
-          >
-            <kitsu-icon name="trash" :title="$t('menu.delete_shots')" />
-          </div>
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'delete-shots'
+          }"
+          :title="$t('menu.delete_shots')"
+          @click="selectBar('delete-shots')"
+          v-if="isCurrentViewShot && isCurrentUserManager && !isTaskSelection"
+        >
+          <kitsu-icon name="trash" :title="$t('menu.delete_shots')" />
+        </div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'delete-edits'
-            }"
-            :title="$t('menu.delete_edits')"
-            @click="selectBar('delete-edits')"
-            v-if="isCurrentViewEdit && isCurrentUserManager && !isTaskSelection"
-          >
-            <kitsu-icon name="trash" :title="$t('menu.delete_edits')" />
-          </div>
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'delete-edits'
+          }"
+          :title="$t('menu.delete_edits')"
+          @click="selectBar('delete-edits')"
+          v-if="isCurrentViewEdit && isCurrentUserManager && !isTaskSelection"
+        >
+          <kitsu-icon name="trash" :title="$t('menu.delete_edits')" />
+        </div>
 
-          <div
-            class="menu-item"
-            :class="{
-              active: selectedBar === 'delete-concepts'
-            }"
-            :title="$t('menu.delete_concepts')"
-            @click="selectBar('delete-concepts')"
-            v-if="
-              isCurrentViewConcept &&
-              (isCurrentUserManager || isConceptPublisher)
-            "
-          >
-            <kitsu-icon name="trash" :title="$t('menu.delete_concepts')" />
-          </div>
+        <div
+          class="menu-item"
+          :class="{
+            active: selectedBar === 'delete-concepts'
+          }"
+          :title="$t('menu.delete_concepts')"
+          @click="selectBar('delete-concepts')"
+          v-if="
+            isCurrentViewConcept && (isCurrentUserManager || isConceptPublisher)
+          "
+        >
+          <kitsu-icon name="trash" :title="$t('menu.delete_concepts')" />
+        </div>
 
-          <div class="filler"></div>
+        <div class="filler"></div>
 
-          <div
-            class="menu-item mr1"
-            :title="$t('main.csv.export_file')"
-            @click="$emit('export-task')"
-            v-if="
-              isTaskSelection && !isEntitySelection && nbSelectedTasks === 1
-            "
-          >
-            <kitsu-icon name="export" :title="$t('main.csv.export_file')" />
-          </div>
+        <div
+          class="menu-item"
+          :title="$t('main.csv.export_file')"
+          @click="$emit('export-task')"
+          v-if="isTaskSelection && !isEntitySelection && nbSelectedTasks === 1"
+        >
+          <kitsu-icon name="export" :title="$t('main.csv.export_file')" />
+        </div>
+
+        <div
+          class="menu-item mr05"
+          :title="$t('main.clear_selection')"
+          @click="clearSelection"
+        >
+          <x-icon :size="16" />
         </div>
       </div>
 
@@ -356,28 +355,25 @@
           class="flexcolumn flexrow-item is-wide"
           v-if="selectedBar === 'assignation'"
         >
-          <div class="assignation flexrow-item">
-            <span v-show="isCurrentUserArtist">
-              {{ $tc('tasks.to_myself') }}
-            </span>
+          <div class="mb05" v-if="isCurrentUserArtist">
+            {{ $tc('tasks.to_myself') }}
           </div>
-          <div class="flexrow mb05">
+          <div
+            class="mb05"
+            v-else-if="isCurrentUserManager || isCurrentUserSupervisor"
+          >
             <people-field
-              class="flexrow-item is-wide assignation-field"
+              class="is-wide assignation-field"
               ref="assignation-field"
               :people="currentTeam"
               :placeholder="$t('tasks.assign_explaination')"
-              big
               wide
               v-model="person"
-              v-show="isCurrentUserManager || isCurrentUserSupervisor"
             />
           </div>
-          <div v-if="loading.assignation">
-            <div class="flexrow-item">
-              <spinner :size="20" class="spinner" />
-            </div>
-            <div class="flexrow-item">&nbsp;</div>
+
+          <div class="flexrow-item mt1 mb1" v-if="loading.assignation">
+            <spinner :size="20" class="spinner" />
           </div>
           <div class="flexrow-item is-wide" v-if="!loading.assignation">
             <button
@@ -388,7 +384,7 @@
             </button>
           </div>
           <div
-            class="flexrow-item is-wide has-text-centered flexrow"
+            class="flexrow-item is-wide flexrow"
             v-if="
               !loading.assignation &&
               (isCurrentUserManager || isSupervisorInDepartment)
@@ -401,9 +397,7 @@
               >
                 {{ $t('tasks.clear_assignations') }}
               </button>
-              <span>
-                {{ $t('main.or') }}
-              </span>
+              {{ $t('main.or') }}
               <button
                 class="button is-link clear-assignation-button"
                 @click="clearAllAssignations"
@@ -616,7 +610,7 @@
                   type="hidden"
                   id="projectid"
                   name="projectid"
-                  :value="currentProduction ? currentProduction.id : null"
+                  :value="productionId"
                 />
                 <input
                   type="hidden"
@@ -777,8 +771,8 @@
                 <li
                   class="tag"
                   :key="link.id"
-                  v-for="link in linkGroup.links"
                   @click="onSelectLink(link)"
+                  v-for="link in linkGroup.links"
                 >
                   {{ link.name }}
                 </li>
@@ -806,25 +800,28 @@
 </template>
 
 <script>
+import {
+  CheckSquareIcon,
+  LinkIcon,
+  PlayCircleIcon,
+  XIcon
+} from 'lucide-vue-next'
 import { mapGetters, mapActions } from 'vuex'
 
-import { CheckSquareIcon, LinkIcon, PlayCircleIcon } from 'vue-feather-icons'
-
 import { intersection } from '@/lib/array'
-import { sortPeople } from '@/lib/sorting'
 import func from '@/lib/func'
 
-import BuildFilterModal from '@/components/modals/BuildFilterModal'
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import ComboboxModel from '@/components/widgets/ComboboxModel'
-import ComboboxStatus from '@/components/widgets/ComboboxStatus'
-import ComboboxStyled from '@/components/widgets/ComboboxStyled'
-import DeleteEntities from '@/components/tops/actions/DeleteEntities'
-import KitsuIcon from '@/components/widgets/KitsuIcon'
-import PeopleField from '@/components/widgets/PeopleField'
-import SearchField from '@/components/widgets/SearchField'
-import Spinner from '@/components/widgets/Spinner'
-import ViewPlaylistModal from '@/components/modals/ViewPlaylistModal'
+import BuildFilterModal from '@/components/modals/BuildFilterModal.vue'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxModel from '@/components/widgets/ComboboxModel.vue'
+import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
+import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
+import DeleteEntities from '@/components/tops/actions/DeleteEntities.vue'
+import KitsuIcon from '@/components/widgets/KitsuIcon.vue'
+import PeopleField from '@/components/widgets/PeopleField.vue'
+import SearchField from '@/components/widgets/SearchField.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
+import ViewPlaylistModal from '@/components/modals/ViewPlaylistModal.vue'
 
 export default {
   name: 'action-panel',
@@ -837,6 +834,14 @@ export default {
     isSetFrameThumbnailLoading: {
       type: Boolean,
       default: false
+    },
+    productionId: {
+      type: String,
+      default: null
+    },
+    team: {
+      type: Array,
+      default: () => []
     }
   },
 
@@ -854,8 +859,11 @@ export default {
     PlayCircleIcon,
     SearchField,
     Spinner,
-    ViewPlaylistModal
+    ViewPlaylistModal,
+    XIcon
   },
+
+  emits: ['export-task', 'set-frame-thumbnail'],
 
   data() {
     return {
@@ -921,7 +929,7 @@ export default {
     this.customAction = this.defaultCustomAction
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('keydown', this.onKeyDown)
   },
 
@@ -931,16 +939,12 @@ export default {
       'assetMap',
       'assetCustomActions',
       'assetsByType',
-      'currentProduction',
       'isCurrentUserArtist',
       'isCurrentUserManager',
       'isCurrentUserSupervisor',
       'isShowAssignations',
       'nbSelectedTasks',
       'nbSelectedValidations',
-      'organisation',
-      'peopleWithoutBot',
-      'personMap',
       'productionMap',
       'selectedAssets',
       'selectedConcepts',
@@ -969,6 +973,7 @@ export default {
     currentEntityType() {
       if (this.isCurrentViewAsset) return 'asset'
       if (this.isCurrentViewShot) return 'shot'
+      if (this.isCurrentViewSequence) return 'sequence'
       if (this.isCurrentViewEdit) return 'edit'
       return 'episode'
     },
@@ -982,22 +987,23 @@ export default {
     },
 
     currentTeam() {
-      let team = this.currentProduction
-        ? sortPeople(
-            this.currentProductionTeam
-              .map(personId => this.personMap.get(personId))
-              .filter(person => !person.is_bot)
-          )
-        : [...this.peopleWithoutBot]
+      const isSupervisorWithDepartments =
+        this.isCurrentUserSupervisor && this.user.departments.length > 0
 
-      if (this.isCurrentUserSupervisor && this.user.departments.length > 0) {
-        team = team.filter(person =>
-          person.departments.some(department =>
-            this.user.departments.includes(department)
-          )
-        )
-      }
-      return team
+      return this.team.filter(person => {
+        if (!person?.is_bot) {
+          if (isSupervisorWithDepartments) {
+            return (
+              person.departments.length === 0 ||
+              person.departments.some(department =>
+                this.user.departments.includes(department)
+              )
+            )
+          }
+          return true
+        }
+        return false
+      })
     },
 
     defaultCustomAction() {
@@ -1153,10 +1159,6 @@ export default {
       return this.person ? this.person.id : null
     },
 
-    currentProductionTeam() {
-      return this.currentProduction ? this.currentProduction.team || [] : []
-    },
-
     isInDepartment() {
       return this.selectedTaskIds.every(taskId => {
         const task = this.taskMap.get(taskId)
@@ -1195,20 +1197,26 @@ export default {
 
     availableLinksByType() {
       const assetGroups = [...this.assetsByType]
-      const result = assetGroups.map(assets => {
-        if (!assets.length) return
-        return {
-          type: assets[0].asset_type_name,
-          links: assets
+      const result = assetGroups
+        .map(assets => {
+          if (!assets.length) return
+          const links = assets
+            .filter(
+              asset =>
+                !this.conceptLinkedEntities.some(
+                  entity => entity.id === asset.id
+                )
+            )
             .map(asset => ({
               id: asset.id,
               name: asset.name
             }))
-            .filter(asset => {
-              return !this.conceptLinkedEntities.some(e => e.id === asset.id)
-            })
-        }
-      })
+          return {
+            type: assets[0].asset_type_name,
+            links
+          }
+        })
+        .filter(Boolean)
       return result
     }
   },
@@ -1331,7 +1339,7 @@ export default {
       this.loading.taskCreation = true
       this.createSelectedTasks({
         type,
-        projectId: this.currentProduction.id
+        projectId: this.productionId
       })
         .then(() => {
           this.loading.taskCreation = false
@@ -1489,7 +1497,7 @@ export default {
           originurl: this.currentUrl,
           originserver: this.currentHost,
           selection: this.selectedTaskIds,
-          productionid: this.currentProduction.id,
+          productionid: this.productionId,
           userid: this.user.id,
           useremail: this.user.email
         },
@@ -1510,6 +1518,7 @@ export default {
       this.clearSelectedShots()
       this.clearSelectedTasks()
       this.clearSelectedEdits()
+      this.clearSelectedConcepts()
     },
 
     selectBar(barName) {
@@ -1695,10 +1704,12 @@ export default {
       this.selectedTaskIds = Array.from(this.selectedTasks.keys())
     },
 
-    $route() {
-      this.selectedTaskIds = Array.from(this.selectedTasks.keys())
-      if (this.nbSelectedTasks > 0) {
-        this.clearSelectedTasks()
+    $route(oldRoute, newRoute) {
+      if (oldRoute.name !== newRoute.name) {
+        this.selectedTaskIds = Array.from(this.selectedTasks.keys())
+        if (this.nbSelectedTasks > 0) {
+          this.clearSelectedTasks()
+        }
       }
     }
   }
@@ -1733,11 +1744,6 @@ export default {
   z-index: 1000;
 }
 
-div.assignation {
-  margin-right: 1em;
-  padding-right: 0;
-}
-
 .hidden {
   display: none;
 }
@@ -1753,11 +1759,12 @@ div.assignation {
 }
 
 .menu {
-  background: var(--background);
   color: var(--text);
   padding-top: 0.7em;
   border-bottom: 1px solid $light-grey-light;
   background: #fcfcff;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .menu-item {
@@ -1765,6 +1772,10 @@ div.assignation {
   font-size: 0.9em;
   transform: scale(0.9);
   padding: 0.2em 0.6em 0.4em 0.6em;
+
+  > img {
+    max-width: none;
+  }
 
   &:hover {
     transform: scale(1.1);
@@ -1820,10 +1831,6 @@ div.assignation {
 
 .change-status-item {
   margin-right: 0.5em;
-}
-
-.assignation-field ::v-deep .v-autocomplete {
-  z-index: 501; // +1 relative to the z-index of canvas-wrapper
 }
 
 .status-item {

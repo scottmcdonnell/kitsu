@@ -7,6 +7,9 @@
             <th scope="col" class="name datatable-row-header">
               {{ $t('productions.fields.name') }}
             </th>
+            <th scope="col" class="code">
+              {{ $t('productions.fields.code') }}
+            </th>
             <th scope="col" class="type">
               {{ $t('productions.fields.type') }}
             </th>
@@ -31,8 +34,8 @@
               </span>
             </th>
           </tr>
-          <template v-for="entry in openProductions">
-            <tr class="datatable-row" :key="entry.id">
+          <template :key="entry.id" v-for="entry in openProductions">
+            <tr class="datatable-row">
               <th class="name datatable-row-header" scope="row">
                 <production-name-cell
                   :with-avatar="true"
@@ -40,6 +43,9 @@
                   :last-production-screen="lastProductionScreen"
                 />
               </th>
+              <td class="code">
+                {{ entry.code }}
+              </td>
               <td class="type">
                 {{ $t(`productions.type.${entry.production_type || 'short'}`) }}
               </td>
@@ -69,7 +75,6 @@
             </tr>
             <tr
               class="datatable-row"
-              :key="entry.id + '-stats'"
               v-if="Object.keys(productionStats).length > 0"
             >
               <td :colspan="7" class="datatable-row-stats">
@@ -88,8 +93,8 @@
           </tr>
           <tr
             class="datatable-row"
-            v-for="entry in closedProductions"
             :key="entry.id"
+            v-for="entry in closedProductions"
           >
             <th class="name datatable-row-header" scope="row">
               <production-name-cell
@@ -99,6 +104,9 @@
                 :is-link="false"
               />
             </th>
+            <td class="code">
+              {{ entry.code }}
+            </td>
             <td class="type">
               {{ $t(`productions.type.${entry.production_type || 'short'}`) }}
             </td>
@@ -139,14 +147,14 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
-
-import ProductionNameCell from '@/components/cells/ProductionNameCell'
-import ProductionStats from '@/components/pages/production/ProductionStats'
-import RowActionsCell from '@/components/cells/RowActionsCell'
-import TableInfo from '@/components/widgets/TableInfo'
+import { mapGetters } from 'vuex'
 
 import { PRODUCTION_STYLE_OPTIONS } from '@/lib/productions'
+
+import ProductionNameCell from '@/components/cells/ProductionNameCell.vue'
+import ProductionStats from '@/components/pages/production/ProductionStats.vue'
+import RowActionsCell from '@/components/cells/RowActionsCell.vue'
+import TableInfo from '@/components/widgets/TableInfo.vue'
 
 export default {
   name: 'production-list',
@@ -170,16 +178,14 @@ export default {
     }
   },
 
-  data() {
-    return {}
-  },
-
   components: {
     ProductionNameCell,
     ProductionStats,
     RowActionsCell,
     TableInfo
   },
+
+  emits: ['delete-clicked', 'edit-clicked'],
 
   computed: {
     ...mapGetters(['openProductions', 'lastProductionScreen']),
@@ -194,8 +200,6 @@ export default {
   },
 
   methods: {
-    ...mapActions([]),
-
     // Convert a database status to a locale key.
     getStatusLocale(originalStatus) {
       const statusMap = {

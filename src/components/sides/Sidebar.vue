@@ -1,6 +1,6 @@
 <template>
   <div class="navbar">
-    <aside :class="{ 'hidden-bar': isSidebarHidden }">
+    <aside :class="{ 'hidden-bar': isSidebarHidden, smallfont: isLongLocale }">
       <div>
         <router-link class="home-link" to="/" @click="toggleSidebar()">
           <div class="company-logo has-text-centered" :title="title">
@@ -117,6 +117,12 @@
                 {{ $t('search.title') }}
               </router-link>
             </p>
+            <p @click="toggleSidebar()">
+              <router-link :to="{ name: 'asset-library' }">
+                <kitsu-icon class="nav-icon" name="assets" />
+                {{ $t('library.asset_library') }}
+              </router-link>
+            </p>
           </div>
 
           <div v-if="isCurrentUserAdmin">
@@ -129,24 +135,27 @@
             </p>
             <p @click="toggleSidebar()">
               <router-link :to="{ name: 'studios' }">
-                <grid-icon class="nav-icon" size="0.9x" />
+                <building-icon class="nav-icon" />
                 {{ $t('studios.title') }}
               </router-link>
             </p>
             <p @click="toggleSidebar()">
-              <router-link to="/task-types">
+              <router-link :to="{ name: 'task-types' }">
                 <kitsu-icon class="nav-icon" name="task-types" />
                 {{ $t('task_types.title') }}
               </router-link>
             </p>
             <p @click="toggleSidebar()">
-              <router-link to="/task-status" class="task-status-link">
+              <router-link
+                :to="{ name: 'task-status' }"
+                class="task-status-link"
+              >
                 <kitsu-icon class="nav-icon" name="task-status" />
                 {{ $t('task_status.title') }}
               </router-link>
             </p>
             <p @click="toggleSidebar()">
-              <router-link to="/asset-types">
+              <router-link :to="{ name: 'asset-types' }">
                 <kitsu-icon class="nav-icon" name="asset-types" />
                 {{ $t('asset_types.title') }}
               </router-link>
@@ -165,13 +174,13 @@
             </p>
             <p @click="toggleSidebar()">
               <router-link :to="{ name: 'backgrounds' }">
-                <globe-icon class="nav-icon" size="0.9x" />
+                <globe-icon class="nav-icon" />
                 {{ $t('backgrounds.title') }}
               </router-link>
             </p>
             <p @click="toggleSidebar()">
               <router-link :to="{ name: 'bots' }">
-                <kitsu-icon class="nav-icon" name="bot" />
+                <bot-icon class="nav-icon" />
                 {{ $t('bots.title') }}
               </router-link>
             </p>
@@ -201,16 +210,17 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
-import { GlobeIcon, GridIcon } from 'vue-feather-icons'
+import { BotIcon, BuildingIcon, GlobeIcon } from 'lucide-vue-next'
 
 import KitsuIcon from '@/components/widgets/KitsuIcon.vue'
 
 export default {
   name: 'sidebar',
   components: {
+    BotIcon,
+    BuildingIcon,
     GlobeIcon,
-    KitsuIcon,
-    GridIcon
+    KitsuIcon
   },
 
   data() {
@@ -235,7 +245,11 @@ export default {
       'isSidebarHidden',
       'mainConfig',
       'organisation'
-    ])
+    ]),
+
+    isLongLocale() {
+      return this.$i18n.locale === 'ja' || this.$i18n.locale === 'fr'
+    }
   },
 
   methods: {
@@ -244,9 +258,8 @@ export default {
     reset() {
       this.title = this.organisation.name
       this.logoPath =
-        '/api/pictures/thumbnails/organisations/' +
-        `${this.organisation.id}.png?t=` +
-        new Date().toISOString()
+        `/api/pictures/thumbnails/organisations/` +
+        `${this.organisation.id}.png?t=${new Date().toISOString()}`
     }
   },
 
@@ -278,7 +291,7 @@ aside {
   padding: 15px;
   overflow-y: auto;
   z-index: 205;
-  box-shadow: 1px 0px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 1px 0 6px rgba(0, 0, 0, 0.2);
   transition: all 0.3s ease;
 
   h2 {
@@ -359,9 +372,13 @@ p:hover {
 }
 
 .nav-icon {
-  margin-left: 0em;
+  margin-left: 0;
   margin-right: 0.5em;
   width: 20px;
+}
+
+.smallfont p {
+  font-size: 0.85em;
 }
 
 @media screen and (max-width: 768px) {

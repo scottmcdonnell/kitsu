@@ -1,7 +1,7 @@
 <template>
   <div class="mt1">
     <p class="flexrow">
-      <em class="flexrow-item">{{ $t('logs.preview_files.explaination') }}</em>
+      <em class="flexrow-item">{{ $t('logs.preview_files.explanation') }}</em>
       <span class="filler"></span>
       <button-simple class="flexrow-item" icon="refresh" @click="reload" />
     </p>
@@ -23,11 +23,12 @@ import { mapActions, mapGetters } from 'vuex'
 
 import { timeMixin } from '@/components/mixins/time'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import PreviewFileList from '@/components/lists/PreviewFileList'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import PreviewFileList from '@/components/lists/PreviewFileList.vue'
 
 export default {
   name: 'preview-files',
+
   mixins: [timeMixin],
 
   components: {

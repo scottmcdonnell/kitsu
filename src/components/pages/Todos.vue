@@ -4,7 +4,7 @@
       <div class="todos page">
         <route-section-tabs
           class="section-tabs"
-          :activeTab="currentSection"
+          :active-tab="currentSection"
           :route="$route"
           :tabs="todoTabs"
         />
@@ -87,7 +87,7 @@
         <todos-list
           ref="done-list"
           class="done-list"
-          :tasks="displayedDoneTasks"
+          :tasks="sortedDoneTasks"
           :is-loading="isTodosLoading"
           :is-error="isTodosLoadingError"
           :selection-grid="doneSelectionGrid"
@@ -131,7 +131,7 @@
         />
 
         <day-off-list
-          ref="days-off-list"
+          ref="day-off-list"
           :days-off="daysOff"
           :day-off-error="dayOffError"
           @set-day-off="onSetDayOff"
@@ -148,6 +148,7 @@
 </template>
 
 <script>
+import { useHead } from 'unhead'
 import { mapGetters, mapActions } from 'vuex'
 import moment from 'moment-timezone'
 import firstBy from 'thenby'
@@ -213,6 +214,9 @@ export default {
   },
 
   mounted() {
+    useHead({
+      title: `${this.$t('tasks.my_tasks')} - Kitsu`
+    })
     this.updateActiveTab()
     if (this.todosSearchText.length > 0) {
       this.$refs['todos-search-field'].setValue(this.todosSearchText)
@@ -254,7 +258,7 @@ export default {
     ]),
 
     boardTasks() {
-      const tasks = this.sortedTasks.concat(this.displayedDoneTasks)
+      const tasks = this.sortedTasks.concat(this.sortedDoneTasks)
       if (this.selectedProduction) {
         return tasks.filter(
           task => task.project_id === this.selectedProduction.id
@@ -334,7 +338,7 @@ export default {
         },
         {
           label: `${this.$t('tasks.validated')} (${
-            this.displayedDoneTasks.length
+            this.sortedDoneTasks.length
           })`,
           name: 'done'
         },
@@ -356,7 +360,7 @@ export default {
     },
 
     loggableDoneTasks() {
-      return this.displayedDoneTasks.filter(task => {
+      return this.sortedDoneTasks.filter(task => {
         return this.taskTypeMap.get(task.task_type_id).allow_timelog
       })
     },
@@ -370,65 +374,19 @@ export default {
     },
 
     sortedTasks() {
-      const isName = this.currentSort === 'entity_name'
-      const isPriority = this.currentSort === 'priority'
-      const isDueDate = this.currentSort === 'due_date'
-      const isStartDate = this.currentSort === 'start_date'
-      const tasks =
-        this.currentFilter === 'all_tasks'
-          ? [...this.displayedTodos]
-          : this.displayedTodos.filter(t => {
-              const dueDate = parseDate(t.due_date)
-              return moment().startOf('week').isSame(dueDate, 'week')
-            })
-      if (isName) {
-        return tasks.sort(
-          firstBy('project_name')
-            .thenBy('task_type_name')
-            .thenBy('full_entity_name')
-        )
-      } else if (isPriority) {
-        return tasks.sort(
-          firstBy('priority', -1)
-            .thenBy((a, b) => {
-              if (!a.due_date) return 1
-              else if (!b.due_date) return -1
-              else return a.due_date.localeCompare(b.due_date)
-            })
-            .thenBy('project_name')
-            .thenBy('task_type_name')
-            .thenBy('entity_name')
-        )
-      } else if (isDueDate) {
-        return tasks.sort(
-          firstBy((a, b) => {
-            if (!a.due_date) return 1
-            else if (!b.due_date) return -1
-            else return a.due_date.localeCompare(b.due_date)
-          })
-            .thenBy('project_name')
-            .thenBy('task_type_name')
-            .thenBy('entity_name')
-        )
-      } else if (isStartDate) {
-        return tasks.sort(
-          firstBy((a, b) => {
-            if (!a.start_date) return 1
-            else if (!b.start_date) return -1
-            else return a.start_date.localeCompare(b.start_date)
-          })
-            .thenBy('project_name')
-            .thenBy('task_type_name')
-            .thenBy('entity_name')
-        )
-      } else {
-        return tasks.sort(
-          firstBy(this.currentSort, -1)
-            .thenBy('project_name')
-            .thenBy('task_type_name')
-            .thenBy('entity_name')
-        )
-      }
+      return this.sortTasks(
+        this.displayedTodos,
+        this.currentFilter,
+        this.currentSort
+      )
+    },
+
+    sortedDoneTasks() {
+      return this.sortTasks(
+        this.displayedDoneTasks,
+        this.currentFilter,
+        this.currentSort
+      )
     }
   },
 
@@ -547,7 +505,7 @@ export default {
           personId: this.user.id
         })
         this.$refs['timesheet-list']?.closeSetDayOffModal()
-        this.$refs['days-off-list']?.closeSetDayOffModal()
+        this.$refs['day-off-list']?.closeSetDayOffModal()
       } catch (error) {
         this.dayOffError = error.body?.message || true
       }
@@ -559,7 +517,7 @@ export default {
       try {
         await this.unsetDayOff(dayOff)
         this.$refs['timesheet-list']?.closeUnsetDayOffModal()
-        this.$refs['days-off-list']?.closeUnsetDayOffModal()
+        this.$refs['day-off-list']?.closeUnsetDayOffModal()
       } catch (error) {
         this.dayOffError = error.body?.message || true
       }
@@ -591,6 +549,70 @@ export default {
         }
       )
       return sortTaskStatuses(statuses, production)
+    },
+
+    sortTasks(tasks, currentFilter, currentSort) {
+      tasks =
+        currentFilter === 'all_tasks'
+          ? [...tasks]
+          : tasks.filter(t => {
+              const dueDate = parseDate(t.due_date)
+              return moment().startOf('week').isSame(dueDate, 'week')
+            })
+
+      const isName = currentSort === 'entity_name'
+      const isPriority = currentSort === 'priority'
+      const isDueDate = currentSort === 'due_date'
+      const isStartDate = currentSort === 'start_date'
+
+      if (isName) {
+        return tasks.sort(
+          firstBy('project_name')
+            .thenBy('task_type_name')
+            .thenBy('full_entity_name')
+        )
+      } else if (isPriority) {
+        return tasks.sort(
+          firstBy('priority', -1)
+            .thenBy((a, b) => {
+              if (!a.due_date) return 1
+              else if (!b.due_date) return -1
+              else return a.due_date.localeCompare(b.due_date)
+            })
+            .thenBy('project_name')
+            .thenBy('task_type_name')
+            .thenBy('entity_name')
+        )
+      } else if (isDueDate) {
+        return tasks.sort(
+          firstBy((a, b) => {
+            if (!a.due_date) return 1
+            else if (!b.due_date) return -1
+            else return a.due_date.localeCompare(b.due_date)
+          })
+            .thenBy('project_name')
+            .thenBy('task_type_name')
+            .thenBy('entity_name')
+        )
+      } else if (isStartDate) {
+        return tasks.sort(
+          firstBy((a, b) => {
+            if (!a.start_date) return 1
+            else if (!b.start_date) return -1
+            else return a.start_date.localeCompare(b.start_date)
+          })
+            .thenBy('project_name')
+            .thenBy('task_type_name')
+            .thenBy('entity_name')
+        )
+      } else {
+        return tasks.sort(
+          firstBy(currentSort, -1)
+            .thenBy('project_name')
+            .thenBy('task_type_name')
+            .thenBy('entity_name')
+        )
+      }
     }
   },
 
@@ -625,7 +647,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.$t('tasks.my_tasks')} - Kitsu`
     }

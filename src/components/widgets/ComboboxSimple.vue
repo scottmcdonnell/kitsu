@@ -21,20 +21,17 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex'
-
 export default {
   name: 'combobox-simple',
 
-  components: {},
+  emits: ['update:modelValue'],
 
   data() {
     return {
       selectedOption: {
         label: '',
         value: ''
-      },
-      showList: false
+      }
     }
   },
 
@@ -47,7 +44,7 @@ export default {
       default: () => [],
       type: Array
     },
-    value: {
+    modelValue: {
       default: '',
       type: String
     },
@@ -61,13 +58,9 @@ export default {
     this.resetOptions()
   },
 
-  computed: {
-    ...mapGetters(['isDarkTheme'])
-  },
-
   methods: {
     selectOption(option) {
-      this.$emit('input', option.value)
+      this.$emit('update:modelValue', option.value)
       this.selectedOption = option
     },
 
@@ -80,7 +73,7 @@ export default {
 
     resetOptions() {
       if (this.options.length > 0) {
-        const option = this.options.find(o => o.value === this.value)
+        const option = this.options.find(o => o.value === this.modelValue)
         if (option) {
           this.selectedOption = option
         } else {
@@ -95,8 +88,8 @@ export default {
       this.resetOptions()
     },
 
-    value() {
-      this.selectedOption = this.options.find(o => o.value === this.value)
+    modelValue() {
+      this.selectedOption = this.options.find(o => o.value === this.modelValue)
     }
   }
 }

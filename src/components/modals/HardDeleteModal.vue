@@ -34,7 +34,7 @@
               'is-danger': true,
               'is-loading': isLoading
             }"
-            :disabled="isLocked"
+            :disabled="isLocked || null"
             @click="$emit('confirm', selectionOnly === 'true')"
           >
             {{ $t('main.confirmation') }}
@@ -49,18 +49,20 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
 import { modalMixin } from '@/components/modals/base_modal'
 
-import Combobox from '@/components/widgets/Combobox'
+import Combobox from '@/components/widgets/Combobox.vue'
 
 export default {
   name: 'hard-delete-modal',
+
   mixins: [modalMixin],
 
   components: {
     Combobox
   },
+
+  emits: ['cancel', 'confirm'],
 
   data() {
     return {
@@ -105,15 +107,9 @@ export default {
   },
 
   computed: {
-    ...mapGetters([]),
-
     isLocked() {
       return this.lockText === 'locked' || this.lockText !== this.userLockText
     }
-  },
-
-  methods: {
-    ...mapActions([])
   },
 
   watch: {

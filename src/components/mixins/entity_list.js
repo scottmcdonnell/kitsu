@@ -1,6 +1,6 @@
-import Vue from 'vue/dist/vue'
-
 import colors from '@/lib/colors'
+import preferences from '@/lib/preferences'
+import stringHelpers from '@/lib/string'
 
 import assetStore from '@/store/modules/assets'
 import editStore from '@/store/modules/edits'
@@ -8,7 +8,23 @@ import episodeStore from '@/store/modules/episodes'
 import sequenceStore from '@/store/modules/sequences'
 import shotStore from '@/store/modules/shots'
 
+const entityMaps = {
+  asset: assetStore.cache.assetMap,
+  shot: shotStore.cache.shotMap,
+  sequence: sequenceStore.cache.sequenceMap,
+  episode: episodeStore.cache.episodeMap,
+  edit: editStore.cache.editMap
+}
+
 export const entityListMixin = {
+  emits: [
+    'change-sort',
+    'delete-all-tasks',
+    'field-changed',
+    'keep-task-panel-open',
+    'scroll'
+  ],
+
   created() {
     this.initHiddenColumns(this.validationColumns, this.hiddenColumns)
   },
@@ -18,10 +34,10 @@ export const entityListMixin = {
     window.addEventListener('keydown', this.onKeyDown, false)
     window.addEventListener('keyup', this.onKeyUp, false)
     this.stickedColumns =
-      JSON.parse(localStorage.getItem(this.localStorageStickKey)) || {}
+      preferences.getObjectPreference(this.localStorageStickKey) || {}
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
   },
@@ -83,7 +99,8 @@ export const entityListMixin = {
   },
 
   methods: {
-    onBodyScroll(event, position) {
+    onBodyScroll(event) {
+      const position = event.target
       this.$emit('scroll', position.scrollTop)
     },
 
@@ -137,7 +154,7 @@ export const entityListMixin = {
       if (validationColumns && hiddenColumns) {
         validationColumns.forEach(columnId => {
           const key = this.buildHideKey(columnId)
-          Vue.set(hiddenColumns, columnId, localStorage.getItem(key) === 'true')
+          hiddenColumns[columnId] = localStorage.getItem(key) === 'true'
         })
       }
     },
@@ -149,7 +166,6 @@ export const entityListMixin = {
         isColumnHidden = false
       }
       localStorage.setItem(key, isColumnHidden)
-      Vue.set(this.hiddenColumns, columnId, isColumnHidden)
       this.hiddenColumns[columnId] = isColumnHidden
       return isColumnHidden
     },
@@ -168,6 +184,7 @@ export const entityListMixin = {
 
     getValidationStyle(columnId) {
       const taskType = this.taskTypeMap.get(columnId)
+      if (!taskType) return {}
       return {
         'border-left': `1px solid ${taskType.color}`,
         background: this.getBackground(taskType.color)
@@ -189,7 +206,7 @@ export const entityListMixin = {
           let startY = this.lastSelection.y
           if (!sticked) startY += columnOffset
           let endY = validationInfo.y
-          const grid = this[this.type + 'SelectionGrid']
+          const grid = this[`${this.type}SelectionGrid`]
           if (validationInfo.x < this.lastSelection.x) {
             startX = validationInfo.x
             endX = this.lastSelection.x
@@ -202,7 +219,7 @@ export const entityListMixin = {
 
           for (let i = startX; i <= endX; i++) {
             for (let j = startY; j <= endY; j++) {
-              const ref = 'validation-' + i + '-' + j
+              const ref = `validation-${i}-${j}`
               const validationCell = this.$refs[ref][0]
               if (!grid[i][j]) {
                 let y = validationCell.columnY
@@ -222,14 +239,18 @@ export const entityListMixin = {
             }
           }
           this.$store.commit('ADD_SELECTED_TASK', validationInfo)
+          this.updateTaskInQuery()
         }
       } else if (!validationInfo.isCtrlKey) {
         this.$store.commit('CLEAR_SELECTED_TASKS')
+        this.updateTaskInQuery()
       }
       if (selection.length === 0) {
         this.$store.commit('ADD_SELECTED_TASK', validationInfo)
+        this.updateTaskInQuery()
       } else {
         this.$store.commit('ADD_SELECTED_TASKS', selection)
+        this.updateTaskInQuery()
       }
 
       if (!validationInfo.isShiftKey && validationInfo.isUserClick) {
@@ -237,7 +258,7 @@ export const entityListMixin = {
         let y = validationInfo.y
         if (!sticked) y -= columnOffset
         this.lastSelection = { x, y }
-        const ref = 'validation-' + x + '-' + y
+        const ref = `validation-${x}-${y}`
         const validationCell = this.$refs[ref][0]
         this.$nextTick(() => {
           this.scrollToValidationCell(validationCell)
@@ -264,6 +285,7 @@ export const entityListMixin = {
       } else {
         this.$store.commit('REMOVE_SELECTED_TASK', validationInfo)
       }
+      this.updateTaskInQuery()
     },
 
     showHeaderMenu(columnId, columnIndexInGrid, event) {
@@ -280,9 +302,9 @@ export const entityListMixin = {
         const left = headerBox.left
         const top = headerBox.bottom
         const width = Math.max(100, headerBox.width - 1)
-        headerMenuEl.style.left = left + 'px'
-        headerMenuEl.style.top = top + 'px'
-        headerMenuEl.style.width = width + 'px'
+        headerMenuEl.style.left = `${left}px`
+        headerMenuEl.style.top = `${top}px`
+        headerMenuEl.style.width = `${width}px`
       }
       this.lastHeaderMenuDisplayed = columnId
       this.lastHeaderMenuDisplayedIndexInGrid = columnIndexInGrid
@@ -335,7 +357,7 @@ export const entityListMixin = {
 
       entities.forEach((entity, i) => {
         selection.push({
-          entity: entity,
+          entity,
           column: this.taskTypeMap.get(taskTypeId),
           task: this.taskMap.get(entity.validations.get(taskTypeId)),
           x: i,
@@ -346,6 +368,7 @@ export const entityListMixin = {
       this.$store.commit('CLEAR_SELECTED_TASKS')
       this.$nextTick(() => {
         this.$store.commit('ADD_SELECTED_TASKS', selection)
+        this.updateTaskInQuery()
         this.showHeaderMenu()
       })
     },
@@ -406,6 +429,7 @@ export const entityListMixin = {
     validationColumnsIsInDepartmentFilter(columnId) {
       return (
         this.departmentFilter.length === 0 ||
+        this.taskTypeMap.get(columnId)?.department_id === null ||
         this.departmentFilter.includes(
           this.taskTypeMap.get(columnId).department_id
         )
@@ -437,19 +461,6 @@ export const entityListMixin = {
       return false
     },
 
-    isSupervisorInDepartments(departments = []) {
-      if (!Array.isArray(departments)) {
-        departments = [departments]
-      }
-      return (
-        this.isCurrentUserSupervisor &&
-        (this.user.departments.length === 0 ||
-          this.user.departments.some(department =>
-            departments.includes(department)
-          ))
-      )
-    },
-
     isValidResolution(shot) {
       if (!shot) return true
       const res = this.getMetadataFieldValue({ field_name: 'resolution' }, shot)
@@ -464,9 +475,9 @@ export const entityListMixin = {
         ...this.stickedColumns,
         [columnId]: sticked
       }
-      localStorage.setItem(
+      preferences.setObjectPreference(
         this.localStorageStickKey,
-        JSON.stringify(this.stickedColumns)
+        this.stickedColumns
       )
     },
 
@@ -478,6 +489,122 @@ export const entityListMixin = {
     metadataStickColumnClicked(event) {
       this.toggleStickedColumns(this.lastMetadaDataHeaderMenuDisplayed)
       this.showMetadataHeaderMenu(this.lastMetadaDataHeaderMenuDisplayed, event)
+    },
+
+    /*
+     * Update the url query string with the currently selected task id.
+     * (set a task_id field in the query string)
+     * If 0 or more than 1 task is selected, remove the task_id field.
+     */
+    updateTaskInQuery() {
+      if (this.nbSelectedTasks === 1) {
+        const selectedTaskIds = Array.from(this.selectedTasks.keys())
+        const taskId = selectedTaskIds[0]
+        this.$router.push({
+          query: {
+            ...this.$route.query,
+            task_id: taskId
+          }
+        })
+      } else {
+        this.$router.push({
+          query: {
+            ...this.$route.query,
+            task_id: undefined
+          }
+        })
+      }
+    },
+
+    /*
+     * Select the task listed in the url query string (task_id field) if
+     * present.
+     */
+    selectTaskFromQuery() {
+      const taskId = this.$route.query.task_id
+      const task = this.taskMap.get(taskId)
+      if (task) {
+        const entityMap = entityMaps[this.type]
+        const entity = entityMap.get(task.entity_id)
+
+        if (entity) {
+          const taskType = this.taskTypeMap.get(task.task_type_id)
+
+          let list = this[`displayed${stringHelpers.capitalize(this.type)}s`]
+          if (['asset', 'shot'].includes(this.type)) {
+            list = list.flat()
+          }
+          const x = list.findIndex(e => e.id === entity.id)
+          const y = this.validationColumns.indexOf(task.task_type_id)
+
+          this.$store.commit('ADD_SELECTED_TASK', {
+            task,
+            entity,
+            column: taskType,
+            x,
+            y
+          })
+        }
+      }
+    },
+
+    startBrowsing(event) {
+      document.body.style.cursor = 'grabbing'
+      this.isBrowsingX = true
+      this.isBrowsingY = true
+      this.initialClientX = this.getClientX(event)
+      this.initialClientY = this.getClientY(event)
+    },
+
+    startBrowsingX(event) {
+      document.body.style.cursor = 'grabbing'
+      this.isBrowsingX = true
+      this.initialClientX = this.getClientX(event)
+    },
+
+    startBrowsingY(event) {
+      document.body.style.cursor = 'grabbing'
+      this.isBrowsingY = true
+      this.initialClientY = this.getClientY(event)
+    },
+
+    stopBrowsing(event) {
+      document.body.style.cursor = 'default'
+      this.isBrowsingX = false
+      this.isBrowsingY = false
+      this.initialClientX = null
+      this.initialClientY = null
+    },
+
+    onMouseMove(event) {
+      if (this.isBrowsingX) this.scrollTableLeft(event)
+      if (this.isBrowsingY) this.scrollTableTop(event)
+    },
+
+    scrollTableLeft(event) {
+      const tableWrapper = this.$refs.body
+      const previousLeft = tableWrapper.scrollLeft
+      const movementX =
+        event.movementX || this.getClientX(event) - this.initialClientX
+      const newLeft = previousLeft - movementX
+      this.initialClientX = this.getClientX(event)
+      tableWrapper.scrollLeft = newLeft
+    },
+
+    scrollTableTop(event) {
+      const tableWrapper = this.$refs.body
+      const previousTop = tableWrapper.scrollTop
+      const movementY =
+        event.movementY || this.getClientY(event) - this.initialClientY
+      const newTop = previousTop - movementY
+      this.initialClientY = this.getClientY(event)
+      tableWrapper.scrollTop = newTop
+    }
+  },
+
+  watch: {
+    nbSelectedTasks() {
+      this.updateTaskInQuery()
     }
   }
 }

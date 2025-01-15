@@ -1,5 +1,5 @@
 <template>
-  <div class="concept-item">
+  <div class="concept-item" @click="$emit('click')">
     <entity-preview
       :entity="concept"
       :empty-height="200"
@@ -47,8 +47,8 @@ import { mapGetters } from 'vuex'
 
 import { getEntityPath } from '@/lib/path'
 
-import EntityPreview from '@/components/widgets/EntityPreview'
-import PeopleAvatar from '@/components/widgets/PeopleAvatar'
+import EntityPreview from '@/components/widgets/EntityPreview.vue'
+import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
 
 export default {
   name: 'concept-card',
@@ -65,11 +65,7 @@ export default {
     }
   },
 
-  data() {
-    return {}
-  },
-
-  mounted() {},
+  emits: ['click'],
 
   computed: {
     ...mapGetters([

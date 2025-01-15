@@ -1,6 +1,6 @@
 <template>
   <page-layout>
-    <template v-slot:main>
+    <template #main>
       <div class="people flexcolumn">
         <div class="flexrow mt2 add-people" v-if="isCurrentUserManager">
           <people-field
@@ -8,8 +8,7 @@
             class="flexrow-item add-people-field"
             :people="unlistedPeople"
             :placeholder="$t('people.add_member_to_team')"
-            big
-            @enter="addPerson"
+            @select="addPerson"
             v-model="person"
           />
           <button
@@ -20,15 +19,10 @@
             {{ $t('main.add') }}
           </button>
         </div>
-        <production-team-list
-          :entries="teamPersons"
-          :is-loading="isTeamLoading"
-          :is-error="isTeamLoadingError"
-          @remove="removePerson"
-        />
+        <production-team-list :entries="teamPersons" @remove="removePerson" />
       </div>
     </template>
-    <template v-slot:side v-if="isCurrentUserManager">
+    <template #side v-if="isCurrentUserManager">
       <div class="importers flexcolumn">
         <div
           class="project-import flexcolumn"
@@ -85,13 +79,9 @@
               :key="person.id"
               :person="person"
               :size="30"
-              :with-link="false"
+              :is-link="false"
             />
-            <people-name
-              class="flexrow-item"
-              :person="person"
-              :with-link="false"
-            />
+            <people-name class="flexrow-item" :person="person" />
           </div>
         </div>
       </div>
@@ -104,14 +94,14 @@ import { mapGetters, mapActions } from 'vuex'
 
 import { sortPeople } from '@/lib/sorting'
 
-import ButtonSimple from '@/components/widgets/ButtonSimple'
-import ComboboxProduction from '@/components/widgets/ComboboxProduction'
-import ComboboxDepartment from '@/components/widgets/ComboboxDepartment'
-import PageLayout from '@/components/layouts/PageLayout'
-import PeopleAvatar from '@/components/widgets/PeopleAvatar'
-import PeopleField from '@/components/widgets/PeopleField'
-import PeopleName from '@/components/widgets/PeopleName'
-import ProductionTeamList from '@/components/lists/ProductionTeamList'
+import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
+import ComboboxProduction from '@/components/widgets/ComboboxProduction.vue'
+import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
+import PageLayout from '@/components/layouts/PageLayout.vue'
+import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
+import PeopleField from '@/components/widgets/PeopleField.vue'
+import PeopleName from '@/components/widgets/PeopleName.vue'
+import ProductionTeamList from '@/components/lists/ProductionTeamList.vue'
 
 export default {
   name: 'team',
@@ -186,9 +176,7 @@ export default {
     addPerson() {
       if (this.person) {
         this.addPersonToTeam(this.person)
-        setTimeout(() => {
-          this.$refs['people-field'].clear()
-        }, 1)
+        this.$refs['people-field'].focus()
       }
     },
 
@@ -213,7 +201,7 @@ export default {
     }
   },
 
-  metaInfo() {
+  head() {
     return {
       title: `${this.currentProduction.name} | ${this.$t(
         'people.team'

@@ -13,7 +13,7 @@
           {{ $t('people.change_password_for') }} {{ person.name }}
         </h1>
 
-        <form v-on:submit.prevent>
+        <form @submit.prevent>
           <text-field
             :disabled="person.is_generated_from_ldap"
             :label="$t('people.fields.password')"
@@ -81,14 +81,17 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
+import { mapActions } from 'vuex'
+
 import { modalMixin } from '@/components/modals/base_modal'
 
-import TextField from '@/components/widgets/TextField'
+import TextField from '@/components/widgets/TextField.vue'
 
 export default {
   name: 'change-password-modal',
+
   mixins: [modalMixin],
+
   props: {
     active: {
       type: Boolean,
@@ -99,6 +102,8 @@ export default {
       default: () => {}
     }
   },
+
+  emits: ['cancel', 'confirm'],
 
   data() {
     return {
@@ -115,10 +120,6 @@ export default {
 
   components: {
     TextField
-  },
-
-  computed: {
-    ...mapGetters([])
   },
 
   methods: {

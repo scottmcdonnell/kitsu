@@ -28,15 +28,15 @@
         </label>
         <span
           class="file-upload-status"
-          v-if="this.uploadedFiles.length > 1 && !hideFileNames"
+          v-if="uploadedFiles.length > 1 && !hideFileNames"
         >
-          {{ this.uploadedFiles.length }} {{ $tc('main.files_selected') }}
+          {{ uploadedFiles.length }} {{ $tc('main.files_selected') }}
         </span>
         <span
           class="file-upload-status"
-          v-if="this.uploadedFiles.length === 1 && !hideFileNames"
+          v-if="uploadedFiles.length === 1 && !hideFileNames"
         >
-          {{ this.uploadedFiles[0] }}
+          {{ uploadedFiles[0] }}
         </span>
       </div>
     </form>
@@ -46,6 +46,7 @@
 <script>
 export default {
   name: 'file-upload',
+
   props: {
     accept: {
       default: '.csv',
@@ -77,6 +78,8 @@ export default {
     }
   },
 
+  emits: ['fileselected'],
+
   data() {
     return {
       isInitial: true,
@@ -84,6 +87,7 @@ export default {
       uploadedFiles: []
     }
   },
+
   mounted() {
     this.reset()
     const events = [
@@ -102,7 +106,7 @@ export default {
       })
     })
   },
-  computed: {},
+
   methods: {
     filesChange(name, files) {
       const forms = []
@@ -127,7 +131,9 @@ export default {
       this.isSaving = false
       this.isInitial = true
       this.uploadedFiles = []
-      this.$refs.uploadInput.value = ''
+      if (this.$refs.uploadInput) {
+        this.$refs.uploadInput.value = ''
+      }
     },
 
     onDragover() {
@@ -145,8 +151,7 @@ export default {
         this.filesChange('file', event.dataTransfer.files)
       }
     }
-  },
-  watch: {}
+  }
 }
 </script>
 

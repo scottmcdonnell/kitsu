@@ -45,16 +45,22 @@
               :is-pinned="comment.pinned"
               :is-editable="isEditable"
               @pin-clicked="
-                $emit('pin-comment', comment)
-                toggleCommentMenu()
+                () => {
+                  $emit('pin-comment', comment)
+                  toggleCommentMenu()
+                }
               "
               @edit-clicked="
-                $emit('edit-comment', comment)
-                toggleCommentMenu()
+                () => {
+                  $emit('edit-comment', comment)
+                  toggleCommentMenu()
+                }
               "
               @delete-clicked="
-                $emit('delete-comment', comment)
-                toggleCommentMenu()
+                () => {
+                  $emit('delete-comment', comment)
+                  toggleCommentMenu()
+                }
               "
               v-if="menuVisible"
             />
@@ -66,14 +72,12 @@
               class="client-comment"
               v-if="isAuthorClient && !isCurrentUserClient"
             >
-              <span>
-                {{ $t('comments.comment_from_client') }}
-                <copy-icon
-                  class="copy-icon"
-                  size="1.1x"
-                  @click="$emit('duplicate-comment', comment)"
-                />
-              </span>
+              {{ $t('comments.comment_from_client') }}
+              <copy-icon
+                class="copy-icon"
+                :size="12"
+                @click="$emit('duplicate-comment', comment)"
+              />
             </p>
             <p
               v-html="
@@ -83,7 +87,8 @@
                   comment.department_mentions || [],
                   personMap,
                   departmentMap,
-                  uniqueClassName
+                  uniqueClassName,
+                  taskTypes
                 )
               "
               class="comment-text"
@@ -95,39 +100,32 @@
               :disabled="true"
               :is-editable="isCheckable"
               @remove-task="removeTask"
-              @keyup.native="onChecklistChanged"
               @emit-change="onChecklistChanged"
               @time-code-clicked="onChecklistTimecodeClicked"
               v-if="checklist.length > 0"
             />
-            <p class="has-text-centered" v-if="taskStatus.is_done && isLast">
-              <img
-                class="congrats-picture"
-                src="../../assets/illustrations/validated.png"
-              />
-            </p>
             <p v-if="comment.attachment_files.length > 0">
               <a
-                :href="getAttachmentPath(attachment)"
+                :href="getDownloadAttachmentPath(attachment)"
                 :key="attachment.id"
                 :title="attachment.name"
                 target="_blank"
                 v-for="attachment in pictureAttachments"
               >
-                <img class="attachment" :src="getAttachmentPath(attachment)" />
+                <img
+                  class="attachment"
+                  :src="getDownloadAttachmentPath(attachment)"
+                />
               </a>
               <a
-                :href="getAttachmentPath(attachment)"
+                :href="getDownloadAttachmentPath(attachment)"
                 :key="attachment.id"
                 :title="attachment.name"
                 class="flexrow"
                 target="_blank"
                 v-for="attachment in fileAttachments"
               >
-                <paperclip-icon
-                  size="1x"
-                  class="flexrow-item attachment-icon"
-                />
+                <paperclip-icon class="flexrow-item attachment-icon icon-1x" />
                 <span class="flexrow-item">
                   {{ attachment.name }}
                 </span>
@@ -178,7 +176,8 @@
                         replyComment.department_mentions || [],
                         personMap,
                         departmentMap,
-                        uniqueClassName
+                        uniqueClassName,
+                        taskTypes
                       )
                     "
                     class="comment-text"
@@ -186,18 +185,20 @@
                 </div>
               </div>
               <at-ta
-                :members="atOptions"
+                :ats="['#', '@']"
+                :members="[...membersForAts['@'], ...membersForAts['#']]"
+                :filter-match="atOptionsFilter"
                 name-key="full_name"
                 :limit="2"
-                @input="onAtTextChanged"
+                @update:value="onAtTextChanged"
               >
-                <template slot="item" slot-scope="team">
-                  <template v-if="team.item.isTime"> ⏱️ frame </template>
-                  <template v-else-if="team.item.isDepartment">
+                <template #item="{ item }">
+                  <template v-if="item.isTime"> ⏱️ frame </template>
+                  <template v-else-if="item.isDepartment">
                     <span
                       class="mr05"
                       :style="{
-                        background: team.item.color,
+                        background: item.color,
                         width: '10px',
                         height: '10px',
                         'border-radius': '50%'
@@ -205,20 +206,33 @@
                     >
                       &nbsp;
                     </span>
-                    {{ team.item.full_name }}
+                    {{ item.full_name }}
+                  </template>
+                  <template v-else-if="item.isTaskType">
+                    <span
+                      class="mr05"
+                      :style="{
+                        background: item.color,
+                        width: '10px',
+                        height: '10px'
+                      }"
+                    >
+                      &nbsp;
+                    </span>
+                    {{ item.full_name }}
                   </template>
                   <template v-else>
                     <div class="flexrow">
                       <people-avatar
                         class="flexrow-item"
-                        :person="team.item"
+                        :person="item"
                         :size="20"
                         :font-size="11"
                         :is-lazy="false"
                         :is-link="false"
                       />
                       <span class="flexrow-item">
-                        {{ team.item.full_name }}
+                        {{ item.full_name }}
                       </span>
                     </div>
                   </template>
@@ -255,7 +269,7 @@
                 type="button"
                 @click="acknowledgeComment(comment)"
               >
-                <thumbs-up-icon size="1x" />
+                <thumbs-up-icon class="icon-1x" />
                 <span>{{ comment.acknowledgements.length }}</span>
               </button>
               <span class="filler"></span>
@@ -281,7 +295,12 @@
           class="flexrow-item round-name revision"
           :to="previewRoute"
         >
-          Revision {{ comment.previews[0].revision }}
+          {{
+            comment.pinned
+              ? $t('comments.pinned_revision')
+              : $t('comments.revision')
+          }}
+          {{ comment.previews[0].revision }}
         </router-link>
         <a
           class="preview-link button flexrow-item"
@@ -301,14 +320,6 @@
           &nbsp;
         </span>
       </div>
-
-      <!--div
-      class="has-text-centered add-checklist"
-      @click="addChecklistEntry()"
-      v-if="isAddChecklistAllowed"
-    >
-      {{ $t('comments.add_checklist') }}
-    </div-->
     </article>
     <div class="empty-comment" v-else>
       <div class="flexrow content-wrapper">
@@ -336,16 +347,22 @@
             :is-editable="isEditable"
             :is-empty="true"
             @pin-clicked="
-              $emit('pin-comment', comment)
-              toggleCommentMenu()
+              () => {
+                $emit('pin-comment', comment)
+                toggleCommentMenu()
+              }
             "
             @edit-clicked="
-              $emit('edit-comment', comment)
-              toggleCommentMenu()
+              () => {
+                $emit('edit-comment', comment)
+                toggleCommentMenu()
+              }
             "
             @delete-clicked="
-              $emit('delete-comment', comment)
-              toggleCommentMenu()
+              () => {
+                $emit('delete-comment', comment)
+                toggleCommentMenu()
+              }
             "
             v-if="menuVisible"
           />
@@ -365,12 +382,11 @@ import {
   LinkIcon,
   PaperclipIcon,
   ThumbsUpIcon
-} from 'vue-feather-icons'
+} from 'lucide-vue-next'
 
-import colors from '@/lib/colors'
 import files from '@/lib/files'
 import { remove } from '@/lib/models'
-import { pluralizeEntityType } from '@/lib/path'
+import { getDownloadAttachmentPath, pluralizeEntityType } from '@/lib/path'
 import { renderComment, replaceTimeWithTimecode } from '@/lib/render'
 import { sortByName } from '@/lib/sorting'
 import { formatDate, parseDate } from '@/lib/time'
@@ -406,7 +422,7 @@ export default {
 
   data() {
     return {
-      atOptions: [],
+      membersForAts: { '@': [], '#': [] },
       checklist: [],
       isReplyLoading: false,
       menuVisible: false,
@@ -415,6 +431,16 @@ export default {
       uniqueClassName: (Math.random() + 1).toString(36).substring(2)
     }
   },
+
+  emits: [
+    'ack-comment',
+    'checklist-updated',
+    'delete-comment',
+    'duplicate-comment',
+    'edit-comment',
+    'pin-comment',
+    'time-code-clicked'
+  ],
 
   props: {
     comment: {
@@ -441,17 +467,13 @@ export default {
       type: Boolean,
       default: false
     },
-    isFirst: {
-      type: Boolean,
-      default: false
-    },
-    isLast: {
-      type: Boolean,
-      default: false
-    },
     isPinnable: {
       type: Boolean,
       default: false
+    },
+    taskTypes: {
+      type: Array,
+      default: () => []
     },
     team: {
       type: Array,
@@ -482,7 +504,7 @@ export default {
     )
   },
 
-  destroyed() {
+  beforeUnmount() {
     Array.from(document.getElementsByClassName(this.uniqueClassName)).forEach(
       element => {
         element.removeEventListener('click', this.timeCodeClicked)
@@ -492,16 +514,13 @@ export default {
 
   computed: {
     ...mapGetters([
-      'currentProduction',
       'departmentMap',
       'isCurrentUserAdmin',
       'isCurrentUserArtist',
       'isCurrentUserClient',
       'isCurrentUserManager',
-      'isDarkTheme',
       'personMap',
       'productionDepartmentIds',
-      'taskStatusMap',
       'taskTypeMap',
       'user'
     ]),
@@ -515,8 +534,7 @@ export default {
         this.comment.text.length === 0 &&
         (!this.comment.checklist || this.comment.checklist.length === 0) &&
         this.comment.attachment_files.length === 0 &&
-        this.comment.previews.length === 0 &&
-        !(this.isFirst && this.taskStatus.is_done)
+        this.comment.previews.length === 0
       )
     },
 
@@ -525,7 +543,7 @@ export default {
         name: 'task',
         params: {
           task_id: this.comment.object_id,
-          production_id: this.currentProduction.id
+          production_id: this.task.project_id
         }
       }
       if (this.comment.previews.length > 0) {
@@ -534,7 +552,7 @@ export default {
           params: {
             task_id: this.comment.object_id,
             preview_id: this.comment.previews[0].id,
-            production_id: this.currentProduction.id
+            production_id: this.task.project_id
           }
         }
       }
@@ -548,37 +566,6 @@ export default {
       const taskType = this.taskTypeMap.get(this.task.task_type_id)
       route.params.type = pluralizeEntityType(taskType.for_entity)
       return route
-    },
-
-    deleteCommentPath() {
-      return this.getPath('task-delete-comment')
-    },
-
-    editCommentPath() {
-      return this.getPath('task-edit-comment')
-    },
-
-    addPreviewPath() {
-      return this.getPath('task-add-preview')
-    },
-
-    taskStatus() {
-      const status = this.taskStatusMap.get(this.comment?.task_status.id)
-      return status || this.comment.task_status
-    },
-
-    isAddChecklistAllowed() {
-      return (
-        this.taskStatus.is_retake &&
-        this.checklist.length === 0 &&
-        this.user.id === this.comment.person_id
-      )
-    },
-
-    isChangeChecklistAllowed() {
-      return (
-        this.taskStatus.is_retake && this.user.id === this.comment.person_id
-      )
     },
 
     isLikedBy() {
@@ -627,17 +614,8 @@ export default {
       return `0 0 3px 2px ${status.color}1F`
     },
 
-    statusColor() {
-      const color = this.comment.task_status.color
-      if (this.isDarkTheme && !this.isEmpty) {
-        return colors.darkenColor(color)
-      } else {
-        return color
-      }
-    },
-
     isAuthorClient() {
-      return this.personMap.get(this.comment.person_id).role === 'client'
+      return this.personMap.get(this.comment.person_id)?.role === 'client'
     }
   },
 
@@ -673,7 +651,7 @@ export default {
 
     getPath(name) {
       const route = {
-        name: name,
+        name,
         params: {
           task_id: this.comment.object_id,
           comment_id: this.comment.id
@@ -686,9 +664,7 @@ export default {
       return route
     },
 
-    getAttachmentPath(attachment) {
-      return `/api/data/attachment-files/${attachment.id}/file/${attachment.name}`
-    },
+    getDownloadAttachmentPath,
 
     toggleCommentMenu() {
       this.menuVisible = !this.menuVisible
@@ -798,6 +774,15 @@ export default {
         .catch(console.error)
     },
 
+    atOptionsFilter(name, chunk, at, v) {
+      // filter the list by the given at symbol
+      const option_at = v?.isTaskType ? '#' : '@'
+      // @ for team, # for task type
+      if (at !== option_at) return false
+      // match at lower-case
+      return name.toLowerCase().indexOf(chunk.toLowerCase()) > -1
+    },
+
     onAtTextChanged(input) {
       if (input.includes('@frame')) {
         this.replyText = replaceTimeWithTimecode(
@@ -825,18 +810,43 @@ export default {
       }
     },
 
+    taskTypes: {
+      deep: true,
+      immediate: true,
+      handler(values) {
+        const taskTypeOptions = values.map(taskType => {
+          return {
+            isTaskType: true,
+            full_name: taskType.name,
+            color: taskType.color,
+            id: taskType.id,
+            url: taskType.url
+          }
+        })
+        taskTypeOptions.push({
+          isTaskType: true,
+          color: '#000',
+          full_name: 'All'
+        })
+        this.membersForAts['#'] = taskTypeOptions
+      }
+    },
+
     team: {
       deep: true,
       immediate: true,
       handler() {
+        let teamOptions = []
         if (this.isCurrentUserClient) {
-          this.atOptions = this.team.filter(person =>
-            ['admin', 'manager', 'supervisor', 'client'].includes(person.role)
-          )
+          teamOptions = [
+            ...this.team.filter(person =>
+              ['admin', 'manager', 'supervisor', 'client'].includes(person.role)
+            )
+          ]
         } else {
-          this.atOptions = [...this.team]
+          teamOptions = [...this.team]
         }
-        this.atOptions = this.atOptions.concat(
+        teamOptions = teamOptions.concat(
           this.productionDepartmentIds.map(departmentId => {
             const department = this.departmentMap.get(departmentId)
             return {
@@ -847,10 +857,11 @@ export default {
             }
           })
         )
-        this.atOptions.push({
+        teamOptions.push({
           isTime: true,
           full_name: 'frame'
         })
+        this.membersForAts['@'] = teamOptions
       }
     }
   }
@@ -858,9 +869,14 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@use 'sass:color';
+
 .dark {
   .comment-text {
     color: $white-grey;
+  }
+  .comment-footer {
+    color: $grey;
   }
 
   .content .client-comment {
@@ -914,6 +930,9 @@ article.comment {
     hyphens: auto;
     hyphenate-limit-chars: 8 6 2;
   }
+  .comment-footer {
+    color: $grey;
+  }
 }
 
 .checklist {
@@ -931,6 +950,7 @@ article.comment {
 }
 
 .pinned {
+  border: 2px solid var(--border-alt);
   transform: scale(1.02);
 }
 
@@ -952,8 +972,8 @@ article.comment {
 
 .content .client-comment {
   border-radius: 4px;
-  background: lighten($red, 80%);
-  color: desaturate(darken($red, 30%), 20%);
+  background: color.adjust($red, $lightness: 80%);
+  color: color.adjust($red, $lightness: -30%, $saturation: -20%);
   font-size: 0.8em;
   margin-top: 0.4em;
   margin-bottom: 0;

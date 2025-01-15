@@ -12,7 +12,7 @@
           :title="event.extendedProps.description"
         >
           <span class="calendar-day-off-title" v-if="event.title">
-            <briefcase-icon size="14" />
+            <briefcase-icon :size="14" />
             {{ event.title }}
           </span>
         </div>
@@ -59,10 +59,10 @@
 </template>
 
 <script>
-import { BriefcaseIcon } from 'vue-feather-icons'
+import { BriefcaseIcon } from 'lucide-vue-next'
 import { mapActions, mapGetters } from 'vuex'
 
-import FullCalendar from '@fullcalendar/vue'
+import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import multiMonthPlugin from '@fullcalendar/multimonth'
 
@@ -111,13 +111,7 @@ export default {
   },
 
   computed: {
-    ...mapGetters([
-      'productionMap',
-      'taskMap',
-      'taskStatusMap',
-      'taskTypeMap',
-      'user'
-    ])
+    ...mapGetters(['productionMap', 'taskMap', 'taskStatusMap', 'taskTypeMap'])
   },
 
   methods: {

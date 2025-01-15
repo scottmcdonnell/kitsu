@@ -1,4 +1,4 @@
-import { mapGetters } from 'vuex'
+import { mapGetters, mapActions } from 'vuex'
 
 import func from '@/lib/func'
 import preferences from '@/lib/preferences'
@@ -7,8 +7,6 @@ import preferences from '@/lib/preferences'
  * Common functions to shots and assets pages.
  */
 export const entitiesMixin = {
-  created() {},
-
   data() {
     return {
       keepTaskPanelOpen: false
@@ -17,7 +15,7 @@ export const entitiesMixin = {
 
   mounted() {
     const departmentId = preferences.getPreference(
-      this.pageName + ':department'
+      `${this.pageName}:department`
     )
     if (departmentId) {
       this.selectedDepartment = departmentId
@@ -28,8 +26,6 @@ export const entitiesMixin = {
     }
     this.onSelectedDepartmentChanged()
   },
-
-  beforeDestroy() {},
 
   computed: {
     ...mapGetters([
@@ -74,6 +70,8 @@ export const entitiesMixin = {
   },
 
   methods: {
+    ...mapActions(['clearSelectedTasks']),
+
     showImportModal() {
       this.modals.isImportDisplayed = true
     },
@@ -115,14 +113,14 @@ export const entitiesMixin = {
       } else {
         this.departmentFilter = [departmentId]
       }
-      preferences.setPreference(this.pageName + ':department', departmentId)
+      preferences.setPreference(`${this.pageName}:department`, departmentId)
     },
 
     selectableDepartments(forEntity) {
       return this.currentProduction.task_types
         .map(taskTypeId => {
           const taskType = this.taskTypeMap.get(taskTypeId)
-          return taskType.for_entity === forEntity
+          return taskType && taskType.for_entity === forEntity
             ? this.departmentMap.get(taskType.department_id)
             : false
         })
@@ -199,7 +197,7 @@ export const entitiesMixin = {
           taskId: form.task.id,
           commentText: '',
           taskStatusId: form.task.task_status_id,
-          form: form
+          form
         })
           .then(({ newComment, preview }) => {
             return this.setPreview({
@@ -267,11 +265,14 @@ export const entitiesMixin = {
       this.$store.commit('SET_EDIT_LIST_SCROLL_POSITION', scrollPosition)
     },
 
-    onSearchChange() {
+    onSearchChange(clearSelection = true) {
       if (!this.searchField) return
       this.isSearchActive = false
       const searchQuery = this.searchField.getValue() || ''
       this.applySearch(searchQuery)
+      if (clearSelection) {
+        this.clearSelection()
+      }
     },
 
     onChangeSortClicked(sortInfo) {
@@ -288,6 +289,11 @@ export const entitiesMixin = {
 
     onKeepTaskPanelOpenChanged(keepOpen) {
       this.keepTaskPanelOpen = keepOpen
+    },
+
+    clearSelection() {
+      this[`clearSelected${this.entityTypeName}s`]()
+      this.clearSelectedTasks()
     }
   },
 

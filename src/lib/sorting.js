@@ -13,6 +13,7 @@ export const sortAssets = assets => {
           numeric: true
         })
       )
+      .thenBy('shared')
       .thenBy((a, b) =>
         a.name.localeCompare(b.name, undefined, { numeric: true })
       )
@@ -34,8 +35,8 @@ export const sortShots = shots => {
   )
 }
 
-export const sortEdits = shots => {
-  return shots.sort(
+export const sortEdits = edits => {
+  return edits.sort(
     firstBy('canceled')
       .thenBy(sortByEpisode)
       .thenBy((a, b) =>

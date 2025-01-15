@@ -18,6 +18,9 @@
       />
       <router-link
         class="flexrow-item datatable-dropdown ellipsis task-type-name"
+        :title="
+          !hiddenColumns[columnId] ? taskTypeMap.get(columnId).name : null
+        "
         :to="taskTypePath(columnId)"
         v-if="!isCurrentUserClient"
       >
@@ -25,28 +28,37 @@
       </router-link>
       <span
         class="flexrow-item datatable-dropdown ellipsis task-type-name"
+        :title="
+          !hiddenColumns[columnId] ? taskTypeMap.get(columnId).name : null
+        "
         v-else
       >
         {{ !hiddenColumns[columnId] ? taskTypeMap.get(columnId).name : '' }}
       </span>
-
       <span
         class="metadata-menu-button header-icon"
         @click="$emit('show-header-menu', $event)"
       >
-        <chevron-down-icon :size="'12'" />
+        <chevron-down-icon :size="12" />
       </span>
     </div>
   </th>
 </template>
 
 <script>
-import { ChevronDownIcon } from 'vue-feather-icons'
 import { mapGetters } from 'vuex'
-import DepartmentName from '@/components/widgets/DepartmentName'
+import { ChevronDownIcon } from 'lucide-vue-next'
+
+import DepartmentName from '@/components/widgets/DepartmentName.vue'
 
 export default {
   name: 'validation-header',
+
+  components: {
+    ChevronDownIcon,
+    DepartmentName
+  },
+
   props: {
     hiddenColumns: Object,
     columnId: String,
@@ -64,7 +76,9 @@ export default {
       default: 'assets'
     }
   },
-  components: { ChevronDownIcon, DepartmentName },
+
+  emits: ['show-header-menu'],
+
   computed: {
     ...mapGetters([
       'currentEpisode',

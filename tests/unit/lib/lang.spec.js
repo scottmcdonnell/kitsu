@@ -1,9 +1,9 @@
 import moment from 'moment-timezone'
-import lang from '../../../src/lib/lang'
-import timezone from '../../../src/lib/timezone'
+import lang from '@/lib/lang'
+import timezone from '@/lib/timezone'
 
-import i18n from '../../../src/lib/i18n'
-import store from '../../../src/store'
+import i18n from '@/lib/i18n'
+import store from '@/store'
 
 class ColorHash {
   constructor (colorData) {
@@ -23,9 +23,9 @@ describe('lang', () => {
     timezone: 'Europe/Paris'
   })
   test('setLocale', () => {
-    lang.setLocale()
+    lang.setLocale('french')
     expect(moment.locale()).toEqual('fr')
-    expect(i18n.locale).toEqual('fr')
+    expect(i18n.global.locale).toEqual('fr')
   })
 })
 

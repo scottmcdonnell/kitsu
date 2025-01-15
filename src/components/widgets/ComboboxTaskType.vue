@@ -3,12 +3,7 @@
     <label class="label" v-if="label.length > 0">
       {{ label }}
     </label>
-    <div
-      :class="{
-        'task-type-combo': true,
-        shy: shy
-      }"
-    >
+    <div class="task-type-combo" :class="{ shy }">
       <div class="flexrow selector" @click="toggleTaskTypeList">
         <div class="selected-task-type-line flexrow-item">
           <task-type-name :task-type="currentTaskType" v-if="currentTaskType" />
@@ -16,18 +11,16 @@
         <chevron-down-icon class="ml05 down-icon flexrow-item" />
       </div>
       <div
-        :class="{
-          'select-input': true,
-          'open-top': openTop
-        }"
+        class="select-input"
+        :class="{ 'open-top': openTop }"
         ref="select"
         v-if="showTaskTypeList"
       >
         <div
           class="task-type-line"
-          v-for="taskType in taskTypeList"
-          @click="selectTaskType(taskType)"
           :key="taskType.id"
+          @click="selectTaskType(taskType)"
+          v-for="taskType in taskTypeList"
         >
           <task-type-name :task-type="taskType" />
         </div>
@@ -38,11 +31,11 @@
 </template>
 
 <script>
+import { ChevronDownIcon } from 'lucide-vue-next'
 import { mapGetters } from 'vuex'
-import { ChevronDownIcon } from 'vue-feather-icons'
 
-import ComboboxMask from '@/components/widgets/ComboboxMask'
-import TaskTypeName from '@/components/widgets/TaskTypeName'
+import ComboboxMask from '@/components/widgets/ComboboxMask.vue'
+import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
 
 export default {
   name: 'combobox-task-type',
@@ -52,6 +45,8 @@ export default {
     ComboboxMask,
     TaskTypeName
   },
+
+  emits: ['update:modelValue'],
 
   data() {
     return {
@@ -68,7 +63,7 @@ export default {
       default: () => [],
       type: Array
     },
-    value: {
+    modelValue: {
       default: '',
       type: String
     },
@@ -80,31 +75,40 @@ export default {
       default: false,
       type: Boolean
     },
+    placeholder: {
+      type: String
+    },
     openTop: {
       default: false,
       type: Boolean
     }
   },
 
-  mounted() {},
-
   computed: {
     ...mapGetters(['taskTypeMap']),
 
     currentTaskType() {
-      if (this.value) {
-        return this.taskTypeMap.get(this.value)
+      if (this.modelValue) {
+        return this.taskTypeMap.get(this.modelValue)
       } else if (this.addPlaceholder) {
-        return { name: '+ Task Type', color: '#E5E5E5', id: '' }
+        return {
+          name: this.placeholder ?? this.defaultPlaceholder,
+          color: '#E5E5E5',
+          id: ''
+        }
       } else {
         return this.taskTypeList[0]
       }
+    },
+
+    defaultPlaceholder() {
+      return this.$t('task_types.add_task_type_placeholder')
     }
   },
 
   methods: {
     selectTaskType(taskType) {
-      this.$emit('input', taskType.id)
+      this.$emit('update:modelValue', taskType.id)
       this.showTaskTypeList = false
     },
 
