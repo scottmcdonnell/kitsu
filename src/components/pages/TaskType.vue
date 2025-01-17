@@ -1625,7 +1625,10 @@ export default {
           setTimeout(() => {
             this.resetTaskIndex()
             this.$nextTick(() => {
-              if (!this.selectedTasks.get(eventData.task_id)) {
+              if (
+                !this.selectedTasks.get(eventData.task_id) &&
+                this.searchField
+              ) {
                 this.onSearchChange(this.searchField.getValue())
               }
             })

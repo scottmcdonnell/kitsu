@@ -604,6 +604,7 @@ export default {
     man_days: 'person day | person days',
     more_filters: 'More filters',
     move_action_bar: 'Move action bar',
+    no_estimation: 'No estimation',
     nb_frames: 'frame | frames',
     on: 'On',
     optional: 'optional',
@@ -1077,6 +1078,7 @@ export default {
     },
 
     brief: {
+      edit_error: 'An error occurred while editing the brief.',
       empty: 'There is no brief yet. How about creating one?',
       title: 'Brief'
     },
