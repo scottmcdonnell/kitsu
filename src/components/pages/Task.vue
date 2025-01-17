@@ -94,8 +94,20 @@
 
               <div
                 class="set-main-preview flexrow-item flexrow pull-right"
-                v-if="isCurrentUserManager && $refs['preview-player']"
+                vif="$refs['preview-player']"
               >
+                <button
+                  :class="{
+                    button: true,
+                    'flexrow-item': true
+                  }"
+                  @click="showHookupPlaylistModal"
+                >
+                  <kitsu-icon
+                    name="playlists"
+                    :title="$t('tasks.hookup_playlist')"
+                  />
+                </button>
                 <button
                   :class="{
                     button: true,
@@ -103,6 +115,7 @@
                     'is-loading': loading.setPreview
                   }"
                   @click="setPreview"
+                  v-if="isCurrentUserManager"
                 >
                   <image-icon class="icon" />
                   <span class="text">
@@ -113,6 +126,12 @@
                   {{ $t('tasks.set_preview_error') }}
                 </span>
               </div>
+              <view-playlist-modal
+                :active="modals.hookupPlaylist"
+                :task-ids="hookupPlaylistTaskIds"
+                sort
+                @cancel="hideHookupPlaylistModal"
+              />
             </div>
 
             <div class="preview-area mt1">
@@ -344,6 +363,7 @@
 
 <script>
 import { CornerLeftUpIcon, ImageIcon } from 'lucide-vue-next'
+
 import { mapGetters, mapActions } from 'vuex'
 
 import drafts from '@/lib/drafts'
@@ -360,6 +380,7 @@ import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
 import DeleteModal from '@/components/modals/DeleteModal.vue'
 import EditCommentModal from '@/components/modals/EditCommentModal.vue'
 import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
+import KitsuIcon from '@/components/widgets/KitsuIcon.vue'
 import PageSubtitle from '@/components/widgets/PageSubtitle.vue'
 import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
 import Spinner from '@/components/widgets/Spinner.vue'
@@ -367,6 +388,7 @@ import SubscribeButton from '@/components/widgets/SubscribeButton.vue'
 import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
 import ValidationTag from '@/components/widgets/ValidationTag.vue'
 import PreviewPlayer from '@/components/previews/PreviewPlayer.vue'
+import ViewPlaylistModal from '@/components/modals/ViewPlaylistModal.vue'
 
 export default {
   name: 'task',
@@ -382,6 +404,7 @@ export default {
     DeleteModal,
     EditCommentModal,
     EntityThumbnail,
+    KitsuIcon,
     ImageIcon,
     PageSubtitle,
     PeopleAvatar,
@@ -389,7 +412,8 @@ export default {
     Spinner,
     SubscribeButton,
     TaskTypeName,
-    ValidationTag
+    ValidationTag,
+    ViewPlaylistModal
   },
 
   provide() {
@@ -404,6 +428,7 @@ export default {
       previewForms: [],
       currentFrame: 0,
       currentTask: null,
+      hookupPlaylistTaskIds: [],
       selectedTab: 'validation',
       taskLoading: {
         isLoading: true,
@@ -415,7 +440,8 @@ export default {
         deleteExtraPreview: false,
         deleteTask: false,
         deleteComment: false,
-        editComment: false
+        editComment: false,
+        hookupPlaylist: false
       },
       loading: {
         addComment: false,
@@ -832,7 +858,6 @@ export default {
             taskType.url = `/productions/${task.project_id}/episodes/${task.episode_id || 'all'}/${task_type_entity_slug}/tasks/${task.id}`
           return taskType
         })
-      console.log('filtered', filtered)
       return filtered
     }
   },
@@ -980,6 +1005,50 @@ export default {
           this.errors.addComment = !isRetakeError
           this.errors.addCommentMaxRetakes = isRetakeError
         })
+    },
+
+    hideHookupPlaylistModal() {
+      this.modals.hookupPlaylist = false
+    },
+    showHookupPlaylistModal() {
+      // use a method instead of computed property for hookupPlaylistTaskIds so that it is only calculated if the modal is opened
+
+      // create a playlist with the previous, current and next task
+      const current_task_id = this.task.id
+
+      const tasks = Array.from(this.taskMap.values())
+        // get all tasks for this entity
+        .filter(
+          task =>
+            task.episode_id === this.task.episode_id &&
+            task.sequence_name === this.task.sequence_name &&
+            task.task_type_id === this.task.task_type_id
+        )
+        // sort the tasks by entity_name
+        .sort((a, b) => a.entity_name.localeCompare(b.entity_name))
+
+      for (const task of tasks) {
+        console.log(task.entity_name)
+      }
+
+      const current_task_index = tasks.findIndex(
+        task => task.id === current_task_id
+      )
+
+      const previous_task_id =
+        current_task_index > 0 ? tasks[current_task_index - 1].id : null
+
+      const next_task_id =
+        current_task_index < tasks.length - 1
+          ? tasks[current_task_index + 1].id
+          : null
+
+      this.hookupPlaylistTaskIds = [current_task_id]
+      if (previous_task_id) this.hookupPlaylistTaskIds.unshift(previous_task_id)
+      if (next_task_id) this.hookupPlaylistTaskIds.push(next_task_id)
+
+      // open the playlist
+      this.modals.hookupPlaylist = true
     },
 
     reset({ keepPreviewFiles = false } = {}) {
