@@ -520,6 +520,12 @@ export default {
       this.resetPanZoom()
       this.maxDuration = '00:00.000'
       this.pause()
+      this.$nextTick(() => {
+        this.resetPanZoom()
+        setTimeout(() => {
+          this.resetPanZoom()
+        }, 100)
+      })
     },
 
     light() {

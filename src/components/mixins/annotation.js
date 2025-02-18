@@ -54,6 +54,12 @@ if (PSStroke) {
     }
   }
 
+  if (!PSStroke.prototype.dispose) {
+    PSStroke.prototype.dispose = function () {
+      return {}
+    }
+  }
+
   if (!PSStroke.prototype.getRelativeCenterPoint) {
     PSStroke.prototype.getRelativeCenterPoint = function () {
       const center = new fabric.Point(
@@ -84,7 +90,9 @@ export const annotationMixin = {
       pencilWidth: 'big',
       textColor: '#ff3860',
       mouseIsDrawing: false,
-      mouseDrawingPressureMode: 'distance', // choose mode how we fake pressure on the mouse "fade" or "distance" or null
+      // choose mode how we fake pressure on the mouse:
+      // "fade" or "distance" or null
+      mouseDrawingPressureMode: 'distance',
       mouseDrawingStartTime: null,
       mouseDrawingMinPressure: 0.4,
       mouseDrawingMaxPressure: 0.8,
@@ -516,6 +524,12 @@ export const annotationMixin = {
               objects: this.fabricCanvas._objects.map(obj => obj.serialize())
             }
           }
+        })
+        const preview = this.$options.annotatedPreview
+        this.$store.commit('UPDATE_PREVIEW_ANNOTATION', {
+          taskId: preview.task_id,
+          preview: preview,
+          annotations: this.annotations
         })
       }
       const annotations = []
@@ -1283,6 +1297,7 @@ export const annotationMixin = {
      * Remove all drawing objects from the fabric canvas
      */
     clearCanvas() {
+      this.endAnnotationSaving()
       if (this.fabricCanvas) {
         this.fabricCanvas.clear()
       }
@@ -1297,9 +1312,17 @@ export const annotationMixin = {
     copyAnnotations() {
       if (!this.fabricCanvas) return
       const activeObject = this.fabricCanvas.getActiveObject()
-      if (activeObject) {
-        const obj = Object.create(activeObject)
-        clipboard.copyAnnotations(obj)
+      if (!activeObject) return
+      if (activeObject._objects) {
+        clipboard.copyAnnotations({
+          mainObject: activeObject,
+          subObjects: [...activeObject._objects]
+        })
+      } else {
+        clipboard.copyAnnotations({
+          mainObject: Object.create(activeObject),
+          subObjects: []
+        })
       }
       return activeObject
     },
@@ -1310,17 +1333,17 @@ export const annotationMixin = {
     pasteAnnotations() {
       if (!this.fabricCanvas) return
       this.fabricCanvas.discardActiveObject()
-      const clonedObj = clipboard.pasteAnnotations()
-      if (clonedObj._objects) {
-        clonedObj._objects.forEach(obj => {
-          obj = this.applyGroupChanges(clonedObj, obj)
+      const { mainObject, subObjects } = clipboard.pasteAnnotations()
+      if (subObjects?.length > 0) {
+        subObjects.forEach(obj => {
+          obj = this.applyGroupChanges(mainObject, obj)
           obj.group = null
           this.addObject(obj)
         })
         this.fabricCanvas.requestRenderAll()
       } else {
-        this.addObject(clonedObj)
-        this.fabricCanvas.setActiveObject(clonedObj)
+        this.addObject(mainObject)
+        this.fabricCanvas.setActiveObject(mainObject)
         this.fabricCanvas.requestRenderAll()
       }
     },

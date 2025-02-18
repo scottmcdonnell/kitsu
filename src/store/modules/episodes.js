@@ -78,11 +78,11 @@ const helpers = {
       assetTypes: [],
       taskTypes,
       taskStatuses,
-      descriptors: production.descriptors,
+      descriptors: production?.descriptors || [],
       persons,
       query
     })
-    let result = indexSearch(cache.episodeIndex, keywords) || cache.episodes
+    let result = indexSearch(cache.episodeIndex, keywords) || state.episodes
     result = applyFilters(result, filters, taskMap)
     result = sortEpisodeResult(result, sorting, taskTypeMap, taskMap)
     cache.result = result
@@ -241,14 +241,10 @@ const getters = {
     }),
   episodeOptionGroups: state => {
     const groups = []
-    const runnings = state.displayedEpisodes.filter(e => e.status === 'running')
-    const standbys = state.displayedEpisodes.filter(e => e.status === 'standby')
-    const completes = state.displayedEpisodes.filter(
-      e => e.status === 'complete'
-    )
-    const canceleds = state.displayedEpisodes.filter(
-      e => e.status === 'canceled'
-    )
+    const runnings = state.episodes.filter(e => e.status === 'running')
+    const standbys = state.episodes.filter(e => e.status === 'standby')
+    const completes = state.episodes.filter(e => e.status === 'complete')
+    const canceleds = state.episodes.filter(e => e.status === 'canceled')
 
     const tmpGroups = [runnings, standbys, completes, canceleds]
     tmpGroups.forEach(group => {
@@ -346,7 +342,7 @@ const actions = {
     commit(CLEAR_SELECTED_EPISODES)
   },
 
-  initEpisodes({ commit, dispatch, state, rootState, rootGetters }) {
+  initEpisodeStats({ commit, dispatch, state, rootState, rootGetters }) {
     const productionId = rootState.route.params.production_id
     const isTVShow = rootGetters.isTVShow
     dispatch('setLastProductionScreen', 'episodes')
@@ -363,7 +359,7 @@ const actions = {
             return dispatch('loadEpisodeRetakeStats', productionId)
           })
       } else {
-        return dispatch('computeEpisodeStats')
+        return dispatch('resetEpisodeStats')
       }
     }
   },
@@ -488,7 +484,7 @@ const actions = {
       .catch(console.error)
   },
 
-  computeEpisodeStats({ commit, dispatch, rootGetters }) {
+  resetEpisodeStats({ commit, dispatch, rootGetters }) {
     const taskStatusMap = rootGetters.taskStatusMap
     const taskMap = rootGetters.taskMap
     const isTVShow = rootGetters.isTVShow
@@ -685,13 +681,13 @@ const mutations = {
     state.episodes = sortedEpisodes
     state.displayedEpisodes.push(episode)
     state.displayedEpisodes = sortByName(state.displayedEpisodes)
-    state.episodeIndex = buildEpisodeIndex(sortedEpisodes)
+    cache.episodeIndex = buildEpisodeIndex(sortedEpisodes)
     state.displayedEpisodesLength = sortedEpisodes.length
   },
 
   [UPDATE_EPISODE](state, episode) {
     Object.assign(cache.episodeMap.get(episode.id), episode)
-    state.episodeIndex = buildEpisodeIndex(state.episodes)
+    cache.episodeIndex = buildEpisodeIndex(state.episodes)
   },
 
   [REMOVE_EPISODE](state, episode) {
@@ -701,7 +697,7 @@ const mutations = {
       state.displayedEpisodes,
       episode
     )
-    state.episodeIndex = buildEpisodeIndex(state.episodes)
+    cache.episodeIndex = buildEpisodeIndex(state.episodes)
   },
 
   [SET_EPISODE_SEARCH](state, payload) {
@@ -737,10 +733,12 @@ const mutations = {
 
   [EDIT_EPISODE_END](state, newEpisode) {
     const episode = cache.episodeMap.get(newEpisode.id)
+    const episodeFromMain = state.episodes.find(e => e.id === newEpisode.id)
     if (episode) {
       Object.assign(episode, newEpisode)
+      Object.assign(episodeFromMain, newEpisode)
     }
-    state.episodeIndex = buildEpisodeIndex(state.episodes)
+    cache.episodeIndex = buildEpisodeIndex(state.episodes)
     if (episode.description && !state.isEpisodeDescription) {
       state.isEpisodeDescription = true
     }
@@ -785,7 +783,7 @@ const mutations = {
     })
     state.episodes = sortByName(episodes)
 
-    state.episodeIndex = buildEpisodeIndex(state.episodes)
+    cache.episodeIndex = buildEpisodeIndex(state.episodes)
     state.displayedEpisodes = state.episodes
     state.displayedEpisodesLength = state.episodes.length
 
@@ -918,7 +916,10 @@ const mutations = {
   },
 
   [CLEAR_SELECTED_TASKS](state, validationInfo) {
-    if (taskStore.state.nbSelectedTasks > 0) {
+    if (
+      taskStore.state.nbSelectedValidations > 0 ||
+      taskStore.state.nbSelectedTasks > 0
+    ) {
       const tmpGrid = JSON.parse(JSON.stringify(state.episodeSelectionGrid))
       state.episodeSelectionGrid = clearSelectionGrid(tmpGrid)
     }

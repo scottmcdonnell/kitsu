@@ -440,7 +440,7 @@
             @next-clicked="onNextClicked"
             @previous-clicked="onPreviousClicked"
             @remove-preview-clicked="onRemovePreviewClicked"
-            @current-index-clicked="isOrdering = !isOrdering"
+            @current-index-clicked="toggleIsOrdering"
             v-if="currentPreview && !isConcept"
           />
 
@@ -685,7 +685,7 @@ export default {
       isLoading: false,
       isMuted: false,
       isPlaying: false,
-      isOrdering: false,
+      isOrdering: true,
       isRepeating: false,
       isTyping: false,
       isWireframe: false,
@@ -1089,11 +1089,17 @@ export default {
     },
 
     initPreferences() {
-      const isRepeating = localPreferences.getBoolPreference('player:repeating')
-      const isMuted = localPreferences.getBoolPreference('player:muted')
-      this.isRepeating = isRepeating
-      this.isMuted = isMuted
+      this.isRepeating = localPreferences.getBoolPreference('player:repeating')
+      this.isMuted = localPreferences.getBoolPreference('player:muted')
       this.isHd = Boolean(this.organisation.hd_by_default)
+      this.isOrdering =
+        this.previews.length > 1 &&
+        localPreferences.getPreference('player:ordering') !== 'false'
+    },
+
+    toggleIsOrdering() {
+      this.isOrdering = !this.isOrdering
+      localPreferences.setPreference('player:ordering', this.isOrdering)
     },
 
     focus() {
@@ -1230,6 +1236,7 @@ export default {
     },
 
     onProgressChanged(frame) {
+      this.reloadAnnotations()
       if (this.currentFrame !== frame) {
         this.clearCanvas()
         this.setCurrentFrame(frame)
@@ -1754,8 +1761,10 @@ export default {
     },
 
     async extractAnnotationSnapshots() {
-      const annotations = this.annotations.sort((a, b) => b.time < a.time)
       const files = []
+      const annotations = this.annotations.sort((a, b) => {
+        return parseInt(b.frame) < parseInt(a.frame) ? 1 : -1
+      })
       let index = 1
       for (const annotation of annotations) {
         const canvas = document.getElementById('annotation-snapshot')
@@ -1812,13 +1821,13 @@ export default {
       if (!['INPUT', 'TEXTAREA'].includes(event.target.tagName)) {
         if (event.keyCode === 46 || event.keyCode === 8) {
           this.deleteSelection()
-        } else if (event.code === 37) {
+        } else if (event.keyCode === 37) {
           // arrow left
           this.goPreviousFrame()
-        } else if (event.code === 39) {
+        } else if (event.keyCode === 39) {
           // arrow right
           this.goNextFrame()
-        } else if (event.code === 32) {
+        } else if (event.keyCode === 32) {
           // space
           let styles
           const playlistModal = document.getElementById('temp-playlist-modal')
@@ -2119,6 +2128,9 @@ export default {
         }
       })
       this.setDefaultComparisonTaskType()
+      this.isOrdering =
+        this.previews.length > 1 &&
+        localPreferences.getPreference('player:ordering') !== 'false'
     },
 
     'currentPreview.revision'() {

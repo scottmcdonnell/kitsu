@@ -43,12 +43,7 @@
             @open-room="openRoom"
             @join-room="joinRoom"
             @leave-room="leaveRoom"
-            v-if="
-              currentEdit &&
-              isValidRoomId(currentEdit.id) &&
-              currentPreview &&
-              currentPreview.id
-            "
+            v-if="isValidRoomId(currentEdit) && currentPreview?.id"
           />
         </div>
       </div>
@@ -680,11 +675,11 @@ export default {
         edit: false
       },
       entityNavOptions: [
-        { label: 'Infos', value: 'infos' },
-        { label: 'Schedule', value: 'schedule' },
-        { label: 'Preview Files', value: 'preview-files' },
-        { label: 'Activity', value: 'activity' },
-        { label: 'Timelog', value: 'time-logs' }
+        { label: this.$t('main.label.info'), value: 'infos' },
+        { label: this.$t('main.label.schedule'), value: 'schedule' },
+        { label: this.$t('main.label.preview_files'), value: 'preview-files' },
+        { label: this.$t('main.activity'), value: 'activity' },
+        { label: this.$t('main.label.timelog'), value: 'time-logs' }
       ],
       modals: {
         edit: false
@@ -729,9 +724,7 @@ export default {
     title() {
       if (this.currentEdit) {
         if (this.currentEdit.episode_name) {
-          return (
-            `${this.currentEdit.episode_name} / ` + `${this.currentEdit.name}`
-          )
+          return `${this.currentEdit.episode_name} / ${this.currentEdit.name}`
         } else {
           return `${this.currentEdit.name}`
         }

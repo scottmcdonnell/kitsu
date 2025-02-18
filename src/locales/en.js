@@ -353,6 +353,7 @@ export default {
       size: 'Size',
       status: 'Status',
       task_type: 'Task type',
+      uploaded_at: 'Uploaded at',
       uploader: 'Uploaded by'
     },
 
@@ -550,6 +551,7 @@ export default {
     created_by: 'Created by',
     date: 'Date',
     dark_theme: 'Dark Theme',
+    day: 'Day',
     days: 'days',
     days_spent: 'day spent | days spent',
     days_estimated: 'day estimated | days estimated',
@@ -581,6 +583,7 @@ export default {
     frame_out: 'Frame Out',
     from: 'From',
     go_productions: 'Return To Production',
+    hour: 'Hour',
     hide_support_chat: 'Hide support chat',
     history: 'history',
     info: 'Information',
@@ -590,6 +593,16 @@ export default {
     or: 'or',
     no: 'No',
     no_results: 'No results',
+    label:{
+      casting: 'Casting',
+      chat: 'Chat',
+      concepts: 'Concepts',
+      info: 'Info',
+      output_files: 'Output Files',
+      preview_files: 'Preview Files',
+      schedule: 'Schedule',
+      timelog: 'Timelog',
+    },
     less_filters: 'Fewer filters',
     link: 'Link',
     load_more: 'Load more',
@@ -602,6 +615,7 @@ export default {
     main_pack: 'Main Pack',
     maximize: 'Maximize',
     man_days: 'person day | person days',
+    month: 'Month',
     more_filters: 'More filters',
     move_action_bar: 'Move action bar',
     no_estimation: 'No estimation',
@@ -639,6 +653,7 @@ export default {
     week: 'Week',
     white_theme: 'Light Theme',
     workspace: 'Workspace',
+    year: 'Year',
     yes: 'Yes',
     search: {
       type: 'Type at least 3 characters to perform the search',
@@ -719,7 +734,7 @@ export default {
   news: {
     all: 'All',
     commented_on: 'commented on',
-    infos: 'Infos',
+    infos: 'Info',
     only_comments: 'Only comments',
     only_previews: 'Only previews',
     hide_stats: 'Hide stats',
@@ -738,7 +753,7 @@ export default {
   },
 
   notifications: {
-    and_change_status: 'and changed the task status',
+    and_change_status: ' and changed the task status',
     all_statuses: 'Read and Unread',
     all_types: 'All types',
     all_notifications: 'All notifications',
@@ -867,7 +882,7 @@ export default {
     available_build: 'Available builds',
     build_daily: 'Daily pending',
     build_weekly: 'All Pending',
-    build_mp4: 'Build .mp4 (beta)',
+    build_mp4: 'Build .mp4',
     building: 'Building...',
     client_playlist: 'Client Playlist',
     comparing_missing_plan: 'Shot missing for current type',
