@@ -931,7 +931,7 @@ export default {
         this.currentPreviewDlPath = this.getOriginalDlPath()
         this.resetDraft()
         this.$nextTick(() => {
-          this.focusCommentTextarea()
+          this.$refs['preview-player']?.focus()
         })
       }
     },
