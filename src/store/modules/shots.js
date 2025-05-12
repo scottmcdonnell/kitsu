@@ -709,6 +709,14 @@ const actions = {
     )
   },
 
+  getStatusLogStats(
+    { commit, state, rootGetters },
+    { taskTypeId, taskStatusId }
+  ) {
+    const production = rootGetters.currentProduction
+    return shotsApi.getStatusLogStats(production.id, taskTypeId, taskStatusId)
+  },
+
   changeShotSort({ commit, rootGetters }, sortInfo) {
     const taskStatusMap = rootGetters.taskStatus
     const taskTypeMap = rootGetters.taskTypeMap

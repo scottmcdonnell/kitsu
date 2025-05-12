@@ -192,6 +192,13 @@ export default {
     )
   },
 
+  getStatusLogStats(productionId, taskTypeId, taskStatusId) {
+    return client.pget(
+      `/api/data/projects/${productionId}/status-log-stats/` +
+        `${taskTypeId}?task_status_id=${taskStatusId}`
+    )
+  },
+
   setNbFramesFromTaskTypePreviews(taskTypeId, productionId, episodeId) {
     let path =
       `/api/actions/projects/${productionId}/task-types/` +

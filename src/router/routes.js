@@ -49,6 +49,8 @@ const Playlist = () => import('@/components/pages/Playlist.vue')
 const ProductionAssetTypes = () =>
   import('@/components/pages/ProductionAssetTypes.vue')
 const ProductionQuota = () => import('@/components/pages/ProductionQuota.vue')
+const ProductionStatusLogs = () =>
+  import('@/components/pages/ProductionStatusLogs.vue')
 const Productions = () => import('@/components/pages/Productions.vue')
 const ProductionSchedule = () =>
   import('@/components/pages/ProductionSchedule.vue')
@@ -495,6 +497,43 @@ export const routes = [
           }
         ]
       },
+      {
+        path: 'productions/:production_id/statuslogs',
+        component: ProductionStatusLogs,
+        name: 'statuslogs',
+        children: [
+          {
+            path: 'month/:year',
+            component: ProductionStatusLogs,
+            name: 'statuslogs-month'
+          },
+          {
+            path: 'month/:year/:month/persons/:person_id',
+            component: ProductionStatusLogs,
+            name: 'statuslogs-month-person'
+          },
+          {
+            path: 'week/:year',
+            component: ProductionStatusLogs,
+            name: 'statuslogs-week'
+          },
+          {
+            path: 'week/:year/:week/persons/:person_id',
+            component: ProductionStatusLogs,
+            name: 'statuslogs-week-person'
+          },
+          {
+            path: 'day/:year/:month',
+            component: ProductionStatusLogs,
+            name: 'statuslogs-day'
+          },
+          {
+            path: 'day/:year/:month/:day/persons/:person_id',
+            component: ProductionStatusLogs,
+            name: 'statuslogs-day-person'
+          }
+        ]
+      },
 
       {
         path: 'productions/:production_id/episodes/:episode_id/quota',
@@ -530,6 +569,43 @@ export const routes = [
             path: 'day/:year/:month/:day/persons/:person_id',
             component: ProductionQuota,
             name: 'episode-quota-day-person'
+          }
+        ]
+      },
+      {
+        path: 'productions/:production_id/episodes/:episode_id/statuslogs',
+        component: ProductionQuota,
+        name: 'episode-statuslogs',
+        children: [
+          {
+            path: 'month/:year',
+            component: ProductionQuota,
+            name: 'episode-statuslogs-month'
+          },
+          {
+            path: 'month/:year/:month/persons/:person_id',
+            component: ProductionQuota,
+            name: 'episode-statuslogs-month-person'
+          },
+          {
+            path: 'week/:year',
+            component: ProductionQuota,
+            name: 'episode-statuslogs-week'
+          },
+          {
+            path: 'week/:year/:week/persons/:person_id',
+            component: ProductionQuota,
+            name: 'episode-statuslogs-week-person'
+          },
+          {
+            path: 'day/:year/:month',
+            component: ProductionQuota,
+            name: 'episode-statuslogs-day'
+          },
+          {
+            path: 'day/:year/:month/:day/persons/:person_id',
+            component: ProductionQuota,
+            name: 'episode-statuslogs-day-person'
           }
         ]
       },

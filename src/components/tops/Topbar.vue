@@ -480,7 +480,14 @@ export default {
           { label: this.$t('schedule.title'), value: 'schedule' }
         ])
         if (isNotOnlyAssets) {
-          options.push({ label: this.$t('quota.title'), value: 'quota' })
+          options.push({
+            label: this.$t('quota.title'),
+            value: 'quota'
+          })
+          options.push({
+            label: this.$t('statuslog.title'),
+            value: 'statuslogs'
+          })
         }
         options.push({ label: this.$t('people.team'), value: 'team' })
 
