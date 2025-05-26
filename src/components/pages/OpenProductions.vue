@@ -23,7 +23,7 @@
             </li>
             <li>
               {{ $t('intro.second') }}
-              <a href="https://twitter.com/cgwirekitsu">X</a>
+              <a href="https://x.com/cgwirekitsu">X</a>
               {{ $t('main.or') }}
               <a href="https://www.linkedin.com/company/cgwire/">LinkedIn</a>
             </li>
@@ -78,6 +78,7 @@
     >
       <div class="flexrow search-area" v-if="openProductions.length > 6">
         <search-field
+          ref="search-field"
           class="search-field ml1"
           @change="onSearchChange"
           v-focus
@@ -280,6 +281,17 @@ export default {
     hideContributions() {
       this.isContributions = false
       preferences.setPreference('open-productions:contributions', false)
+    }
+  },
+
+  watch: {
+    openProductions() {
+      if (this.openProductions.length > 6) {
+        const searchQuery = this.$refs['search-field']?.getValue() || ''
+        this.onSearchChange(searchQuery)
+      } else {
+        this.filteredProductions = this.openProductions
+      }
     }
   },
 

@@ -132,128 +132,126 @@
               </a>
             </p>
             <div class="replies">
-              <div>
-                <div
-                  :key="replyComment.id"
-                  class="reply-comment"
-                  v-for="replyComment in comment.replies || []"
-                >
-                  <div class="flexrow">
-                    <people-avatar
-                      class="flexrow-item"
-                      :size="18"
-                      :font-size="10"
+              <div
+                :key="replyComment.id"
+                class="reply-comment"
+                v-for="replyComment in comment.replies || []"
+              >
+                <div class="flexrow">
+                  <people-avatar
+                    class="flexrow-item"
+                    :size="18"
+                    :font-size="10"
+                    :person="personMap.get(replyComment.person_id)"
+                  />
+                  <strong class="flexrow-item">
+                    <people-name
                       :person="personMap.get(replyComment.person_id)"
                     />
-                    <strong class="flexrow-item">
-                      <people-name
-                        :person="personMap.get(replyComment.person_id)"
-                      />
-                    </strong>
-                    <span
-                      class="flexrow-item reply-date"
-                      :title="replyFullDate(replyComment.date)"
-                    >
-                      {{ replyShortDate(replyComment.date) }}
-                    </span>
-                    <span class="filler"> </span>
-                    <span
-                      class="flexrow-item reply-delete"
-                      :title="$t('main.delete')"
-                      @click="onDeleteReplyClicked(replyComment)"
-                      v-if="
-                        isCurrentUserAdmin || replyComment.person_id === user.id
-                      "
-                    >
-                      x
-                    </span>
-                  </div>
-                  <p
-                    v-html="
-                      renderComment(
-                        replyComment.text,
-                        replyComment.mentions || [],
-                        replyComment.department_mentions || [],
-                        personMap,
-                        departmentMap,
-                        uniqueClassName,
-                        taskTypes
-                      )
+                  </strong>
+                  <span
+                    class="flexrow-item reply-date"
+                    :title="replyFullDate(replyComment.date)"
+                  >
+                    {{ replyShortDate(replyComment.date) }}
+                  </span>
+                  <span class="filler"> </span>
+                  <span
+                    class="flexrow-item reply-delete"
+                    :title="$t('main.delete')"
+                    @click="onDeleteReplyClicked(replyComment)"
+                    v-if="
+                      isCurrentUserAdmin || replyComment.person_id === user.id
                     "
-                    class="comment-text"
-                  ></p>
+                  >
+                    x
+                  </span>
                 </div>
+                <p
+                  v-html="
+                    renderComment(
+                      replyComment.text,
+                      replyComment.mentions || [],
+                      replyComment.department_mentions || [],
+                      personMap,
+                      departmentMap,
+                      uniqueClassName,
+                      taskTypes
+                    )
+                  "
+                  class="comment-text"
+                ></p>
               </div>
-              <at-ta
-                :ats="['#', '@']"
-                :members="[...membersForAts['@'], ...membersForAts['#']]"
-                :filter-match="atOptionsFilter"
-                name-key="full_name"
-                :limit="2"
-                @update:value="onAtTextChanged"
-              >
-                <template #item="{ item }">
-                  <template v-if="item.isTime"> ⏱️ frame </template>
-                  <template v-else-if="item.isDepartment">
-                    <span
-                      class="mr05"
-                      :style="{
-                        background: item.color,
-                        width: '10px',
-                        height: '10px',
-                        'border-radius': '50%'
-                      }"
-                    >
-                      &nbsp;
-                    </span>
-                    {{ item.full_name }}
-                  </template>
-                  <template v-else-if="item.isTaskType">
-                    <span
-                      class="mr05"
-                      :style="{
-                        background: item.color,
-                        width: '10px',
-                        height: '10px'
-                      }"
-                    >
-                      &nbsp;
-                    </span>
-                    {{ item.full_name }}
-                  </template>
-                  <template v-else>
-                    <div class="flexrow">
-                      <people-avatar
-                        class="flexrow-item"
-                        :person="item"
-                        :size="20"
-                        :font-size="11"
-                        :is-lazy="false"
-                        :is-link="false"
-                      />
-                      <span class="flexrow-item">
-                        {{ item.full_name }}
+              <template v-if="showReply">
+                <at-ta
+                  :ats="['#', '@']"
+                  :members="[...membersForAts['@'], ...membersForAts['#']]"
+                  :filter-match="atOptionsFilter"
+                  name-key="full_name"
+                  :limit="2"
+                  @update:value="onAtTextChanged"
+                >
+                  <template #item="{ item }">
+                    <template v-if="item.isTime"> ⏱️ frame </template>
+                    <template v-else-if="item.isDepartment">
+                      <span
+                        class="mr05"
+                        :style="{
+                          background: item.color,
+                          width: '10px',
+                          height: '10px',
+                          'border-radius': '50%'
+                        }"
+                      >
+                        &nbsp;
                       </span>
-                    </div>
+                      {{ item.full_name }}
+                    </template>
+                    <template v-else-if="item.isTaskType">
+                      <span
+                        class="mr05"
+                        :style="{
+                          background: item.color,
+                          width: '10px',
+                          height: '10px'
+                        }"
+                      >
+                        &nbsp;
+                      </span>
+                      {{ item.full_name }}
+                    </template>
+                    <template v-else>
+                      <div class="flexrow">
+                        <people-avatar
+                          class="flexrow-item"
+                          :person="item"
+                          :size="20"
+                          :font-size="11"
+                          :is-lazy="false"
+                          :is-link="false"
+                        />
+                        <span class="flexrow-item">
+                          {{ item.full_name }}
+                        </span>
+                      </div>
+                    </template>
                   </template>
-                </template>
-                <textarea
-                  ref="reply"
-                  class="reply"
-                  @keyup.ctrl.enter="onReplyClicked"
-                  v-model="replyText"
-                  v-show="showReply"
-                />
-              </at-ta>
-              <div class="has-text-right">
-                <button-simple
-                  class="reply-button"
-                  :text="$t('main.reply')"
-                  :is-loading="isReplyLoading"
-                  @click="onReplyClicked"
-                  v-show="showReply"
-                />
-              </div>
+                  <textarea
+                    ref="reply"
+                    class="reply"
+                    @keyup.ctrl.enter="onReplyClicked"
+                    v-model="replyText"
+                  />
+                </at-ta>
+                <div class="has-text-right">
+                  <button-simple
+                    class="reply-button"
+                    :text="$t('main.reply')"
+                    :is-loading="isReplyLoading"
+                    @click="onReplyClicked"
+                  />
+                </div>
+              </template>
             </div>
 
             <div
@@ -276,14 +274,26 @@
               <span
                 class="flexrow-item reply-button"
                 @click="showReplyWidget"
-                v-if="!showReply"
+                v-if="!showReply && isReplyable"
               >
                 {{ $t('main.reply') }}
               </span>
             </div>
-            <p class="pinned-text" v-if="comment.pinned">
+            <div class="pinned-text" v-if="comment.pinned">
               {{ $t('comments.pinned') }}
-            </p>
+            </div>
+            <div
+              class="edited-text"
+              v-if="
+                comment.editor_id && comment.editor_id !== comment.person_id
+              "
+            >
+              {{
+                $t('comments.edited_by', {
+                  name: personMap.get(comment.editor_id)?.full_name
+                })
+              }}
+            </div>
           </div>
         </div>
       </div>
@@ -291,10 +301,7 @@
         class="flexrow content-wrapper preview-info"
         v-if="comment.previews.length > 0 && !isConcept"
       >
-        <router-link
-          class="flexrow-item round-name revision"
-          :to="previewRoute"
-        >
+        <router-link class="round-name revision" :to="previewRoute">
           {{
             comment.pinned
               ? $t('comments.pinned_revision')
@@ -303,7 +310,7 @@
           {{ comment.previews[0].revision }}
         </router-link>
         <a
-          class="preview-link button flexrow-item"
+          class="preview-link button"
           :href="comment.links[0]"
           :title="$t('playlists.actions.open_link')"
           target="_blank"
@@ -313,12 +320,11 @@
         </a>
         <span
           class="flexrow-item preview-status"
+          :class="{ pointer: isCurrentUserManager }"
           :title="comment.previews[0].validation_status"
-          :style="getPreviewValidationStyle(comment.previews[0])"
-          @click="changePreviewValidationStatus(comment.previews[0])"
-        >
-          &nbsp;
-        </span>
+          :data-status="comment.previews[0].validation_status"
+          @click="changePreviewValidationStatus(comment.previews)"
+        ></span>
       </div>
     </article>
     <div class="empty-comment" v-else>
@@ -468,6 +474,10 @@ export default {
       default: false
     },
     isPinnable: {
+      type: Boolean,
+      default: false
+    },
+    isReplyable: {
       type: Boolean,
       default: false
     },
@@ -723,27 +733,19 @@ export default {
       })
     },
 
-    getPreviewValidationStyle(previewFile) {
-      let color = '#AAA'
-      if (previewFile.validation_status === 'validated') {
-        color = '#67BE48' // green
-      } else if (previewFile.validation_status === 'rejected') {
-        color = '#FF3860' // red
+    changePreviewValidationStatus(previewFiles) {
+      if (!this.isCurrentUserManager) {
+        return
       }
-      return { background: color }
-    },
-
-    changePreviewValidationStatus(previewFile) {
-      if (!this.isCurrentUserManager) return
-      let status = previewFile.status
-      if (previewFile.validation_status === 'validated') {
-        status = 'rejected'
-      } else if (previewFile.validation_status === 'rejected') {
-        status = 'neutral'
-      } else {
-        status = 'validated'
+      const statusMap = {
+        validated: 'rejected',
+        rejected: 'neutral',
+        neutral: 'validated'
       }
-      this.updatePreviewFileValidationStatus({ previewFile, status })
+      const status = statusMap[previewFiles[0].validation_status] || 'validated'
+      previewFiles.forEach(previewFile => {
+        this.updatePreviewFileValidationStatus({ previewFile, status })
+      })
     },
 
     renderComment,
@@ -751,7 +753,7 @@ export default {
     showReplyWidget() {
       this.showReply = true
       this.$nextTick(() => {
-        this.$refs.reply.focus()
+        this.$refs.reply?.focus()
       })
     },
 
@@ -954,9 +956,9 @@ article.comment {
   transform: scale(1.02);
 }
 
+.edited-text,
 .pinned-text {
   font-size: 0.8em;
-  margin: 0;
   text-align: right;
   color: $light-grey;
 }
@@ -1013,15 +1015,11 @@ article.comment {
 .like-button {
   align-items: center;
   background-color: transparent;
-  border: 0;
-  border-radius: 0.5rem;
   color: inherit;
   cursor: pointer;
   display: inline-flex;
   margin: 0;
   padding: 0.3rem 0;
-  width: 100%;
-  z-index: 10;
 
   span {
     margin-left: 0.3em;
@@ -1098,10 +1096,8 @@ p {
   color: var(--text);
   cursor: pointer;
   font-size: 0.8em;
-  padding: 0;
-  padding-right: 0.5em;
+  padding: 0 0.5em;
   text-align: right;
-  width: 60px;
 }
 
 textarea.reply {
@@ -1167,13 +1163,20 @@ textarea.reply {
 }
 
 .preview-status {
-  border-radius: 50%;
+  background: #aaa;
   border: 2px solid $grey;
-  cursor: pointer;
+  border-radius: 50%;
   height: 20px;
+  min-width: 20px;
   transition: background 0.3s ease;
   width: 20px;
-  min-width: 20px;
+
+  &[data-status='validated'] {
+    background: $light-green;
+  }
+  &[data-status='rejected'] {
+    background: $red;
+  }
 }
 
 @media screen and (max-width: 768px) {

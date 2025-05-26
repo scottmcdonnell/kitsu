@@ -410,7 +410,6 @@ export default {
       searchQuery = `${this.$route.query.search}`
     }
     this.$refs['asset-list'].setScrollPosition(this.assetListScrollPosition)
-    this.$refs['asset-list'].setScrollPosition(this.assetListScrollPosition)
     const finalize = () => {
       if (this.$refs['asset-list']) {
         this.searchField.setValue(searchQuery)
@@ -460,7 +459,6 @@ export default {
       'assetSorting',
       'assetTypes',
       'assetValidationColumns',
-      'contactSheetMode',
       'currentEpisode',
       'currentProduction',
       'currentSection',

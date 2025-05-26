@@ -145,6 +145,7 @@ const helpers = {
       entity_type_name: asset.asset_type_name,
       entity: {
         id: asset.id,
+        name: asset.name,
         preview_file_id: asset.preview_file_id
       }
     })
@@ -391,7 +392,7 @@ const getters = {
 const actions = {
   loadAssets(
     { commit, state, rootGetters },
-    { all = false, withTasks = true } = {}
+    { all = false, withShared = true, withTasks = true } = {}
   ) {
     const assetTypeMap = rootGetters.assetTypeMap
     const production = rootGetters.currentProduction
@@ -429,6 +430,9 @@ const actions = {
     return assetsApi
       .getAssets(production, episode, withTasks)
       .then(async assets => {
+        if (!withShared) {
+          return assets
+        }
         let sharedAssets = all
           ? await assetsApi.getSharedAssets()
           : await assetsApi.getUsedSharedAssets(production, episode)
@@ -1102,6 +1106,12 @@ const mutations = {
       const copyNewAsset = { ...newAsset }
       copyNewAsset.data = { ...asset.data, ...newAsset.data }
       Object.assign(asset, copyNewAsset)
+      state.displayedAssets = state.displayedAssets.map(stateAsset => {
+        if (stateAsset.id === newAsset.id) {
+          return { ...asset }
+        }
+        return stateAsset
+      })
     } else {
       newAsset.validations = new Map()
       newAsset.tasks = []

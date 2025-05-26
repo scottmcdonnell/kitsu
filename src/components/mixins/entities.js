@@ -1,5 +1,6 @@
 import { mapGetters, mapActions } from 'vuex'
 
+import stringHelpers from '@/lib/string'
 import func from '@/lib/func'
 import preferences from '@/lib/preferences'
 
@@ -17,18 +18,28 @@ export const entitiesMixin = {
     const departmentId = preferences.getPreference(
       `${this.pageName}:department`
     )
-    if (departmentId) {
+    const selectableDepartments = this.selectableDepartments(
+      stringHelpers.capitalize(this.type)
+    ).map(department => department.id)
+
+    if (
+      departmentId &&
+      !this.isCurrentUserClient &&
+      (!this.user.departments.length ||
+        selectableDepartments.includes(departmentId) ||
+        departmentId === 'ALL')
+    ) {
       this.selectedDepartment = departmentId
-    } else {
-      if (!this.isCurrentUserManager && this.user.departments.length > 0) {
-        this.selectedDepartment = 'MY_DEPARTMENTS'
-      }
+    } else if (!this.isCurrentUserManager && this.user.departments.length) {
+      this.selectedDepartment = 'MY_DEPARTMENTS'
     }
     this.onSelectedDepartmentChanged()
   },
 
   computed: {
     ...mapGetters([
+      'isCurrentUserClient',
+      'isCurrentUserManager',
       'nbSelectedTasks',
       'selectedTasks',
       'nbSelectedValidations'

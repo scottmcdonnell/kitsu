@@ -76,6 +76,7 @@
             <div class="flexrow-item has-text-right">
               <button-simple
                 icon="edit"
+                :title="$t('shots.edit_title')"
                 @click="modals.edit = true"
                 v-if="isCurrentUserManager"
               />
@@ -391,8 +392,7 @@ export default {
         edit: false
       },
       modals: {
-        edit: false,
-        preview: false
+        edit: false
       }
     }
   },

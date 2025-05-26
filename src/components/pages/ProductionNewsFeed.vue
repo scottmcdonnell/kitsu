@@ -274,29 +274,7 @@
         :task="currentTask"
         :is-loading="loading.currentTask"
         with-actions
-      >
-        <div class="stats">
-          <div class="news-number mb1">
-            {{ newsTotal }} {{ $t('news.news') }}
-          </div>
-          <div
-            :key="'stat-' + stat.id"
-            class="stat-wrapper"
-            v-for="stat in renderedStats"
-          >
-            <span
-              class="stat-tag"
-              :title="stat.name + ': ' + stat.value"
-              :style="{
-                background: stat.color,
-                width: (stat.value / statMax) * 100 + '%'
-              }"
-            >
-              <div class="stat-text">{{ stat.name }} : {{ stat.value }}</div>
-            </span>
-          </div>
-        </div>
-      </task-info>
+      />
     </div>
   </div>
 </template>
@@ -651,6 +629,7 @@ export default {
     },
 
     onBodyScroll(event) {
+      if (!this.$refs.body) return
       const position = event.target
       const maxHeight =
         this.$refs.body.scrollHeight - this.$refs.body.offsetHeight

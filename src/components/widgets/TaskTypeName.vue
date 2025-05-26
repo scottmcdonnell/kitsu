@@ -2,7 +2,10 @@
   <router-link
     :to="targetRoute"
     v-if="
-      productionId && !isCurrentUserClient && taskType.for_entity !== 'Concept'
+      isLink &&
+      productionId &&
+      !isCurrentUserClient &&
+      taskType.for_entity !== 'Concept'
     "
   >
     <span
@@ -48,6 +51,10 @@ export default {
   name: 'task-type-name',
 
   props: {
+    isLink: {
+      type: Boolean,
+      default: true
+    },
     deletable: {
       type: Boolean,
       default: false
@@ -84,8 +91,9 @@ export default {
     ...mapGetters(['isCurrentUserClient']),
 
     color() {
-      if (this.taskType.color.toUpperCase() === '#000000') return '$grey-strong'
-      else return this.taskType.color
+      return this.taskType.color?.toUpperCase() === '#000000'
+        ? '$grey-strong'
+        : this.taskType.color
     },
 
     targetRoute() {

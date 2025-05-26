@@ -29,8 +29,19 @@
             <th class="assignees" ref="th-assignees">
               {{ $t('tasks.fields.assignees') }}
             </th>
-            <th class="frames number-cell" ref="th-frames" v-if="isShots">
+            <th
+              ref="th-frames"
+              class="frames number-cell"
+              v-if="isShots && !isPaperProduction"
+            >
               {{ $t('tasks.fields.frames') }}
+            </th>
+            <th
+              ref="th-drawings"
+              class="drawings number-cell"
+              v-if="isShots && isPaperProduction"
+            >
+              {{ $t('tasks.fields.drawings') }}
             </th>
             <th class="difficulty number-cell" ref="th-difficulty">
               {{ $t('tasks.fields.difficulty') }}
@@ -123,8 +134,26 @@
                 />
               </div>
             </td>
-            <td class="frames number-cell" v-if="isShots">
+            <td class="frames number-cell" v-if="isShots && !isPaperProduction">
               {{ getEntity(task.entity.id).nb_frames }}
+            </td>
+            <td
+              class="drawings number-cell"
+              v-if="isShots && isPaperProduction"
+            >
+              <input
+                class="input"
+                min="0"
+                step="1"
+                type="number"
+                :ref="task.id + '-drawings'"
+                :value="task.nb_drawings"
+                @change="updateNbDrawings($event.target.value)"
+                v-if="isInDepartment(task) && selectionGrid[task.id]"
+              />
+              <template v-else>
+                {{ task.nb_drawings || 0 }}
+              </template>
             </td>
             <td class="difficulty number-cell">
               <combobox
@@ -157,9 +186,9 @@
                 @change="updateEstimation($event.target.value)"
                 v-if="isInDepartment(task) && selectionGrid[task.id]"
               />
-              <span v-else>
+              <template v-else>
                 {{ formatDuration(task.estimation) }}
-              </span>
+              </template>
             </td>
             <td
               :class="{
@@ -171,9 +200,9 @@
               {{ formatDuration(task.duration) }}
             </td>
             <td class="retake-count number-cell">
-              <span v-for="index in task.retake_count" :key="index">
+              <template v-for="index in task.retake_count" :key="index">
                 &bull;
-              </span>
+              </template>
             </td>
             <td class="start-date">
               <date-field
@@ -184,9 +213,9 @@
                 @update:model-value="updateStartDate"
                 v-if="isInDepartment(task) && selectionGrid[task.id]"
               />
-              <span v-else>
+              <template v-else>
                 {{ formatDate(task.start_date) }}
-              </span>
+              </template>
             </td>
             <td class="due-date">
               <date-field
@@ -197,9 +226,9 @@
                 @update:model-value="updateDueDate"
                 v-if="isInDepartment(task) && selectionGrid[task.id]"
               />
-              <span v-else>
+              <template v-else>
                 {{ formatDate(task.due_date) }}
-              </span>
+              </template>
             </td>
             <td class="real-start-date">
               {{ formatDate(task.real_start_date) }}
@@ -307,24 +336,7 @@
         </div>
       </div>
     </div>
-    <p class="has-text-centered nb-tasks" v-if="!isLoading">
-      {{ tasks.length }} {{ $tc('tasks.number', tasks.length) }} ({{
-        formatDuration(timeEstimated)
-      }}
-      {{
-        isDurationInHours()
-          ? $tc('main.hours_estimated', isTimeEstimatedPlural)
-          : $tc('main.days_estimated', isTimeEstimatedPlural)
-      }},
-      {{ formatDuration(timeSpent) }}
-      {{
-        isDurationInHours()
-          ? $tc('main.hours_spent', isTimeSpentPlural)
-          : $tc('main.days_spent', isTimeSpentPlural)
-      }}<span v-if="!isAssets"
-        >, {{ nbFrames }} {{ $tc('main.nb_frames', nbFrames) }}</span
-      >)
-    </p>
+    <task-list-numbers :is-shots="isShots" :tasks="tasks" v-if="!isLoading" />
   </div>
 </template>
 
@@ -349,6 +361,7 @@ import EntityPreview from '@/components/widgets/EntityPreview.vue'
 import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
 import PeopleAvatarWithMenu from '@/components/widgets/PeopleAvatarWithMenu.vue'
 import TableInfo from '@/components/widgets/TableInfo.vue'
+import TaskListNumbers from '@/components/widgets/TaskListNumbers.vue'
 import ValidationCell from '@/components/cells/ValidationCell.vue'
 import ValidationTag from '@/components/widgets/ValidationTag.vue'
 
@@ -370,6 +383,7 @@ export default {
     EntityThumbnail,
     PeopleAvatarWithMenu,
     TableInfo,
+    TaskListNumbers,
     ValidationCell,
     ValidationTag
   },
@@ -433,13 +447,14 @@ export default {
 
   computed: {
     ...mapGetters([
+      'isCurrentUserManager',
+      'isCurrentUserSupervisor',
+      'isPaperProduction',
       'nbSelectedTasks',
       'personMap',
       'user',
       'selectedTasks',
       'taskMap',
-      'isCurrentUserManager',
-      'isCurrentUserSupervisor',
       'taskTypeMap'
     ]),
 
@@ -477,33 +492,6 @@ export default {
 
     isShots() {
       return this.entityType === 'Shot'
-    },
-
-    timeSpent() {
-      return this.tasks.reduce((acc, task) => acc + task.duration, 0)
-    },
-
-    isTimeSpentPlural() {
-      return Math.floor((this.timeSpent ? this.timeSpent : 0) / 60 / 8) <= 1
-    },
-
-    timeEstimated() {
-      return this.tasks.reduce((acc, task) => acc + task.estimation, 0)
-    },
-
-    isTimeEstimatedPlural() {
-      return (
-        Math.floor((this.timeEstimated ? this.timeEstimated : 0) / 60 / 8) <= 1
-      )
-    },
-
-    nbFrames() {
-      let total = 0
-      this.tasks.forEach(task => {
-        const entity = this.shotMap.get(task.entity.id)
-        if (entity && entity.nb_frames) total += entity.nb_frames
-      })
-      return total
     },
 
     displayedTasks() {
@@ -591,7 +579,10 @@ export default {
         (data.due_date !== undefined && taskDue !== data.due_date) ||
         (data.estimation !== undefined &&
           task.estimation !== data.estimation) ||
-        (data.difficulty !== undefined && task.difficulty !== data.difficulty)
+        (data.difficulty !== undefined &&
+          task.difficulty !== data.difficulty) ||
+        (data.nb_drawings !== undefined &&
+          task.nb_drawings !== data.nb_drawings)
       )
     },
 
@@ -710,13 +701,16 @@ export default {
     },
 
     updateDifficulty(difficulty) {
-      this.updateTasksDifficulty({ difficulty })
+      this.updateTasksData({ difficulty })
     },
 
-    updateTasksDifficulty({ difficulty }) {
+    updateNbDrawings(nbDrawings) {
+      this.updateTasksData({ nb_drawings: nbDrawings })
+    },
+
+    updateTasksData(data) {
       Object.keys(this.selectionGrid).forEach(taskId => {
         const task = this.taskMap.get(taskId)
-        const data = { difficulty }
         if (this.isTaskChanged(task, data)) {
           this.updateTask({ taskId, data }).catch(console.error)
         }
@@ -737,6 +731,7 @@ export default {
     },
 
     onBodyScroll(event) {
+      if (!this.$refs.body) return
       const position = event.target
       const maxHeight =
         this.$refs.body.scrollHeight - this.$refs.body.offsetHeight
@@ -793,7 +788,7 @@ export default {
       }
 
       if (!event.shiftKey) {
-        if (isSelected && !isManySelection) {
+        if (isSelected) {
           this.removeSelectedTask({ task })
           this.selectionGrid[task.id] = undefined
         } else if (!isSelected || isManySelection) {
@@ -884,8 +879,11 @@ export default {
         this.$t('tasks.fields.done_date'),
         this.$t('tasks.fields.last_comment_date')
       ]
-      if (!this.isAssets) {
-        headers.splice(4, 0, 'Frames')
+      if (this.isShots) {
+        const value = !this.isPaperProduction
+          ? this.$t('tasks.fields.frames')
+          : this.$t('tasks.fields.drawings')
+        headers.splice(4, 0, value)
       }
       const taskLines = [headers]
       this.tasks.forEach(task => {
@@ -916,8 +914,10 @@ export default {
           this.formatDate(task.done_date),
           this.formatDate(task.last_comment_date)
         ]
-        if (!this.isAssets) {
-          const value = this.getEntity(task.entity.id).nb_frames
+        if (this.isShots) {
+          const value = !this.isPaperProduction
+            ? this.getEntity(task.entity.id).nb_frames
+            : task.nb_drawings || 0
           line.splice(4, 0, value)
         }
         taskLines.push(line)
@@ -965,6 +965,7 @@ export default {
 .status {
   min-width: 140px;
   width: 140px;
+  padding: 0;
 }
 
 .assignees {
@@ -1138,11 +1139,6 @@ td.retake-count {
 
   td.name {
     border-right: 1px solid var(--border);
-  }
-
-  td.status {
-    padding-left: 1em;
-    padding-right: 1em;
   }
 
   tr.task-line {

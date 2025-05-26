@@ -46,6 +46,7 @@ export default {
       'departmentMap',
       'editMap',
       'episodeMap',
+      'todoMap',
       'isCurrentUserAdmin',
       'isDataLoading',
       'isDarkTheme',
@@ -57,6 +58,7 @@ export default {
       'productionMap',
       'sequenceMap',
       'shotMap',
+      'taskComments',
       'taskMap',
       'taskStatusMap',
       'taskTypeMap',
@@ -94,6 +96,10 @@ export default {
     ]),
 
     onAssignation(eventData, assign = true) {
+      if (this.currentProduction?.id !== eventData.project_id) {
+        return
+      }
+
       const personId = eventData.person_id
       const selectedTaskIds = [eventData.task_id]
 
@@ -169,13 +175,19 @@ export default {
     events: {
       'project:new'(eventData) {
         if (!this.productionMap.get(eventData.project_id)) {
-          this.loadProduction(eventData.project_id)
+          this.loadProduction(eventData.project_id).catch(err => {
+            console.error(err)
+          })
         }
       },
 
       'project:update'(eventData) {
         if (this.productionMap.get(eventData.project_id)) {
-          this.loadProduction(eventData.project_id)
+          this.loadProduction(eventData.project_id).catch(err => {
+            this.$store.commit('REMOVE_PRODUCTION', {
+              id: eventData.project_id
+            })
+          })
         } else {
           this.loadOpenProductions()
         }
@@ -254,7 +266,7 @@ export default {
         if (
           !this.shotMap.get(eventData.shot_id) &&
           this.currentProduction?.id === eventData.project_id &&
-          (!this.isTVShow || this.currentEpisode.id === eventData.episode_id)
+          (!this.isTVShow || this.currentEpisode?.id === eventData.episode_id)
         ) {
           setTimeout(() => {
             this.loadShot(eventData.shot_id)
@@ -409,11 +421,19 @@ export default {
 
       'comment:new'(eventData) {
         const commentId = eventData.comment_id
-        if (
-          !this.isSavingCommentPreview &&
-          this.taskMap.get(eventData.task_id)
-        ) {
-          this.loadComment({ commentId }).catch(console.error)
+        const task = this.taskMap.get(eventData.task_id)
+        if (!this.isSavingCommentPreview && task) {
+          if (
+            this.taskComments[eventData.task_id] ||
+            this.todoMap.get(eventData.task_id)
+          ) {
+            this.loadComment({ commentId }).catch(console.error)
+          } else {
+            this.$store.commit('UPDATE_TASK', {
+              task,
+              taskStatusId: eventData.task_status_id
+            })
+          }
         }
       },
 
@@ -885,6 +905,18 @@ a:hover {
 
 .pa0 {
   padding: 0;
+}
+
+.pa02 {
+  padding: 0.2em;
+}
+
+.pa03 {
+  padding: 0.3em;
+}
+
+.pa05 {
+  padding: 0.5em;
 }
 
 .pa1 {
@@ -1907,7 +1939,7 @@ td.fps {
 }
 
 .modal-content p.is-danger {
-  color: #ff3860;
+  color: $red;
   font-style: italic;
   margin-bottom: 2em;
 }
@@ -2002,6 +2034,16 @@ td.fps {
 .empty-list {
   margin-top: 2em;
   font-size: 1.5em;
+}
+
+.list-error {
+  background-color: $red;
+  border-radius: 0.5em;
+  color: white;
+  font-size: 1.1em;
+  font-weight: bold;
+  margin: auto;
+  padding: 1em 2em;
 }
 
 .entity-thumbnail {

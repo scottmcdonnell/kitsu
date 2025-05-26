@@ -86,21 +86,21 @@
                   {{ formatPrioritySymbol(task.priority) }}
                 </span>
               </div>
-              <div class="infos flexrow">
-                <div class="filler">
-                  <div class="production-name">
-                    {{ productionMap.get(task.project_id)?.name }}
-                  </div>
+              <div class="infos">
+                <div class="production-name">
+                  {{ productionMap.get(task.project_id)?.name }}
+                </div>
+                <div class="entity flexrow">
                   <div class="entity-name">
                     {{ task.full_entity_name }}
                   </div>
+                  <task-type-name
+                    class="task-type-name"
+                    rounded
+                    :task-id="task.id"
+                    :task-type="getTaskType(task)"
+                  />
                 </div>
-                <task-type-name
-                  class="task-type-name"
-                  rounded
-                  :task-id="task.id"
-                  :task-type="getTaskType(task)"
-                />
               </div>
             </div>
           </li>
@@ -245,10 +245,10 @@ export default {
     },
 
     checkStatusIsAllowed(taskStatus, task) {
-      return (
+      return Boolean(
         this.production ||
-        !task ||
-        taskStatus.productions.includes(task.project_id)
+          !task ||
+          taskStatus.productions.includes(task.project_id)
       )
     },
 
@@ -351,10 +351,12 @@ export default {
     },
 
     onCardDragEnter(event, taskStatus) {
-      const isAllowed = this.checkUserIsAllowed(taskStatus, this.user)
-      if (isAllowed) {
-        event.currentTarget.classList.add('droppable')
+      const isAllowed =
+        this.draggedTask && this.checkUserIsAllowed(taskStatus, this.user)
+      if (!isAllowed) {
+        return
       }
+      event.currentTarget.classList.add('droppable')
     },
 
     onCardDragOver(event) {
@@ -369,6 +371,7 @@ export default {
       event.currentTarget.classList.remove('droppable')
 
       const isAllowed =
+        this.draggedTask &&
         this.checkUserIsAllowed(taskStatus, this.user) &&
         this.checkStatusIsAllowed(taskStatus, this.draggedTask)
       if (!isAllowed) {
@@ -587,6 +590,12 @@ export default {
 
 .infos {
   padding: 0.5em;
+  word-break: break-word;
+
+  .entity {
+    gap: 10px;
+    justify-content: space-between;
+  }
 
   .production-name {
     color: var(--text);
@@ -602,6 +611,11 @@ export default {
 
   .task-type-name {
     cursor: inherit;
+    display: inline-block;
+    line-height: 25px;
+    max-width: 50%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 </style>

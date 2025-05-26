@@ -956,7 +956,8 @@ export default {
         .sort((a, b) => b.revision - a.revision)
         .map(preview => ({
           value: preview.id,
-          label: `v${preview.revision}`
+          label: `v${preview.revision}`,
+          validation_status: preview.validation_status
         }))
     },
 
@@ -1186,7 +1187,6 @@ export default {
     pause() {
       if (this.isPlaying) {
         this.isPlaying = false
-
         if (this.is3DModel) {
           this.previewViewer.pauseModelAnimation()
         } else {
@@ -2322,7 +2322,7 @@ export default {
 .buttons .button {
   background: $dark-grey-2;
   border-radius: 0;
-  color: #bbb;
+  color: $light-grey-2;
   border: 0;
   margin: 0;
   transition: all 0.3s ease;

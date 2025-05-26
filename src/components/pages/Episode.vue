@@ -47,6 +47,7 @@
               <div class="flexrow-item has-text-right">
                 <button-simple
                   icon="edit"
+                  :title="$t('episodes.edit_title')"
                   @click="modals.edit = true"
                   v-if="isCurrentUserManager"
                 />
@@ -325,8 +326,7 @@ export default {
         edit: false
       },
       modals: {
-        edit: false,
-        preview: false
+        edit: false
       }
     }
   },
@@ -429,7 +429,7 @@ export default {
       const episode = episodeStore.cache.episodeMap.get(episodeId) || null
       if (!episode || !episode.validations) {
         await this.loadEpisodesWithTasks()
-        const episode = episodeStore.episodeMap.get(episodeId) || null
+        const episode = episodeStore.cache.episodeMap.get(episodeId) || null
         return episode
       } else {
         return episode

@@ -155,7 +155,7 @@
             :task="task"
             :is-preview="false"
             :silent="isCommentsHidden"
-            :current-time-raw="currentTimeRaw - frameDuration"
+            :current-frame="parseInt(currentFrame) - 1"
             :current-parent-preview="currentPreview"
             @time-code-clicked="onTimeCodeClicked"
             v-show="!isCommentsHidden"
@@ -359,7 +359,7 @@
               <div class="annotation-tools" v-show="isTyping">
                 <color-picker
                   :color="textColor"
-                  @toggle-palette="onPickColor"
+                  @toggle-palette="onPickTextColor"
                   @change="onChangeTextColor"
                 />
               </div>
@@ -380,14 +380,14 @@
                 <pencil-picker
                   :pencil="pencil"
                   :sizes="pencilPalette"
-                  @toggle-palette="onPickPencil"
-                  @change="onChangePencil"
+                  @toggle-palette="onPickPencilWidth"
+                  @change="onChangePencilWidth"
                 />
 
                 <color-picker
                   :color="color"
-                  @toggle-palette="onPickColor"
-                  @change="onChangeColor"
+                  @toggle-palette="onPickPencilColor"
+                  @change="onChangePencilColor"
                 />
               </div>
             </transition>
@@ -482,6 +482,7 @@
                   <div class="flexrow-item has-text-right">
                     <button-simple
                       icon="edit"
+                      :title="$t('edits.edit_title')"
                       @click="modals.edit = true"
                       v-if="isCurrentUserManager"
                     />
@@ -785,7 +786,7 @@ export default {
           this.$refs['video-container'].style.height = `${height}px`
         }
         if (!this.isCommentsHidden && this.$refs['task-info']) {
-          this.$refs['task-info'].$el.style.height = `${height}px`
+          this.$refs['task-info'].$el.style.height = `${height + 66}px`
         }
         if (this.rawPlayer) this.rawPlayer.resetHeight(height)
         this.$nextTick(() => {

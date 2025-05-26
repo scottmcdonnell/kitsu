@@ -1,7 +1,6 @@
 <template>
   <div class="mt1 flexcolumn wrapper preview-files">
     <div class="buttons flexrow mb1">
-      <span class="filler"></span>
       <button-simple
         class="flexrow-item"
         icon="grid"
@@ -16,7 +15,7 @@
     <div v-else-if="previewFiles.length > 0 && !isLoading">
       <div class="contact-sheet flexcolumn" v-if="contactSheetMode">
         <div
-          :key="'task-type-group-' + index"
+          :key="`task-type-group-${index}`"
           v-for="(taskTypePreviewFiles, index) in taskTypePreviewFileGroups"
         >
           <div class="flexrow-item mb1">
@@ -175,8 +174,7 @@ export default {
     if (!this.entity) return
     this.reset()
     this.contactSheetMode = preferences.getBoolPreference(
-      'entity:preview-files-contact-sheet',
-      false
+      'entity:preview-files-contact-sheet'
     )
   },
 
@@ -204,16 +202,6 @@ export default {
 
   methods: {
     ...mapActions(['getEntityPreviewFiles']),
-
-    getPreviewValidationStyle(previewFile) {
-      let color = '#AAA'
-      if (previewFile.validation_status === 'validated') {
-        color = '#67BE48' // green
-      } else if (previewFile.validation_status === 'rejected') {
-        color = '#FF3860' // red
-      }
-      return { background: color }
-    },
 
     getTaskType(previewFile) {
       const task = this.taskMap.get(previewFile.task_id)
@@ -302,6 +290,7 @@ td.type {
 }
 .date {
   width: 80px;
+  white-space: nowrap;
 }
 
 .original-name {
@@ -328,6 +317,7 @@ td.type {
 }
 
 .preview-files {
+  margin-top: 0;
   flex: 1;
 }
 

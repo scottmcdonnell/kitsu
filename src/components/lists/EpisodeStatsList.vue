@@ -51,6 +51,7 @@
               :colors="chartColors('all', 'all')"
               :data="chartData('all', 'all')"
               :frames-data="chartData('all', 'all', 'frames')"
+              :drawings-data="chartData('all', 'all', 'drawings')"
               :count-mode="countMode"
               :display-mode="displayMode"
             />
@@ -61,6 +62,7 @@
               :colors="chartColors('all', columnId)"
               :data="chartData('all', columnId)"
               :frames-data="chartData('all', columnId, 'frames')"
+              :drawings-data="chartData('all', columnId, 'drawings')"
               :count-mode="countMode"
               :display-mode="displayMode"
               v-for="columnId in validationColumns"
@@ -88,6 +90,7 @@
                 :colors="chartColors(entry.id, 'all')"
                 :data="chartData(entry.id, 'all')"
                 :frames-data="chartData(entry.id, 'all', 'frames')"
+                :drawings-data="chartData(entry.id, 'all', 'drawings')"
                 :count-mode="countMode"
                 :display-mode="displayMode"
                 v-if="isStats(entry.id, 'all')"
@@ -101,6 +104,7 @@
                   :colors="chartColors(entry.id, columnId)"
                   :data="chartData(entry.id, columnId)"
                   :frames-data="chartData(entry.id, columnId, 'frames')"
+                  :drawings-data="chartData(entry.id, columnId, 'drawings')"
                   :count-mode="countMode"
                   :display-mode="displayMode"
                   :label="chartLabel(entry.id, columnId)"
@@ -137,6 +141,9 @@
                     :frames-data="
                       chartTakeData(entry.id, columnId, takeNumber, 'frames')
                     "
+                    :drawings-data="
+                      chartTakeData(entry.id, columnId, takeNumber, 'drawings')
+                    "
                     :count-mode="countMode"
                     :display-mode="displayMode"
                     v-if="
@@ -150,6 +157,7 @@
                     :colors="chartColors(entry.id, columnId)"
                     :data="chartData(entry.id, columnId)"
                     :frames-data="chartData(entry.id, columnId, 'frames')"
+                    :drawings-data="chartData(entry.id, columnId, 'drawings')"
                     :count-mode="countMode"
                     :display-mode="displayMode"
                     v-else-if="
@@ -157,6 +165,7 @@
                       chartRetakeMaxCount(entry.id, columnId) + 1 === takeNumber
                     "
                   />
+
                   <td
                     :key="takeNumber + entry.id + columnId"
                     :style="getValidationStyle(columnId)"

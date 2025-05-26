@@ -485,7 +485,7 @@ export const playerMixin = {
     },
 
     pause() {
-      this.showCanvas()
+      this.resetCanvasVisibility()
 
       if (this.isFullMode) {
         this.fullPlayer.pause()
@@ -543,7 +543,7 @@ export const playerMixin = {
                 this.playlistProgress = entity.start_duration
               }
             }
-            this.showCanvas()
+            this.resetCanvasVisibility()
           }
         })
       } else {
@@ -817,6 +817,7 @@ export const playerMixin = {
         this.pauseClicked()
         const annotation = this.getAnnotation(this.rawPlayer.getCurrentTime())
         if (annotation) this.loadAnnotation(annotation)
+        this.updateRoomStatus()
       }
     },
 
@@ -1116,8 +1117,6 @@ export const playerMixin = {
       )
       this.currentTime = this.formatTime(this.currentTimeRaw, this.fps)
       this.updateProgressBar()
-      const actions = this.onNextTimeUpdateActions
-      actions.forEach(action => action())
       if (this.isShowAnnotationsWhilePlaying) {
         const annotation = this.getAnnotation(this.currentTimeRaw)
         if (annotation) {
@@ -1141,7 +1140,11 @@ export const playerMixin = {
           this.onPlayNext()
         }
       }
-      this.onNextTimeUpdateActions = []
+      this.$nextTick(() => {
+        const actions = this.onNextTimeUpdateActions
+        actions.forEach(action => action())
+        this.onNextTimeUpdateActions = []
+      })
     },
 
     onMaxDurationUpdate(duration) {
@@ -1456,7 +1459,7 @@ export const playerMixin = {
       if (!this.currentPreview) return Promise.resolve()
       this.annotations = this.currentPreview.annotations || []
       return this.resetCanvas().then(() => {
-        this.showCanvas()
+        this.resetCanvasVisibility()
         if (this.isCurrentPreviewPicture) {
           if (!this.isPlaying) this.loadAnnotation(this.getAnnotation(0))
         }
@@ -1544,7 +1547,6 @@ export const playerMixin = {
         const filename = `annotation ${index}.png`
         const frameNumber =
           roundToFrame(annotation.time, this.fps) / this.frameDuration
-        console.log('exctaing frame', frameNumber)
         await this.extractVideoFrame(canvas, frameNumber)
         await this.copyAnnotationCanvas(canvas, annotation)
         const file = await this.getFileFromCanvas(canvas, filename)

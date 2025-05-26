@@ -105,8 +105,6 @@ export default {
       countMode: 'count',
       dataMode: 'retakes',
       displayMode: 'pie',
-      episodeToDelete: null,
-      episodeToEdit: null,
       isLoading: true,
       isLoadingError: false,
       statusMode: 'running',
@@ -125,23 +123,12 @@ export default {
       statusModeOptions: [
         { label: 'only_running', value: 'running' },
         { label: 'all', value: 'all' }
-      ],
-      errors: {
-        edit: false,
-        del: false
-      },
-      modals: {
-        isNewDisplayed: false,
-        isDeleteDisplayed: false
-      },
-      loading: {
-        edit: false,
-        del: false
-      }
+      ]
     }
   },
 
   mounted() {
+    this.setCountOptions()
     const mode = preferences.getPreference('stats:episode-mode') || 'retakes'
     this.dataMode = mode
     this.setDefaultListScrollPosition()
@@ -165,16 +152,13 @@ export default {
     ...mapGetters([
       'currentProduction',
       'displayedEpisodes',
-      'episodesPath',
-      'isCurrentUserManager',
-      'episodes',
       'episodeMap',
-      'episodePath',
       'episodeStats',
       'episodeRetakeStats',
       'episodeSearchText',
       'episodeListScrollPosition',
       'episodeValidationColumns',
+      'isPaperProduction',
       'taskStatusMap',
       'taskTypeMap'
     ]),
@@ -190,18 +174,28 @@ export default {
 
   methods: {
     ...mapActions([
-      'deleteEpisode',
       'editEpisode',
-      'hideAssignations',
       'initEpisodeStats',
       'loadEpisodeStats',
       'loadEpisodeRetakeStats',
-      'loadShots',
-      'setLastProductionScreen',
       'setEpisodeSearch',
-      'setEpisodeListScrollPosition',
-      'showAssignations'
+      'setEpisodeListScrollPosition'
     ]),
+
+    setCountOptions() {
+      if (this.isPaperProduction) {
+        this.countModeOptions = [
+          { label: 'shots', value: 'count' },
+          { label: 'drawings', value: 'drawings' }
+        ]
+      } else {
+        this.countModeOptions = [
+          { label: 'shots', value: 'count' },
+          { label: 'frames', value: 'frames' }
+        ]
+      }
+      this.countMode = this.countModeOptions[0].value
+    },
 
     setDefaultListScrollPosition() {
       this.$refs['episode-list'].setScrollPosition(
@@ -260,6 +254,7 @@ export default {
     reset() {
       this.isLoading = true
       this.isLoadingError = false
+      this.setCountOptions()
       this.loadEpisodeStats(this.currentProduction.id)
         .then(() => {
           return this.loadEpisodeRetakeStats(this.currentProduction.id)

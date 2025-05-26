@@ -31,7 +31,8 @@ export const applyFilters = (entries, filters, taskMap) => {
       filters.forEach(filter => {
         if (isOk === false && !filters.union) return false
         if (isOk === true && filters.union) return true
-        isOk = applyFiltersFunctions[filter.type](entry, filter, taskMap)
+        isOk =
+          applyFiltersFunctions[filter.type](entry, filter, taskMap) || false
       })
       return isOk
     })
@@ -138,6 +139,7 @@ const applyFiltersFunctions = {
     const task = taskMap.get(entry.validations.get(filter.taskType.id))
     let isOk = true
     isOk = task && filter.taskStatuses.includes(task.task_status_id)
+    isOk = isOk || false
     if (filter.excluding) isOk = !isOk
     return isOk
   },
@@ -189,11 +191,19 @@ const applyFiltersFunctions = {
 /**
  * Extract keywords from a given text. Remove equality and exclusion
  * expressions.
+ * Replace spaces inside quotes with '\u00A0' to allow searching for names containing spaces
+ *    (e.g., "my sequence" becomes "my\u00A0sequence")
+ * The '\u00A0' will be removed after splitting on spaces
  */
 export const getKeyWords = queryText => {
   if (!queryText) {
     return []
   } else {
+    queryText = queryText.trim()
+    queryText = queryText.replace(/"([^"]*)"/g, (match, p1) => {
+      return '"' + p1.replace(/ /g, '\u00A0') + '"'
+    })
+
     return queryText
       .replace(UNION_REGEX, '')
       .replace(EQUAL_PRIORITY_REGEX, '')
@@ -201,6 +211,16 @@ export const getKeyWords = queryText => {
       .replace(EQUAL_REGEX, '')
       .replace(MULTIPLE_REGEX, '')
       .split(' ')
+      .map(query => query.replace(/\u00A0/g, ' '))
+      .map(query => {
+        if (query[0] === '"') {
+          query = query.substring(1)
+        }
+        if (query[query.length - 1] === '"') {
+          query = query.substring(0, query.length - 1)
+        }
+        return query.trim()
+      })
       .filter(query => {
         return query.length > 0 && query[0] !== '-' && query !== 'withthumbnail'
       })

@@ -67,10 +67,12 @@
         icon="plus"
         :text="addEntitiesText"
         @click="$emit('show-add-entities')"
-        v-if="
-          (isCurrentUserManager || isCurrentUserSupervisor) &&
-          !isAddingEntity &&
-          !isFullMode
+        :active="
+          !(
+            (isCurrentUserManager || isCurrentUserSupervisor) &&
+            !isAddingEntity &&
+            !isFullMode
+          )
         "
       />
       <button-simple
@@ -154,7 +156,7 @@
             :full-screen="fullScreen"
             :light="false"
             :margin-bottom="0"
-            :panzoom="false"
+            :panzoom="true"
             :preview="currentPreviewToCompare"
             :is-comparing="isComparing"
             high-quality
@@ -192,10 +194,12 @@
           :is-repeating="isRepeating"
           :current-preview-index="currentPreviewIndex"
           :muted="isMuted"
+          :panzoom="true"
           @entity-change="onPlayerPlayingEntityChange"
           @frame-update="onRawPlayerFrameUpdate"
           @max-duration-update="onMaxDurationUpdate"
           @metadata-loaded="onMetadataLoaded"
+          @panzoom-changed="onPanZoomChanged"
           @play-next="onPlayNext"
           @repeat="onVideoRepeated"
           @video-loaded="onVideoLoaded"
@@ -264,12 +268,13 @@
             :full-screen="fullScreen"
             :light="false"
             :margin-bottom="0"
-            :panzoom="false"
+            :panzoom="true"
             :current-preview="{
               ...currentPreview,
               position: currentPreviewIndex + 1
             }"
             :previews="picturePreviews"
+            @panzoom-changed="onPanZoomChanged"
             high-qualiy
           />
         </div>
@@ -326,7 +331,11 @@
       :is-full-screen="fullScreen || isEntitiesHidden"
       :movie-dimensions="movieDimensions"
       :nb-frames="
-        isCurrentPreviewMovie ? nbFrames : isCurrentPreviewPicture ? 48 : 0
+        isCurrentPreviewMovie
+          ? nbFrames
+          : isCurrentPreviewPicture && currentEntity.preview_nb_frames
+            ? currentEntity.preview_nb_frames
+            : Math.round(2 * fps)
       "
       :handle-in="playlist.for_entity === 'shot' ? handleIn : -1"
       :handle-out="playlist.for_entity === 'shot' ? handleOut : -1"
@@ -453,11 +462,24 @@
 
       <div class="separator"></div>
 
-      <template v-if="isCurrentPreviewPicture">
-        {{ (framesSeenOfPicture + '').padStart(2, '0') }} / 48
-      </template>
+      <div
+        class="flexrow-item"
+        :title="$t('playlists.actions.frame_number')"
+        v-if="isCurrentPreviewPicture"
+      >
+        {{ (framesSeenOfPicture + '').padStart(2, '0') }} /
+        {{
+          currentEntity.preview_nb_frames
+            ? currentEntity.preview_nb_frames
+            : Math.round(2 * fps)
+        }}
+      </div>
 
-      <div class="flexrow flexrow-item" v-if="currentEntityPreviewLength > 1">
+      <div
+        class="flexrow flexrow-item"
+        :class="{ mr0: isCurrentPreviewPicture }"
+        v-if="currentEntityPreviewLength > 1"
+      >
         <button-simple
           class="button playlist-button flexrow-item"
           icon="left"
@@ -483,7 +505,7 @@
         >
           <arrow-up-right-icon class="icon is-small" />
         </a>
-        <div class="separator"></div>
+        <div class="separator" v-if="!isCurrentPreviewPicture"></div>
       </div>
 
       <div
@@ -684,6 +706,14 @@
             (isCurrentUserManager || isCurrentUserSupervisor) && !isAddingEntity
           "
           @click="isAnnotationsDisplayed = !isAnnotationsDisplayed"
+        />
+        <button-simple
+          class="playlist-button flexrow-item"
+          :active="isZoomEnabled"
+          icon="loupe"
+          :title="$t('playlists.actions.annotation_zoom_pan')"
+          @click="isZoomEnabled = !isZoomEnabled"
+          v-if="isCurrentPreviewMovie || isCurrentPreviewPicture"
         />
         <transition name="slide">
           <div class="annotation-tools" v-show="isTyping">
@@ -966,13 +996,13 @@ import {
   PlayIcon
 } from 'lucide-vue-next'
 import moment from 'moment-timezone'
+import { v4 as uuidv4 } from 'uuid'
 import WaveSurfer from 'wavesurfer.js'
 
 import { defineAsyncComponent } from 'vue'
 import { mapActions, mapGetters } from 'vuex'
 
 import { formatFrame } from '@/lib/video'
-import { DEFAULT_NB_FRAMES_PICTURE } from '@/lib/playlist'
 
 import { annotationMixin } from '@/components/mixins/annotation'
 import { domMixin } from '@/components/mixins/dom'
@@ -1090,6 +1120,7 @@ export default {
       isShowAnnotationsWhilePlaying: false,
       isWaveformDisplayed: false,
       isWireframe: false,
+      isZoomEnabled: false,
       movieDimensions: { width: 0, height: 0 },
       objectBackgroundUrl: null,
       pictureDefaultHeight: 0,
@@ -1141,6 +1172,7 @@ export default {
     }
     this.resetPlaylistFrameData()
     this.room.id = this.playlist.id
+    this.room.localId = uuidv4()
     this.$nextTick(() => {
       this.configureEvents()
       this.setupFabricCanvas()
@@ -1459,6 +1491,7 @@ export default {
 
     entityListClicked(entityIndex) {
       this.playEntity(entityIndex)
+      this.currentPreviewIndex = 0
       this.updateRoomStatus()
     },
 
@@ -1473,6 +1506,15 @@ export default {
     },
 
     onPlayPreviousEntityClicked() {
+      const index = this.currentPreviewIndex
+      if (index > 0) {
+        this.onPreviousPreviewClicked()
+      } else {
+        this.onPlayPreviousEntity()
+      }
+    },
+
+    onPlayPreviousEntity() {
       this.clearFocus()
       this.playEntity(this.previousEntityIndex)
       this.sendUpdatePlayingStatus()
@@ -1485,8 +1527,12 @@ export default {
     },
 
     onPlayNextEntityClicked() {
-      this.onPlayNextEntity()
-      this.sendUpdatePlayingStatus()
+      const index = this.currentPreviewIndex
+      if (index < this.currentEntityPreviewLength - 1) {
+        this.onNextPreviewClicked()
+      } else {
+        this.onPlayNextEntity()
+      }
     },
 
     onPlayNext() {
@@ -1564,7 +1610,9 @@ export default {
           width: this.currentPreview.width,
           height: this.currentPreview.height
         }
-        this.loadAnnotation(this.getAnnotation(0))
+        if (!this.isPlaying) {
+          this.loadAnnotation(this.getAnnotation(0))
+        }
       }
     },
 
@@ -1587,6 +1635,13 @@ export default {
     },
 
     onPreviewChanged(entity, previewFile) {
+      if (!previewFile) return
+      this.currentPreviewIndex = 0
+      this.changePreviewFile(entity, previewFile)
+      this.updateRoomStatus()
+    },
+
+    changePreviewFile(entity, previewFile) {
       this.pause()
       const localEntity = this.entityList.find(s => s.id === entity.id)
       localEntity.preview_file_id = previewFile.id
@@ -1833,7 +1888,7 @@ export default {
           }
           return {
             preview_file_id: preview.id,
-            preview_file_extension: 'mp4'
+            preview_file_extension: preview.extension
           }
         })
       } else {
@@ -1993,11 +2048,11 @@ export default {
     onRevisionToCompareChanged() {
       if (this.isComparing) {
         this.rebuildEntityListToCompare()
-        this.updateRoomStatus()
         this.$nextTick(() => {
           this.pause()
           this.rawPlayerComparison.loadEntity(this.playingEntityIndex)
           this.rawPlayerComparison.setCurrentTimeRaw(this.currentTimeRaw)
+          this.updateRoomStatus()
         })
       }
     },
@@ -2038,6 +2093,8 @@ export default {
     },
 
     configureWaveForm() {
+      const element = document.getElementById('waveform')
+      if (!element) return
       try {
         this.wavesurfer = WaveSurfer.create({
           container: '#waveform',
@@ -2056,7 +2113,7 @@ export default {
     },
 
     loadWaveForm() {
-      if (this.isWaveformDisplayed) {
+      if (this.isWaveformDisplayed && this.isCurrentPreviewMovie) {
         this.wavesurfer.load(this.rawPlayer.currentPlayer)
       }
     },
@@ -2075,7 +2132,7 @@ export default {
     resetHandles(entity) {
       if (this.playlist.for_entity === 'shot') {
         entity = entity || this.currentEntity
-        const shot = this.shotMap.get(entity.id)
+        const shot = this.shotMap.get(entity?.id)
         this.handleIn = shot?.data?.handle_in || 0
         this.handleOut = shot?.data?.handle_out || this.nbFrames
       }
@@ -2086,7 +2143,7 @@ export default {
       let currentFrame = 0
       this.entityList.forEach((entity, index) => {
         const defaultNbFrames =
-          entity.preview_nb_frames || DEFAULT_NB_FRAMES_PICTURE
+          entity.preview_nb_frames || 2 * this.fps * this.frameDuration
         this.framesPerImage[index] = defaultNbFrames
         const nbFrames =
           Math.round((entity.preview_file_duration || 0) * this.fps) ||
@@ -2125,10 +2182,111 @@ export default {
 
     onEntityDragStart(event, entity) {
       event.dataTransfer.setData('entityId', entity.id)
+    },
+
+    resumePanZoom() {
+      if (this.isCurrentPreviewMovie) {
+        this.rawPlayer.resumePanZoom()
+      } else if (this.isCurrentPreviewPicture) {
+        this.picturePlayer.resumePanZoom()
+      }
+    },
+
+    pausePanZoom() {
+      if (this.isCurrentPreviewMovie) {
+        this.rawPlayer.pausePanZoom()
+      } else if (this.isCurrentPreviewPicture) {
+        this.picturePlayer.pausePanZoom()
+      }
+    },
+
+    resetPanZoom() {
+      if (this.isCurrentPreviewMovie) {
+        this.rawPlayer.resetPanZoom()
+      } else if (this.isCurrentPreviewPicture) {
+        this.picturePlayer.resetPanZoom()
+      }
+    },
+
+    setPanZoom(x, y, scale) {
+      if (this.isCurrentPreviewMovie) {
+        this.rawPlayer.setPanZoom(x, y, scale)
+      } else if (this.isCurrentPreviewPicture) {
+        this.picturePlayer.setPanZoom(x, y, scale)
+      }
+    },
+
+    onPanZoomChanged({ x, y, scale }) {
+      this.postPanZoomChanged(x, y, scale)
     }
   },
 
   watch: {
+    isAnnotationsDisplayed() {
+      this.$options.isRoomSilent = true
+      if (this.isAnnotationsDisplayed && this.isZoomEnabled) {
+        this.isZoomEnabled = false
+      }
+      if (!this.isAnnotationsDisplayed) {
+        if (this.isDrawing) {
+          this.onAnnotateClicked()
+        } else if (this.isTyping) {
+          this.onTypeClicked()
+        }
+      }
+      this.$options.isRoomSilent = false
+      this.resetCanvasVisibility()
+      if (!this.$options.isRoomSilent) {
+        this.updateRoomStatus()
+      }
+    },
+
+    isDrawing() {
+      if (this.isDrawing && this.isZoomEnabled) {
+        this.isZoomEnabled = false
+      }
+      if (!this.isDrawing && this.isLaserModeOn) {
+        this.isLaserModeOn = false
+      }
+      if (this.isDrawing && !this.isAnnotationsDisplayed) {
+        this.isAnnotationsDisplayed = true
+      }
+    },
+
+    isTyping() {
+      if (this.isTyping && this.isZoomEnabled) {
+        this.isZoomEnabled = false
+      }
+      if (!this.isAnnotationsDisplayed) {
+        this.isAnnotationsDisplayed = true
+      }
+    },
+
+    isZoomEnabled() {
+      if (this.isZoomEnabled) {
+        this.resumePanZoom()
+        this.silentRoom = true
+        if (this.isDrawing) {
+          this.onAnnotateClicked()
+        } else if (this.isTyping) {
+          this.onTypeClicked()
+        }
+        this.$nextTick(() => {
+          if (this.isAnnotationsDisplayed) {
+            this.isAnnotationsDisplayed = false
+          }
+          this.resetCanvasVisibility()
+        })
+        this.silentRoom = false
+      } else {
+        this.pausePanZoom()
+        this.resetPanZoom()
+      }
+      this.$nextTick(() => {
+        this.updateRoomStatus()
+      })
+    },
+
     'objectModel.currentAnimation'() {
       if (this.isCurrentPreviewModel && this.objectModel.isAnimation) {
         this.playModel()
@@ -2159,6 +2317,7 @@ export default {
         }
       })
       if (this.currentPreview) {
+        this.resetPanZoom()
         this.movieDimensions = {
           width: this.currentPreview.width,
           height: this.currentPreview.height
@@ -2198,6 +2357,8 @@ export default {
           } else {
             this.resetCanvas()
           }
+          this.resetPanZoom()
+          this.resetCanvasVisibility()
         })
       })
     },
@@ -2218,6 +2379,7 @@ export default {
         this.pause()
         this.resetComparison()
         this.rebuildEntityListToCompare()
+        this.rebuildComparisonOptions()
       }
       this.$nextTick().then(() => {
         this.triggerResize()
@@ -2270,9 +2432,17 @@ export default {
       })
     },
 
-    playlist() {
+    playlist(newPlaylist, oldPlaylist) {
+      if (oldPlaylist) {
+        if (this.room && this.room.people.includes(this.user.id)) {
+          this.leaveRoom()
+        }
+        this.closeRoom(oldPlaylist.id)
+      }
       this.endAnnotationSaving()
       this.room.id = this.playlist.id
+      this.room.localId = uuidv4()
+      this.openRoom(newPlaylist.id)
       this.forClient = Boolean(this.playlist.for_client).toString()
       this.$nextTick(() => {
         this.updateProgressBar()
@@ -2313,9 +2483,15 @@ export default {
         this.resetHeight()
         this.loadWaveForm()
       }
+      this.$nextTick(() => {
+        this.updateRoomStatus()
+      })
     },
 
     isLaserModeOn() {
+      if (!this.isDrawing && this.isLaserModeOn) {
+        this.onAnnotateClicked()
+      }
       this.updateRoomStatus()
     },
 

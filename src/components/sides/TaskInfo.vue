@@ -160,7 +160,6 @@
               <div>
                 <add-comment
                   ref="add-comment"
-                  :user="user"
                   :team="currentTeam"
                   :task-types="currentTaskTypes"
                   :task="task"
@@ -205,10 +204,16 @@
                         isCurrentUserManager
                       "
                       :is-editable="
-                        user.id === comment.person?.id || isCurrentUserAdmin
+                        user.id === comment.person?.id || isCurrentUserManager
                       "
                       :is-pinnable="
                         isDepartmentSupervisor || isCurrentUserManager
+                      "
+                      :is-replyable="
+                        user.id === comment.person?.id ||
+                        isAssigned ||
+                        isDepartmentSupervisor ||
+                        isCurrentUserManager
                       "
                       :revision="currentRevision"
                       :task="task"
@@ -500,8 +505,10 @@ export default {
 
   mounted() {
     if (this.sideColumnParent) {
-      const panelWidth =
-        preferences.getIntPreference('task:panel-width') || DEFAULT_PANEL_WIDTH
+      const panelWidth = preferences.getIntPreference(
+        'task:panel-width',
+        DEFAULT_PANEL_WIDTH
+      )
       this.setWidth(panelWidth)
       this.refreshPreviewPlay()
     }
@@ -519,7 +526,6 @@ export default {
       'getTaskComments',
       'getTaskPreviews',
       'getTaskStatusForCurrentUser',
-      'isCurrentUserAdmin',
       'isCurrentUserArtist',
       'isCurrentUserClient',
       'isCurrentUserManager',
@@ -811,7 +817,8 @@ export default {
         .sort((a, b) => b.revision - a.revision)
         .map(preview => ({
           value: preview.id,
-          label: `v${preview.revision}`
+          label: `v${preview.revision}`,
+          validation_status: preview.validation_status
         }))
     },
 
@@ -978,14 +985,15 @@ export default {
 
     createExtraPreview(forms) {
       this.selectFile(forms)
-
-      const index = this.currentPreviewIndex
       this.errors.addExtraPreview = false
       this.loading.addExtraPreview = true
+      const comment = this.taskComments.find(comment =>
+        comment.previews.find(preview => preview.id === this.currentPreviewId)
+      )
       this.addCommentExtraPreview({
         taskId: this.task.id,
-        commentId: this.taskComments[0].id,
-        previewId: this.taskPreviews[index].id
+        commentId: comment?.id,
+        previewId: this.currentPreviewId
       })
         .then(() => {
           this.loading.addExtraPreview = false
@@ -1263,8 +1271,8 @@ export default {
         this.taskPreviews.find(p => p.revision === parseInt(versionRevision))
       )
       setTimeout(() => {
-        this.$refs['preview-player'].setCurrentFrame(frame)
-        this.$refs['preview-player'].focus()
+        this.$refs['preview-player']?.setCurrentFrame(frame)
+        this.$refs['preview-player']?.focus()
       }, 20)
     },
 

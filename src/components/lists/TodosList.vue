@@ -78,9 +78,8 @@
         <tbody class="datatable-body" v-if="tasks.length > 0">
           <tr
             :key="entry + '-' + i"
+            class="datatable-row datatable-row--selectable"
             :class="{
-              'datatable-row': true,
-              'datatable-row--selectable': true,
               selected: selectionGrid[entry.id]
             }"
             @click="selectTask($event, i, entry)"
@@ -94,6 +93,7 @@
                 :is-tooltip="true"
                 :entry="productionMap.get(entry.project_id)"
                 :only-avatar="true"
+                :is-link="false"
               />
             </td>
             <task-type-cell
@@ -101,6 +101,7 @@
               :production-id="entry.project_id"
               :task-type="getTaskType(entry)"
               :style="{ left: colTypePosX }"
+              :is-link="false"
             />
             <td
               class="name datatable-row-header"
@@ -155,9 +156,8 @@
               </template>
             </td>
             <td
+              class="duration number-cell"
               :class="{
-                duration: true,
-                'number-cell': true,
                 error: isEstimationBurned(entry)
               }"
             >
@@ -307,7 +307,6 @@ import { selectionListMixin } from '@/components/mixins/selection'
 import { formatListMixin } from '@/components/mixins/format'
 import { descriptorMixin } from '@/components/mixins/descriptors'
 
-import { PAGE_SIZE } from '@/lib/pagination'
 import { sortPeople } from '@/lib/sorting'
 import {
   daysToMinutes,
@@ -384,7 +383,6 @@ export default {
 
   data() {
     return {
-      page: 1,
       colTypePosX: '',
       colNamePosX: '',
       lastSelection: null,
@@ -394,7 +392,6 @@ export default {
   },
 
   mounted() {
-    this.page = 1
     this.resizeHeaders()
     window.addEventListener('keydown', this.onKeyDown, false)
     this.colTypePosX = this.$refs['th-prod'].offsetWidth + 'px'
@@ -422,7 +419,7 @@ export default {
     ]),
 
     displayedTasks() {
-      return this.tasks.slice(0, this.page * PAGE_SIZE)
+      return this.tasks
     },
 
     isDescriptionPresent() {
@@ -537,13 +534,9 @@ export default {
     },
 
     onBodyScroll(event) {
+      if (!this.$refs.body) return
       const position = event.target
       this.$emit('scroll', position.scrollTop)
-      const maxHeight =
-        this.$refs.body.scrollHeight - this.$refs.body.offsetHeight
-      if (maxHeight < position.scrollTop + 100) {
-        this.page++
-      }
     },
 
     getTaskType(entry) {
@@ -711,9 +704,7 @@ export default {
 
     isEstimationBurned(task) {
       return (
-        task.estimation &&
-        task.estimation > 0 &&
-        task.duration > task.estimation
+        this.isToCheck && task.estimation > 0 && task.duration > task.estimation
       )
     },
 
@@ -823,11 +814,9 @@ export default {
           // Combo box should not trigger selection
           event.target.className.indexOf('selected-line') >= 0 ||
           event.target.className.indexOf('down-icon') >= 0 ||
-          event.target.className.indexOf('flexrow') >= 0 ||
           event.target.className.indexOf('c-mask') >= 0 ||
           event.target.className.indexOf('option-line') >= 0 ||
           event.target.className.indexOf('combobox') >= 0 ||
-          event.target.className === '' ||
           (event.target.parentNode &&
             ['HEADER'].includes(event.target.parentNode.nodeName)) ||
           ['cell day selected'].includes(event.target.className))
@@ -835,12 +824,12 @@ export default {
         return
       const isSelected = this.selectionGrid[task.id]
       const isManySelection = Object.keys(this.selectionGrid).length > 1
-      if (!(event.ctrlKey || event.metaKey) && !event.shiftKey) {
+      if (event && !(event.ctrlKey || event.metaKey) && !event.shiftKey) {
         this.clearSelectedTasks()
         this.resetSelection()
       }
 
-      if (!event.shiftKey) {
+      if (event && !event.shiftKey) {
         if (isSelected && !isManySelection) {
           this.removeSelectedTask({ task })
           this.selectionGrid[task.id] = undefined
@@ -894,7 +883,6 @@ export default {
 
   watch: {
     tasks() {
-      this.page = 1
       this.resetSelection()
     },
 

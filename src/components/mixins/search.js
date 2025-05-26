@@ -58,7 +58,7 @@ export const searchMixin = {
       this.$router.push({
         query: {
           ...this.$route.query,
-          search: searchQuery
+          search: searchQuery || undefined
         }
       })
     }
@@ -79,7 +79,9 @@ export const searchMixin = {
             previousRoute.query.task_id !== newRoute.query.task_id
           ) {
             const listName = `${this.type}-list`
-            this.clearSelection()
+            if (this.clearSelection) {
+              this.clearSelection()
+            }
             this.$refs[listName]?.selectTaskFromQuery()
           }
           return

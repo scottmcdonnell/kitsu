@@ -210,6 +210,12 @@
             @root-element-expanded="expandPersonElement"
             @estimation-changed="updateEstimation"
           />
+
+          <task-list-numbers
+            :is-shots="entityType === 'Shot'"
+            :tasks="tasks"
+            v-if="!loading.entities"
+          />
         </div>
 
         <div
@@ -275,6 +281,7 @@ import { mapGetters, mapActions } from 'vuex'
 
 import csv from '@/lib/csv'
 import { buildSupervisorTaskIndex, indexSearch } from '@/lib/indexing'
+import { getPersonPath } from '@/lib/path'
 import { sortPeople } from '@/lib/sorting'
 import stringHelpers from '@/lib/string'
 import {
@@ -309,6 +316,7 @@ import SearchQueryList from '@/components/widgets/SearchQueryList.vue'
 import TaskInfo from '@/components/sides/TaskInfo.vue'
 import TaskList from '@/components/lists/TaskList.vue'
 import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
+import TaskListNumbers from '@/components/widgets/TaskListNumbers.vue'
 
 const filters = {
   all(tasks) {
@@ -429,6 +437,7 @@ export default {
     ImportRenderModal,
     TaskList,
     TaskInfo,
+    TaskListNumbers,
     TaskTypeName
   },
 
@@ -532,6 +541,12 @@ export default {
   },
 
   mounted() {
+    if (!this.currentTaskType?.id) {
+      this.$router.push({ name: 'not-found' })
+      return
+    }
+
+    this.setOptionalImportColumns()
     this.searchField?.setValue(this.$route.query.search || '')
     this.clearSelectedTasks()
     const isAssets = this.$route.path.includes('assets')
@@ -570,6 +585,7 @@ export default {
       'episodesPath',
       'isCurrentUserManager',
       'isCurrentUserSupervisor',
+      'isPaperProduction',
       'isTVShow',
       'nbSelectedTasks',
       'organisation',
@@ -794,6 +810,18 @@ export default {
       'uploadTaskTypeEstimations'
     ]),
 
+    setOptionalImportColumns() {
+      this.optionalColumns = [
+        'Estimation',
+        'Start date',
+        'Due date',
+        'Difficulty'
+      ]
+      if (this.isPaperProduction) {
+        this.optionalColumns.unshift('Drawings')
+      }
+    },
+
     initData(force) {
       this.resetTasks()
       this.focusSearchField({ preventScroll: true })
@@ -858,15 +886,11 @@ export default {
     },
 
     setCurrentScheduleItem() {
-      const isShots = this.$route.path.includes('shots')
-      if (this.isTVShow && isShots) {
+      if (this.isTVShow && !['all', 'main'].includes(this.currentEpisode.id)) {
         return this.loadEpisodeScheduleItems({
           production: this.currentProduction,
           taskType: this.currentTaskType
         }).then(items => {
-          if (!items) {
-            return []
-          }
           this.currentScheduleItem = items.find(
             item =>
               item.task_type_id === this.currentTaskType.id &&
@@ -876,9 +900,6 @@ export default {
         })
       }
       return this.loadScheduleItems(this.currentProduction).then(items => {
-        if (!items) {
-          return []
-        }
         this.currentScheduleItem = items.find(
           item => item.task_type_id === this.currentTaskType.id
         )
@@ -1214,7 +1235,7 @@ export default {
       for (const personId of personIds) {
         // load sequentially to avoid too many requests
         const daysOff = await this.loadAggregatedPersonDaysOff({
-          personId: personId
+          personId
         }).catch(
           () => [] // fallback if not allowed to fetch days off
         )
@@ -1235,7 +1256,7 @@ export default {
         personElement = {
           avatar: false,
           id: person.id,
-          name: 'Unassigned',
+          name: this.$t('main.unassigned'),
           color: '#888',
           priority: 1,
           expanded: true,
@@ -1258,13 +1279,7 @@ export default {
           children: [],
           editable: false,
           daysOff: this.daysOffByPerson[person.id],
-          route: {
-            name: 'person-tab',
-            params: {
-              person_id: person.id,
-              tab: 'schedule'
-            }
-          }
+          route: getPersonPath(person.id, 'schedule')
         }
       }
 
@@ -1519,7 +1534,17 @@ export default {
       this.updateActiveTab()
     },
 
+    '$route.query.search'() {
+      const currentSearch = this.searchField.getValue()
+      const routeSearch = this.$route.query.search
+      if (routeSearch && routeSearch !== currentSearch) {
+        this.searchField.setValue(routeSearch)
+        this.onSearchChange(routeSearch)
+      }
+    },
+
     currentProduction() {
+      this.setOptionalImportColumns()
       this.initData(true)
     },
 
@@ -1530,7 +1555,7 @@ export default {
     // Quickfix for the edge case where the backPath is not properly set
     // because it was set when the episode was not fully loaded.
     currentEpisode() {
-      if (this.currentEpisode && !this.backPath.params.episode_id) {
+      if (this.currentEpisode && !this.backPath.params?.episode_id) {
         this.$store.commit('RESET_PRODUCTION_PATH', {
           productionId: this.currentProduction.id,
           episodeId: this.currentEpisode.id
@@ -1618,20 +1643,16 @@ export default {
     events: {
       'task:update'(eventData) {
         if (
+          !this.isActiveTab('schedule') &&
           this.taskMap.get(eventData.task_id) &&
-          !this.isActiveTab('schedule')
+          this.selectedTasks === 0 &&
+          this.searchField &&
+          this.searchField.getValue() === ''
         ) {
-          setTimeout(() => {
-            this.resetTaskIndex()
-            this.$nextTick(() => {
-              if (
-                !this.selectedTasks.get(eventData.task_id) &&
-                this.searchField
-              ) {
-                this.onSearchChange(this.searchField.getValue())
-              }
-            })
-          }, 1000)
+          this.resetTaskIndex()
+          this.$nextTick(() => {
+            this.onSearchChange(this.searchField.getValue())
+          })
         }
       }
     }
@@ -1710,6 +1731,8 @@ export default {
 }
 
 .task-type-schedule {
+  display: flex;
+  flex-direction: column;
   flex: 1;
 }
 

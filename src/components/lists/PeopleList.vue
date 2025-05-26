@@ -1,6 +1,6 @@
 <template>
   <div class="data-list">
-    <div class="datatable-wrapper">
+    <div ref="body" class="datatable-wrapper">
       <table class="datatable" v-if="!isLoading">
         <thead class="datatable-head">
           <tr>
@@ -19,19 +19,33 @@
             <th scope="col" class="role">
               {{ $t('people.list.role') }}
             </th>
-            <th scope="col" class="contract" v-if="!isBots">
-              {{ $t('people.list.contract') }}
-            </th>
             <th scope="col" class="departments">
               {{ $t('people.list.departments') }}
             </th>
             <th scope="col" class="studio" v-if="!isBots">
               {{ $t('people.list.studio') }}
             </th>
+            <th scope="col" class="contract" v-if="!isBots">
+              {{ $t('people.list.contract') }}
+            </th>
+            <th scope="col" class="position" v-if="!isBots">
+              {{ $t('people.list.position') }}
+            </th>
+            <th scope="col" class="seniority" v-if="!isBots">
+              {{ $t('people.list.seniority') }}
+            </th>
+            <th scope="col" class="salary" v-if="!isBots">
+              {{ $t('people.fields.daily_salary') }}
+            </th>
             <th scope="col" class="actions"></th>
           </tr>
         </thead>
-        <tbody class="datatable-body" v-if="entries.length > 0">
+        <tbody
+          class="datatable-body"
+          @mousedown="startBrowsing"
+          @touchstart="startBrowsing"
+          v-if="entries.length > 0"
+        >
           <tr :key="person.id" class="datatable-row" v-for="person in entries">
             <people-name-cell
               class="name datatable-row-header"
@@ -51,15 +65,30 @@
               <alert-triangle-icon class="icon mr05" />
             </td>
             <td class="role">{{ $t(`people.role.${person.role}`) }}</td>
-            <td class="contract" v-if="!isBots">
-              {{ $t(`people.contract.${person.contract_type}`) }}
-            </td>
             <department-names-cell
               class="departments"
               :departments="person.departments"
             />
             <td class="studio" v-if="!isBots">
               <studio-name :studio="person.studio" v-if="person.studio" />
+            </td>
+            <td class="contract" v-if="!isBots">
+              {{ $t(`people.contract.${person.contract_type}`) }}
+            </td>
+            <td class="position" v-if="!isBots">
+              {{
+                person.position ? $t(`people.position.${person.position}`) : ''
+              }}
+            </td>
+            <td class="seniority" v-if="!isBots">
+              {{
+                person.seniority
+                  ? $t(`people.seniority.${person.seniority}`)
+                  : ''
+              }}
+            </td>
+            <td class="salary" v-if="!isBots">
+              {{ person.daily_salary }}
             </td>
             <row-actions-cell
               :entry-id="person.id"
@@ -93,6 +122,8 @@
 <script>
 import { mapGetters } from 'vuex'
 import { AlertTriangleIcon } from 'lucide-vue-next'
+import { grabListMixin } from '@/components/mixins/grablist'
+import { domMixin } from '@/components/mixins/dom'
 
 import DepartmentNamesCell from '@/components/cells/DepartmentNamesCell.vue'
 import PeopleNameCell from '@/components/cells/PeopleNameCell.vue'
@@ -102,6 +133,8 @@ import TableInfo from '@/components/widgets/TableInfo.vue'
 
 export default {
   name: 'people-list',
+
+  mixins: [domMixin, grabListMixin],
 
   components: {
     AlertTriangleIcon,
@@ -139,12 +172,31 @@ export default {
     'refresh-clicked'
   ],
 
+  data() {
+    return {
+      domEvents: [
+        ['mousemove', this.onMouseMove],
+        ['touchmove', this.onMouseMove],
+        ['mouseup', this.stopBrowsing],
+        ['mouseleave', this.stopBrowsing],
+        ['touchend', this.stopBrowsing],
+        ['touchcancel', this.stopBrowsing],
+        ['keyup', this.stopBrowsing]
+      ]
+    }
+  },
+
+  mounted() {
+    this.addEvents(this.domEvents)
+  },
+
+  beforeUnmount() {
+    this.removeEvents(this.domEvents)
+    document.body.style.cursor = 'default'
+  },
+
   computed: {
     ...mapGetters(['isCurrentUserAdmin']),
-
-    activePeople() {
-      return this.entries.filter(person => person.active)
-    },
 
     today() {
       return new Date().toJSON().slice(0, 10)
@@ -154,10 +206,6 @@ export default {
       const date = new Date()
       date.setDate(date.getDate() + 7)
       return date.toJSON().slice(0, 10)
-    },
-
-    inactivePeople() {
-      return this.entries.filter(person => !person.active)
     },
 
     nbUsersDetails() {
@@ -190,20 +238,20 @@ export default {
 }
 
 .email {
-  width: 340px;
-  min-width: 340px;
+  width: 300px;
+  min-width: 300px;
   user-select: text;
 }
 
 .phone {
-  width: 200px;
-  min-width: 200px;
+  width: 160px;
+  min-width: 160px;
   user-select: text;
 }
 
 .expiration {
-  width: 200px;
-  min-width: 200px;
+  width: 160px;
+  min-width: 160px;
 
   .icon {
     display: none;
@@ -226,18 +274,13 @@ export default {
 }
 
 .role {
-  width: 200px;
-  min-width: 200px;
-}
-
-.contract {
-  width: 200px;
-  min-width: 200px;
+  width: 180px;
+  min-width: 180px;
 }
 
 .departments {
-  width: 200px;
-  min-width: 200px;
+  width: 180px;
+  min-width: 180px;
 
   .departments-element {
     padding: 5px;
@@ -245,10 +288,32 @@ export default {
 }
 
 .studio {
-  min-width: 200px;
+  width: 180px;
+  min-width: 180px;
+}
+
+.contract {
+  width: 160px;
+  min-width: 160px;
+}
+
+.position {
+  width: 160px;
+  min-width: 160px;
+}
+
+.seniority {
+  width: 160px;
+  min-width: 160px;
+}
+
+.salary {
+  width: 100px;
+  max-width: 100px;
+  text-align: right;
 }
 
 .actions {
-  min-width: 200px;
+  min-width: 150px;
 }
 </style>

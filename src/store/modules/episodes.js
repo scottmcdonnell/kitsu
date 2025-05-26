@@ -82,7 +82,8 @@ const helpers = {
       persons,
       query
     })
-    let result = indexSearch(cache.episodeIndex, keywords) || state.episodes
+
+    let result = indexSearch(cache.episodeIndex, keywords) || cache.episodes
     result = applyFilters(result, filters, taskMap)
     result = sortEpisodeResult(result, sorting, taskTypeMap, taskMap)
     cache.result = result
@@ -635,6 +636,7 @@ const mutations = {
       cache.episodeMap.set(episode.id, episode)
     })
     episodes = sortByName(episodes)
+
     cache.episodes = episodes
     cache.result = episodes
     cache.episodeIndex = buildEpisodeIndex(episodes)
@@ -724,7 +726,9 @@ const mutations = {
     cache.episodes = state.displayedEpisodes
     cache.episodes.push(episode)
     cache.episodes = sortByName(cache.episodes)
+    state.episodes = cache.episodes
     state.displayedEpisodes = cache.episodes
+
     helpers.setListStats(state, cache.episodes)
     cache.episodeMap.set(episode.id, episode)
     state.episodeFilledColumns = getFilledColumns(state.displayedEpisodes)
@@ -737,6 +741,12 @@ const mutations = {
     if (episode) {
       Object.assign(episode, newEpisode)
       Object.assign(episodeFromMain, newEpisode)
+      state.displayedEpisodes = state.displayedEpisodes.map(stateEpisode => {
+        if (stateEpisode.id === newEpisode.id) {
+          return { ...episode }
+        }
+        return stateEpisode
+      })
     }
     cache.episodeIndex = buildEpisodeIndex(state.episodes)
     if (episode.description && !state.isEpisodeDescription) {
@@ -757,13 +767,9 @@ const mutations = {
     state.isEpisodesLoading = true
     state.isEpisodesLoadingError = false
 
-    state.displayedepisodes = []
-    state.displayedepisodesLength = 0
     state.episodeSearchQueries = []
     state.displayedEpisodes = []
     state.displayedEpisodesLength = 0
-
-    state.selectedepisodes = new Map()
   },
 
   [LOAD_EPISODES_ERROR](state) {
@@ -783,7 +789,10 @@ const mutations = {
     })
     state.episodes = sortByName(episodes)
 
+    cache.episodes = state.episodes
+    cache.result = state.episodes
     cache.episodeIndex = buildEpisodeIndex(state.episodes)
+
     state.displayedEpisodes = state.episodes
     state.displayedEpisodesLength = state.episodes.length
 

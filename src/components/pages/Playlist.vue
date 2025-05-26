@@ -73,18 +73,18 @@
             >
               <div class="flexrow" v-if="!isListToggled">
                 <light-entity-thumbnail
-                  class="flerxow-item playlist-thumbnail"
+                  class="playlist-thumbnail"
                   :preview-file-id="playlist.first_preview_file_id"
                   type="previews"
-                  width="38px"
-                  height="30px"
-                  max-width="38px"
-                  max-height="30px"
-                  empty-width="38px"
-                  empty-height="30px"
+                  width="53px"
+                  height="35px"
+                  max-width="53px"
+                  max-height="35px"
+                  empty-width="53px"
+                  empty-height="35px"
                   :title="playlist.name"
                 />
-                <div class="flerxow-item ml05">
+                <div class="ml05">
                   {{ playlist.name }}
                   <span class="playlist-date">
                     {{ $t('playlists.updated_at') }}
@@ -110,6 +110,19 @@
           </router-link>
         </div>
         <spinner class="mt2" v-else />
+        <div
+          class="pa1"
+          v-if="playlists.length >= 20 && !loading.playlists && isMorePlaylists"
+        >
+          <button-simple
+            :class="{
+              button: true,
+              'is-loading': loading.morePlaylists
+            }"
+            :text="$t('main.load_more')"
+            @click="onLoadMoreClicked"
+          />
+        </div>
         <error-text
           :text="$t('playlists.loading_error')"
           v-if="errors.playlistLoading"
@@ -521,6 +534,7 @@ export default {
       currentEntities: {},
       isAddingEntity: false,
       isListToggled: false,
+      isMorePlaylists: true,
       page: 1,
       taskTypeId: '',
       sortedPlaylists: [],
@@ -546,6 +560,7 @@ export default {
         addSequence: false,
         addWeekly: false,
         editPlaylist: false,
+        morePlaylists: false,
         playlist: false,
         playlists: false,
         playlistsInit: true
@@ -559,7 +574,6 @@ export default {
 
   computed: {
     ...mapGetters([
-      'assetMap',
       'assetSearchText',
       'currentEpisode',
       'currentProduction',
@@ -577,10 +591,8 @@ export default {
       'playlistMap',
       'playlists',
       'playlistsPath',
-      'sequenceMap',
       'shotsByEpisode',
       'shotSearchText',
-      'shotMap',
       'taskMap',
       'taskStatusMap',
       'taskTypeMap'
@@ -812,25 +824,34 @@ export default {
       const maxHeight = listEl.scrollHeight - listEl.offsetHeight
       const position = event.target
       if (maxHeight < position.scrollTop + 20) {
-        this.$options.silentMore = true
-        this.page++
-        this.loadMorePlaylists({
-          sortBy: this.currentSort,
-          page: this.page,
-          taskTypeId: this.taskTypeId
-        })
-          .then(playlists => {
-            setTimeout(() => {
-              this.$options.silentMore = false
-            }, 1000)
-          })
-          .catch(err => {
-            console.error(err)
-            this.$options.silentMore = false
-            this.errors.loadPlaylists = true
-            return Promise.reject(err)
-          })
+        this.onLoadMoreClicked()
       }
+    },
+
+    onLoadMoreClicked() {
+      this.$options.silentMore = true
+      this.page++
+      this.loading.morePlaylists = true
+      this.loadMorePlaylists({
+        sortBy: this.currentSort,
+        page: this.page,
+        taskTypeId: this.taskTypeId
+      })
+        .then(playlists => {
+          setTimeout(() => {
+            this.loading.morePlaylists = false
+            this.$options.silentMore = false
+          }, 1000)
+          if (playlists.length < 20) {
+            this.isMorePlaylists = false
+          }
+        })
+        .catch(err => {
+          console.error(err)
+          this.$options.silentMore = false
+          this.errors.loadPlaylists = true
+          return Promise.reject(err)
+        })
     },
 
     // Playlist build
@@ -955,26 +976,32 @@ export default {
       }
     },
 
-    addEntity(entity, scrollRight = true) {
+    addEntity(entity, playlist, scrollRight = true) {
+      if (this.currentEntities[entity.id]) {
+        return Promise.resolve()
+      }
       return this.loadEntityPreviewFiles(entity)
-        .then(previewFiles => {
-          return this.addToStorePlaylistAndSave(previewFiles, entity)
-        })
+        .then(previewFiles =>
+          this.addToStorePlaylistAndSave(previewFiles, entity, playlist)
+        )
         .then(entity => {
-          this.addToPlayerPlaylist(entity, scrollRight)
+          this.addToPlayerPlaylist(entity, playlist, scrollRight)
         })
         .catch(err => console.error(err))
     },
 
-    addToStorePlaylistAndSave(previewFiles, entity) {
+    addToStorePlaylistAndSave(previewFiles, entity, playlist) {
       return this.pushEntityToPlaylist({
-        playlist: this.currentPlaylist,
-        previewFiles: previewFiles,
+        playlist,
+        previewFiles,
         entity: { ...entity }
       })
     },
 
-    addToPlayerPlaylist(entity, scrollRight = true) {
+    addToPlayerPlaylist(entity, playlist, scrollRight = true) {
+      if (playlist.id !== this.playlistPlayer.playlist.id) {
+        return
+      }
       const playlistEntity = this.convertEntityToPlaylistFormat(entity)
       this.currentEntities[playlistEntity.id] = playlistEntity
       this.playlistPlayer.entityList.push(playlistEntity)
@@ -986,13 +1013,15 @@ export default {
     },
 
     addEntityToPlaylist(entity) {
-      if (!this.currentEntities[entity.id]) {
-        this.addEntity(entity).then(this.playlistPlayer.scrollToRight())
+      if (this.currentEntities[entity.id]) {
+        return
       }
+      const playlist = this.currentPlaylist
+      this.addEntity(entity, playlist).then(this.playlistPlayer.scrollToRight())
     },
 
     onNewEntityDropped(info) {
-      let entity = null
+      let entity
       if (this.isAssetPlaylist) {
         entity = assetStore.cache.assetMap.get(info.after)
       } else if (this.isSequencePlaylist) {
@@ -1003,7 +1032,8 @@ export default {
 
       if (entity && !this.currentEntities[entity.id]) {
         const notScrollRight = false
-        this.addEntity(entity, notScrollRight).then(() => {
+        const playlist = this.currentPlaylist
+        this.addEntity(entity, playlist, notScrollRight).then(() => {
           this.playlistPlayer.onEntityDropped(info)
         })
       }
@@ -1106,11 +1136,14 @@ export default {
       })
     },
 
-    addEntities(entities, callback) {
+    addEntities(entities, callback, playlist = undefined) {
+      if (!playlist) {
+        playlist = this.currentPlaylist
+      }
       if (entities && entities.length > 0) {
         const entity = entities.pop()
-        this.addEntity(entity).then(() => {
-          this.addEntities(entities, callback)
+        this.addEntity(entity, playlist).then(() => {
+          this.addEntities(entities, callback, playlist)
         })
       } else {
         callback()
@@ -1786,7 +1819,7 @@ h2 {
   .flexrow {
     align-items: flex-start;
     .thumbnail-picture {
-      margin-top: 3px;
+      margin-top: 1px;
     }
   }
 }

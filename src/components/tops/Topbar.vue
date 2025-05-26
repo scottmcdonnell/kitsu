@@ -14,14 +14,19 @@
           />
           <img class="studio-logo" src="@/assets/kitsu.png" v-else />
         </a>
-        <span class="studio-logo-wrapper nav-item" v-else>
+
+        <router-link
+          class="studio-logo-wrapper nav-item"
+          :to="{ name: 'open-productions' }"
+          v-else
+        >
           <img
             class="studio-logo"
             :src="logoPath"
             v-if="organisation?.has_avatar"
           />
           <img class="studio-logo" src="@/assets/kitsu.png" v-else />
-        </span>
+        </router-link>
 
         <div class="flexrow topbar-menu" v-if="isProductionContext">
           <div class="flexrow-item subitem">
@@ -178,7 +183,7 @@
           </a>
         </li>
         <li>
-          <a href="https://twitter.com/cgwirekitsu" target="_blank"> X </a>
+          <a href="https://x.com/cgwirekitsu" target="_blank"> X </a>
         </li>
         <li>
           <a href="https://cgwire.canny.io" target="_blank">
@@ -489,6 +494,9 @@ export default {
             value: 'statuslogs'
           })
         }
+        if (this.isCurrentUserAdmin) {
+          options.push({ label: this.$t('budget.title'), value: 'budget' })
+        }
         options.push({ label: this.$t('people.team'), value: 'team' })
 
         if (this.isCurrentUserManager) {
@@ -559,6 +567,9 @@ export default {
     },
 
     getCurrentSectionFromRoute() {
+      if (this.$route.name === 'person') {
+        return 'person'
+      }
       let name = ''
       const segments = this.$route.path.split('/')
       if (this.isTVShow) name = segments[5]
@@ -613,12 +624,23 @@ export default {
       this.currentProductionId = routeProductionId
       this.currentEpisodeId = null
       this.clearEpisodes()
-      if (this.isTVShow) {
+      if (this.isTVShow && this.currentProjectSection !== 'person') {
         this.loadEpisodes()
           .then(episodes => {
             const query = this.$route.query
+            this.currentProjectSection = this.getCurrentSectionFromRoute()
             if (this.currentProjectSection === 'assets') {
               this.currentEpisodeId = 'all'
+            } else if (
+              this.currentProjectSection === 'playlists' &&
+              routeEpisodeId === 'all'
+            ) {
+              this.currentEpisodeId = 'all'
+            } else if (
+              this.currentProjectSection === 'playlists' &&
+              routeEpisodeId === 'main'
+            ) {
+              this.currentEpisodeId = 'main'
             } else {
               let episode = episodes.find(({ id }) => id === routeEpisodeId)
               if (!episode) {
@@ -634,6 +656,7 @@ export default {
               },
               query
             })
+            this.updateCombosFromRoute()
           })
           .catch(console.error)
       } else {
@@ -749,6 +772,7 @@ export default {
         section !== 'schedule' &&
         section !== 'production-settings' &&
         section !== 'brief' &&
+        section !== 'budget' &&
         section !== 'episodes'
       if (isEpisodeContext) {
         route.name = `episode-${section}`

@@ -738,15 +738,15 @@ const mutations = {
     const sorting = state.sequenceSorting
     payload.sorting = sorting
     const result = helpers.buildResult(state, payload, false)
-
+    const descriptors = payload.production.descriptors
+      ? payload.production.descriptors.filter(d => d.entity_type === 'Shot')
+      : []
     state.searchSequenceFilters = getFilters({
       entryIndex: shotStore.cache.shotIndex,
       assetTypes: [],
       taskTypes: [],
       taskStatuses: [],
-      descriptors: payload.production.descriptors.filter(
-        d => d.entity_type === 'Shot'
-      ),
+      descriptors,
       persons: [],
       query: payload.sequenceSearch
     })
@@ -807,6 +807,12 @@ const mutations = {
       const copyNewSequence = { ...newSequence }
       copyNewSequence.data = { ...sequence.data, ...newSequence.data }
       Object.assign(sequence, copyNewSequence)
+      state.displayedSequences = state.displayedSequences.map(stateSequence => {
+        if (stateSequence.id === newSequence.id) {
+          return { ...sequence }
+        }
+        return stateSequence
+      })
     }
     state.sequenceIndex = buildSequenceIndex(cache.sequences)
     if (sequence.description && !state.isSequenceDescription) {

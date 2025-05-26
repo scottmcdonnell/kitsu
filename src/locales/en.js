@@ -129,6 +129,70 @@ export default {
     }
   },
 
+  budget: {
+    add_entry: 'Add an entry',
+    analytics: 'Bugdget Analytics',
+    cash_evolution: 'Expense evolution',
+    cash_repartition: 'Expense repartition',
+    cost: 'Cost',
+    costs: 'Costs',
+    departments: 'Departments',
+    expenses_error: 'An error occurred while loading the real costs. Please contact our support team.',
+    budgets_error: 'An error occurred while loading the budgets. Please contact our support team.',
+    budget_entries_error: 'An error occurred while loading the budget entries. Please contact our support team.',
+    create_budget: 'Create a new budget',
+    create_budget_error: 'An error occurred while saving this budget. Please contact our support team.',
+    delete_budget: 'Delete budget',
+    delete_budget_entry: 'Delete entry',
+    delete_budget_entry_error: 'An error occurred while deleting this budget entry. Please contact our support team.',
+    delete_budget_entry_message: 'Are you sure you want to delete this budget entry?',
+    delete_budget_error: 'An error occurred while deleting this budget. Please contact our support team.',
+    delete_budget_message: 'Are you sure you want to delete this budget? Type the budget name below to confirm.',
+    difference: 'Difference',
+    edit_budget: 'Edit current budget version',
+    edit_budget_entry: 'Edit entry',
+    edit_budget_entry_error: 'An error occurred while editing this budget entry. Please contact our support team.',
+    entries: 'Entries',
+    hide_expenses: 'Hide real costs',
+    months: 'Months',
+    new_hiring: 'New hiring',
+    new_version: 'New version',
+    no_budget_found: 'There is no budget for this production. Do you want to create one?',
+    no_budget_entries_found: 'There is no budget entry for this production. Do you want to create one?',
+    no_analytics_to_show: 'There is no analytics to show for this production. Create a budget and add entries to see the analytics.',
+    remaining: 'Remaining',
+    salary_scale_title: 'Salary Scale',
+    show_expenses: 'Show real costs',
+    title: 'Budget',
+    fields: {
+      base_salary: 'Salary',
+      currency: 'Currency',
+      daily_salary: 'Daily Salary',
+      duration: 'Duration',
+      department: 'Department',
+      months_duration: 'Months Duration',
+      name: 'Name',
+      person: 'Person',
+      position: 'Position',
+      revision: 'Revision',
+      start_date: 'Start Date',
+      end_date: 'End Date',
+      monthly_salary: 'Monthly Salary',
+      total_salary: 'Total Salary',
+      seniority: 'Seniority'
+    },
+    positions: {
+      artist: 'Artist',
+      lead: 'Lead',
+      supervisor: 'Supervisor'
+    },
+    seniorities: {
+      junior: 'Junior',
+      mid: 'Mid',
+      senior: 'Senior'
+    }
+  },
+
   chats: {
     delete_message: 'Are you sure you want to delete this message?',
     delete_message_confirm: 'Delete message',
@@ -154,6 +218,7 @@ export default {
     confirm_publish_button: 'Post comment without publishing files',
     comment_from_client: 'Comment from client',
     edit_title: 'Edit comment',
+    edited_by: 'Edited by {name}',
     empty_text: 'This comment is empty',
     edit_error: 'An error occurred while editing the comment. Please contact our support team.',
     error: 'An error occurred while posting comment',
@@ -243,7 +308,7 @@ export default {
     new_status_automation: 'Add status automation',
     run_for_selection: 'Run status automation for selected tasks:',
     title: 'Automations',
-    wrong_automation: 'This automation applies to a upstream task type. It is not permitted by Kitsu (to avoi infinite cycles). It will have no effect.',
+    wrong_automation: 'This automation applies to a upstream task type. It is not permitted by Kitsu (to avoid infinite cycles). It will have no effect.',
     fields: {
       entity_type: 'Entity Type',
       in_field_type: 'Input Field Type',
@@ -532,6 +597,7 @@ export default {
     all_assets: 'All assets',
     all_edits: 'All edits',
     all_shots: 'All shots',
+    apply: 'Apply',
     archived: 'Archived',
     attach_snapshots: 'Attach snapshots from your annotation',
     avatar: {
@@ -586,13 +652,10 @@ export default {
     hour: 'Hour',
     hide_support_chat: 'Hide support chat',
     history: 'history',
+    home: 'return to home page',
     info: 'Information',
     import: 'Import',
     is_shared: 'Shared with the whole team',
-    home: 'return to home page',
-    or: 'or',
-    no: 'No',
-    no_results: 'No results',
     label:{
       casting: 'Casting',
       chat: 'Chat',
@@ -618,11 +681,16 @@ export default {
     month: 'Month',
     more_filters: 'More filters',
     move_action_bar: 'Move action bar',
-    no_estimation: 'No estimation',
+    nb_drawings: 'drawing | drawings',
     nb_frames: 'frame | frames',
+    no: 'No',
+    no_estimation: 'No estimation',
+    no_results: 'No results',
     on: 'On',
     optional: 'optional',
+    or: 'or',
     person: 'Person',
+    people: 'People',
     profile: 'Profile',
     production: 'Production',
     remove: 'Remove',
@@ -644,10 +712,12 @@ export default {
     studio: 'Studio',
     status: 'Status',
     tasks: 'Tasks',
+    total: 'Total',
     to: 'To',
     timeSpent: 'Time Spent',
     tutorials: 'Tutorials',
     type: 'Type',
+    unassigned: 'Unassigned',
     unstick: 'Unstick',
     user: 'User',
     week: 'Week',
@@ -823,6 +893,7 @@ export default {
     fields: {
       active: 'Active',
       contract: 'Contract',
+      daily_salary: 'Daily rate',
       departments: 'Departments',
       email: 'Email',
       first_name: 'First name',
@@ -831,7 +902,9 @@ export default {
       password: 'New password',
       password_2: 'New password (repeat)',
       phone: 'Phone',
+      position: 'Position',
       role: 'Role',
+      seniority: 'Seniority',
       studio: 'Studio'
     },
     list: {
@@ -841,9 +914,22 @@ export default {
       email: 'Email',
       expiration: 'Expiration',
       name: 'Name',
+      position: 'Position',
       phone: 'Phone',
       role: 'Role',
+      salary: 'Salary',
+      seniority: 'Seniority',
       studio: 'Studio'
+    },
+    position: {
+      artist: 'Artist',
+      supervisor: 'Supervisor',
+      lead: 'Lead'
+    },
+    seniority: {
+      junior: 'Junior',
+      mid: 'Mid',
+      senior: 'Senior'
     },
     role: {
       all: 'All',
@@ -885,7 +971,7 @@ export default {
     build_mp4: 'Build .mp4',
     building: 'Building...',
     client_playlist: 'Client Playlist',
-    comparing_missing_plan: 'Shot missing for current type',
+    comparing_missing_plan: 'Entity missing for current type',
     create_for_selection: 'Generate a playlist from selected tasks',
     create_title: 'Create playlist',
     created_at: 'Created at:',
@@ -918,9 +1004,9 @@ export default {
     fields: {
       name: 'Name',
       created_at: 'Creation date',
-      updated_at: 'Update date',
       for_entity: 'Select entity to display',
-      for_client: 'To be shared with'
+      for_client: 'To be shared with',
+      updated_at: 'Update date'
     },
     actions: {
       annotation: 'Annotation',
@@ -1120,6 +1206,7 @@ export default {
 
     style: {
       '2d': '2D Animation',
+      '2dpaper': '2D Animation (Paper)',
       '3d': '3D Animation',
       '2d3d': '2D/3D Animation',
       ar: 'Augmented Reality',
@@ -1337,6 +1424,7 @@ export default {
     new_edit: 'New edit',
     history: 'Edit values history',
     number: 'edit | edits',
+    restore_text: 'Are you sure you want to restore {name} from your archive?',
     restore_error: 'An error occurred while restoring this edit.',
     tasks: 'Tasks',
     title: 'Edits',
@@ -1361,7 +1449,20 @@ export default {
       edit_milestone: 'Edit milestone for',
       name: 'Name',
       error: 'An error occurred while adding or editing the milestone. Please try again.'
-    }
+    },
+    detail_level: 'Detail level',
+    detail_level_prev: 'Forecast',
+    detail_level_real: 'Real',
+    revision: 'Revision',
+    apply_to_prod: 'Apply to production',
+    assign: 'Assign to:',
+    reset_list: 'Reset list',
+    no_entity: 'No assignable entity',
+    no_assignee: 'No assignable person',
+    show_assigned: 'Show assigned entities',
+    force_unassign: 'Override previous assignments',
+    forced_daily_quotas: 'Forced daily quotas:',
+    estimated_daily_quotas: 'Auto estimated daily quotas:'
   },
 
   team_schedule: {
@@ -1381,6 +1482,7 @@ export default {
     details_seconds: 'Seconds',
     details_frames: 'Frames',
     done_date: 'Approval date',
+    drawings: 'Drawings',
     feedback_date: 'Feedback date',
     explanation_feedback: 'The shot is considered complete on the first feedback request. Its number of frames is added to the quotas for that day.',
     explanation_done: 'The shot is considered complete on the last approval. Its number of frames is added to the quotas for that day.',
@@ -1391,7 +1493,7 @@ export default {
     highlight_quotas: 'Highlight quotas below:',
     month: 'Month',
     month_label: 'Month',
-    no_quota: 'There is no quota for this task type.',
+    no_quota: 'There is no quota for this selection.',
     name: 'Name',
     quota_day: 'Quotas per day',
     quota_week: 'Quotas per week',
@@ -1478,6 +1580,7 @@ export default {
     wrong_file_duration: 'One of the uploaded video file duration doesn\'t match the expected duration of the current shot.',
     fields: {
       description: 'Description',
+      nb_drawings: 'Drawings',
       nb_frames: 'Frames',
       episode: 'Episode',
       frame_in: 'In',
@@ -1505,6 +1608,7 @@ export default {
     count_mode: 'Count',
     data_mode: 'Data',
     display_mode: 'Display',
+    drawings: 'Drawings',
     episode_status: 'Episode status',
     frames: 'Frames',
     only_running: 'Only running',
@@ -1645,6 +1749,7 @@ export default {
       count: 'Count',
       difficulty: 'Difficulty',
       done_date: 'Approval date',
+      drawings: 'Drawings',
       due_date: 'Due date',
       duration: 'Duration',
       end_date: 'Feedback date',
@@ -1760,5 +1865,15 @@ export default {
   wrong_browser: {
     title: 'Your Browser is Not Supported by Kitsu',
     text: 'Kitsu can only be used with Firefox and Chrome browsers.'
+  },
+
+  row_actions: {
+    change_avatar: 'Change avatar',
+    change_password: 'Change password',
+    delete: 'Delete',
+    edit: "Edit",
+    history: 'History',
+    refresh: 'Refresh',
+    restore: 'Restore'
   }
 }

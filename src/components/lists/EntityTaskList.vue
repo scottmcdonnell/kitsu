@@ -67,7 +67,7 @@
             <td class="estimation">
               {{ getTaskEstimation(task) }}
             </td>
-            <td class="estimation">
+            <td class="duration">
               {{ getTaskDuration(task) }}
             </td>
             <td class="startdate">
@@ -95,6 +95,19 @@
                   />
                 </div>
               </div>
+            </td>
+            <td class="end-cell"></td>
+          </tr>
+          <tr class="datatable-row total-row">
+            <td>{{ $t('main.total') }}</td>
+            <td>{{ entityProgress }}</td>
+            <td class="estimation">{{ formatDuration(entityEstimation) }}</td>
+            <td class="duration">{{ formatDuration(entityDuration) }}</td>
+            <td class="startdate">{{ entityStartDate }}</td>
+            <td class="duedate">{{ entityDueDate }}</td>
+            <td class="assignees">
+              {{ entityAssignees.length }}
+              {{ $tc('people.persons', entityAssignees.length) }}
             </td>
             <td class="end-cell"></td>
           </tr>
@@ -157,6 +170,7 @@ export default {
       'isCurrentUserVendor',
       'personMap',
       'taskMap',
+      'taskStatusMap',
       'taskTypeMap'
     ]),
 
@@ -175,6 +189,49 @@ export default {
           return taskTypeAPriority - taskTypeBPriority
         }
       })
+    },
+
+    entityProgress() {
+      const doneTasks = this.entries.filter(task => {
+        const fullTask = this.getTask(task.id)
+        const taskStatus = this.taskStatusMap.get(fullTask.task_status_id)
+        return taskStatus.is_done
+      })
+      return `${doneTasks.length} / ${this.entries.length}`
+    },
+
+    entityEstimation() {
+      return this.entries.reduce((acc, task) => acc + task.estimation, 0)
+    },
+
+    entityDuration() {
+      return this.entries.reduce((acc, task) => acc + task.duration, 0)
+    },
+
+    entityStartDate() {
+      if (this.entries.length === 0) return ''
+      let startDate = this.entries[0].start_date
+      this.entries.forEach(task => {
+        if (task.start_date < startDate) {
+          startDate = task.start_date
+        }
+      })
+      return startDate ? startDate.substring(0, 10) : ''
+    },
+
+    entityDueDate() {
+      if (this.entries.length === 0) return ''
+      let dueDate = this.entries[0].due_date
+      this.entries.forEach(task => {
+        if (task.due_date > dueDate) {
+          dueDate = task.due_date
+        }
+      })
+      return dueDate ? dueDate.substring(0, 10) : ''
+    },
+
+    entityAssignees() {
+      return [...new Set(this.entries.flatMap(task => task.assignees))]
     }
   },
 
@@ -234,6 +291,10 @@ export default {
 .data-list {
   max-width: 500px;
   margin-top: 0;
+
+  .dark & {
+    border: 0;
+  }
 }
 
 .type {
@@ -241,9 +302,11 @@ export default {
   min-width: 250px;
 }
 
-.estimation {
+.estimation,
+.duration {
   max-width: 50px;
   min-width: 50px;
+  text-align: right;
 }
 
 .startdate,
@@ -281,5 +344,10 @@ export default {
 
 .datatable-row-header::after {
   display: none;
+}
+
+.total-row {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
 }
 </style>

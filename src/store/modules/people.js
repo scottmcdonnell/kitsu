@@ -390,6 +390,11 @@ const actions = {
     })
   },
 
+  async loadPersonTimeSpents({ commit }, { personId, date }) {
+    const timeSpents = await peopleApi.getTimeSpents(personId, date)
+    commit(PERSON_LOAD_TIME_SPENTS_END, timeSpents)
+  },
+
   loadAggregatedPersonTimeSpents(
     {},
     { personId, detailLevel, year, month, week, day, productionId, studioId }
@@ -564,6 +569,27 @@ const actions = {
       day,
       computeMode
     )
+  },
+
+  async loadSalaryScale({ commit }) {
+    const scaleEntries = await peopleApi.getSalaryScales()
+    const fullScale = {}
+    scaleEntries.forEach(
+      ({ id, department_id, position, seniority, salary }) => {
+        if (!fullScale[department_id]) {
+          fullScale[department_id] = {}
+        }
+        if (!fullScale[department_id][position]) {
+          fullScale[department_id][position] = {}
+        }
+        fullScale[department_id][position][seniority] = { salary, id }
+      }
+    )
+    return fullScale
+  },
+
+  async updateSalaryScale({ commit }, salaryScale) {
+    await peopleApi.updateSalaryScale(salaryScale)
   }
 }
 

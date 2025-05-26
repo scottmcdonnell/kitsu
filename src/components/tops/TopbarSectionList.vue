@@ -7,15 +7,26 @@
   >
     <div class="section-menu">
       <div class="flexrow unselectable" @click="toggleSectionList">
-        <div class="selected-section-line flexrow-item flexrow">
-          <kitsu-icon class="section-icon" :name="currentSectionValue" />
-          {{ currentSectionLabel }}
+        <div
+          class="selected-section-line flexrow-item flexrow"
+          v-if="currentSection"
+        >
+          <kitsu-icon
+            class="section-icon"
+            :name="currentSection.value"
+            v-if="currentSection.value !== 'budget'"
+          />
+          <hand-coins-icon
+            class="section-icon"
+            :stroke-width="1.5"
+            v-else-if="currentSection.value === 'budget'"
+          />
+          {{ currentSection.label }}
         </div>
-        <chevron-down-icon class="down-icon flexrow-item" />
       </div>
       <div class="select-input" ref="select" v-if="showSectionList">
         <div
-          :key="section.value + '-' + index"
+          :key="`${section.value}-${index}`"
           class="section-line"
           @click="selectSection(section)"
           v-for="(section, index) in sectionList"
@@ -25,7 +36,16 @@
             :to="getSectionPath(section)"
             v-if="section.value !== 'separator'"
           >
-            <kitsu-icon class="section-icon" :name="section.value" />
+            <kitsu-icon
+              class="section-icon"
+              :name="section.value"
+              v-if="section.value !== 'budget'"
+            />
+            <hand-coins-icon
+              class="section-icon"
+              :stroke-width="1.5"
+              v-else-if="section.value === 'budget'"
+            />
             <span class="flexrow-item">
               {{ section.label }}
             </span>
@@ -39,7 +59,7 @@
 </template>
 
 <script>
-import { ChevronDownIcon } from 'lucide-vue-next'
+import { HandCoinsIcon } from 'lucide-vue-next'
 import { mapActions, mapGetters } from 'vuex'
 
 import { getProductionPath } from '@/lib/path'
@@ -51,9 +71,9 @@ export default {
   name: 'topbar-section-list',
 
   components: {
-    ChevronDownIcon,
     ComboboxMask,
-    KitsuIcon
+    KitsuIcon,
+    HandCoinsIcon
   },
 
   emits: ['input'],
@@ -87,18 +107,10 @@ export default {
   computed: {
     ...mapGetters(['currentProduction']),
 
-    currentSectionLabel() {
-      const section = this.localSection
-      const sectionOption = this.sectionList.find(s => s.value === section)
-      if (sectionOption) return sectionOption.label
-      return null
-    },
-
-    currentSectionValue() {
-      const section = this.localSection
-      const sectionOption = this.sectionList.find(s => s.value === section)
-      if (sectionOption) return sectionOption.value
-      return null
+    currentSection() {
+      return this.sectionList.find(
+        section => section.value === this.localSection
+      )
     }
   },
 

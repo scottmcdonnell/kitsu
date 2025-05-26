@@ -7,7 +7,7 @@
             <search-field
               ref="shot-search-field"
               :can-save="true"
-              @change="onSearchChange"
+              @change="onSearchTyped"
               @enter="onSearchChange"
               @save="saveSearchQuery"
               placeholder="ex: e01 s01 anim=wip"
@@ -451,18 +451,11 @@ export default {
   },
 
   mounted() {
+    this.setOptionalImportColumns()
     const finalize = () => {
       this.$nextTick(() => {
         // Needed to be sure the current production is set
-        this.loadShots(() => {
-          // Needed to be sure the shots are fully loaded
-          setTimeout(() => {
-            this.applySearchFromUrl()
-            this.$nextTick(() => {
-              this.$refs['shot-list']?.selectTaskFromQuery()
-            })
-          }, 200)
-        })
+        this.loadShots()
       })
     }
 
@@ -516,6 +509,7 @@ export default {
       'isFps',
       'isLongShotList',
       'isMaxRetakes',
+      'isPaperProduction',
       'isResolution',
       'isShotDescription',
       'isShotEstimation',
@@ -536,6 +530,7 @@ export default {
       'shotsPath',
       'shotValidationColumns',
       'shotListScrollPosition',
+      'shots',
       'shotSorting',
       'taskTypeMap',
       'user'
@@ -620,13 +615,30 @@ export default {
       'uploadEdlFile'
     ]),
 
+    setOptionalImportColumns() {
+      const columns = [
+        this.$t('shots.fields.name'),
+        this.$t('shots.fields.description'),
+        this.$t('shots.fields.nb_frames'),
+        this.$t('shots.fields.frame_in'),
+        this.$t('shots.fields.frame_out'),
+        this.$t('shots.fields.fps')
+      ]
+      if (this.isPaperProduction) {
+        columns.splice(1, 1)
+      }
+      this.optionalColumns = columns
+    },
+
     reloadEpisodeShotsIfNeeded() {
       if (
-        (this.isTVShow && this.displayedSequences.length === 0) ||
-        this.displayedSequences[0]?.episode_id !== this.currentEpisode?.id ||
-        this.displayedShots[0]?.episode_id !== this.currentEpisode?.id
+        ((this.isTVShow && this.displayedSequences.length === 0) ||
+          this.displayedSequences[0]?.episode_id !== this.currentEpisode?.id ||
+          this.displayedShots[0]?.episode_id !== this.currentEpisode?.id) &&
+        !this.isShotsLoading &&
+        !this.initialLoading
       ) {
-        this.$refs['shot-search-field'].setValue('')
+        this.$refs['shot-search-field']?.setValue('')
         this.$store.commit('SET_SHOT_LIST_SCROLL_POSITION', 0)
         this.initialLoading = true
         this.loadShots(() => {
@@ -954,6 +966,9 @@ export default {
     },
 
     onSequenceClicked(sequenceName) {
+      if (sequenceName.includes(' ')) {
+        sequenceName = `"${sequenceName}"`
+      }
       this.searchField.setValue(`${this.shotSearchText} ${sequenceName}`)
       this.onSearchChange()
     },
@@ -1092,14 +1107,16 @@ export default {
       if (
         descriptor.field_name === 'frame_in' &&
         shot.data?.frame_out &&
-        parseInt(shot.data.frame_out) > parseInt(value)
+        parseInt(shot.data.frame_out) > parseInt(value) &&
+        !this.isPaperProduction
       ) {
         data.nb_frames = parseInt(shot.data.frame_out) - parseInt(value) + 1
       }
       if (
         descriptor.field_name === 'frame_out' &&
         shot.data?.frame_in &&
-        parseInt(shot.data.frame_in) < parseInt(value)
+        parseInt(shot.data.frame_in) < parseInt(value) &&
+        !this.isPaperProduction
       ) {
         data.nb_frames = parseInt(value) - parseInt(shot.data.frame_in) + 1
       }
@@ -1151,6 +1168,12 @@ export default {
       } finally {
         this.loading.getFrames = false
       }
+    },
+
+    onSearchTyped() {
+      if (this.shotMap.size < 800) {
+        this.onSearchChange()
+      }
     }
   },
 
@@ -1160,23 +1183,20 @@ export default {
     },
 
     currentProduction() {
-      this.$refs['shot-search-field']?.setValue('')
-      this.$store.commit('SET_SHOT_LIST_SCROLL_POSITION', 0)
+      this.setOptionalImportColumns()
+      if (!this.initialLoading) {
+        this.$refs['shot-search-field']?.setValue('')
+        this.$store.commit('SET_SHOT_LIST_SCROLL_POSITION', 0)
 
-      this.initialLoading = true
-      if (!this.isTVShow) {
-        this.loadShots(() => {
-          this.initialLoading = false
-        })
+        if (!this.isTVShow) {
+          this.loadShots()
+        }
       }
     },
 
     currentEpisode() {
       const finalize = () => {
-        this.initialLoading = true
-        this.loadShots(() => {
-          this.initialLoading = false
-        })
+        this.loadShots()
       }
       if (this.isTVShow && this.currentEpisode) {
         if (
@@ -1196,6 +1216,10 @@ export default {
     isShotsLoading() {
       if (!this.isShotsLoading) {
         this.initialLoading = false
+        this.applySearchFromUrl()
+        this.$nextTick(() => {
+          this.$refs['shot-list']?.selectTaskFromQuery()
+        })
         if (this.$refs['shot-list']) {
           this.$refs['shot-list'].setScrollPosition(this.shotListScrollPosition)
         }
