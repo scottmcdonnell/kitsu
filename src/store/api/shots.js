@@ -206,9 +206,9 @@ export default {
     )
   },
 
-  getStatusLogStats(productionId, taskTypeId, taskStatusId) {
+  getStatusStats(productionId, taskTypeId, taskStatusId) {
     return client.pget(
-      `/api/data/projects/${productionId}/status-log-stats/` +
+      `/api/data/projects/${productionId}/taskstatuslogs/` +
         `${taskTypeId}?task_status_id=${taskStatusId}`
     )
   },

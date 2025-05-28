@@ -116,6 +116,7 @@ const icons = {
   shots,
   sequences,
   settings: productionSettings,
+  'status-stats': quota,
   soundon: soundOn,
   soundoff: soundOff,
   'task-status': taskStatus,

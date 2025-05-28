@@ -5,23 +5,24 @@
         <div class="flexrow-item">
           <combobox-task-type
             class="flexrow-item"
-            :label="$t('statuslog.type_label')"
+            :label="$t('status-stats.type_label')"
             :task-type-list="productionShotTaskTypes"
             v-model="taskTypeId"
           />
         </div>
         <div class="flexrow-item">
-          <combobox-status
-            class="flexrow-item"
-            :label="$t('statuslog.status_label')"
-            :task-status-list="taskStatuses"
-            v-model="taskStatusId"
+          <combobox-statuses
+            :production-id="currentProduction.id"
+            :label="$t('status-stats.status_label')"
+            :statuses="taskStatuses"
+            :multiple="true"
+            v-model="taskStatusIds"
           />
         </div>
         <div class="flexrow-item">
           <combobox
             class="flexrow-item"
-            :label="$t('statuslog.detail_label')"
+            :label="$t('status-stats.detail_label')"
             :options="detailLevelOptions"
             v-model="detailLevelString"
           />
@@ -29,7 +30,7 @@
 
         <combobox
           class="flexrow-item"
-          :label="$t('statuslog.month_label')"
+          :label="$t('status-stats.month_label')"
           :options="monthOptions"
           v-model="monthString"
           v-if="detailLevelString === 'day'"
@@ -37,7 +38,7 @@
 
         <combobox
           class="flexrow-item"
-          :label="$t('statuslog.year_label')"
+          :label="$t('status-stats.year_label')"
           :options="yearOptions"
           v-model="yearString"
         />
@@ -45,27 +46,27 @@
         <div class="flexrow-item">
           <combobox
             class="flexrow-item"
-            :label="$t('statuslog.count_label')"
+            :label="$t('status-stats.count_label')"
             :options="countModeOptions"
             v-model="countMode"
           />
         </div>
-        <!-- <combobox
+        <combobox
           class="flexrow-item"
-          :label="$t('statuslog.compute_mode')"
-          :options="computeModeOptions"
-          v-model="computeMode"
-        /> -->
-        <!-- <div class="flexrow-item">
+          :label="$t('status-stats.user_mode')"
+          :options="userModeOptions"
+          v-model="userMode"
+        />
+        <div class="flexrow-item">
           <info-question-mark
             class="mt2"
-            :text="$t('statuslog.explanation_' + computeMode)"
+            :text="$t('status-stats.explanation_' + userMode)"
           />
-        </div> -->
+        </div>
         <div class="filler"></div>
         <button-simple
           class="flexrow-item"
-          :title="$t('statuslog.export_quotas')"
+          :title="$t('status-stats.export_stats')"
           icon="download"
           @click="exportQuotas"
         />
@@ -79,7 +80,7 @@
         />
 
         <span class="label flexrow-item">
-          {{ $t('statuslog.highlight_quotas') }}
+          {{ $t('status-stats.highlight_stats') }}
         </span>
 
         <text-field
@@ -89,10 +90,10 @@
         />
       </div>
 
-      <status-log
-        ref="statuslog-list"
+      <status-stats
+        ref="status-stat-list"
         :task-type-id="taskTypeId"
-        :task-status-id="taskStatusId"
+        :task-status-ids="taskStatusIds"
         :detail-level="detailLevelString"
         :year="currentYear"
         :month="currentMonth"
@@ -100,7 +101,7 @@
         :day="currentDay"
         :current-person="currentPerson"
         :count-mode="currentMode"
-        :compute-mode="computeMode"
+        :user-mode="userMode"
         :search-text="searchText"
         :max-quota="maxQuota"
       />
@@ -134,25 +135,25 @@ import { episodifyRoute } from '@/lib/path'
 
 import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
 import Combobox from '@/components/widgets/Combobox.vue'
-import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
+import ComboboxStatuses from '@/components/widgets/ComboboxStatuses.vue'
 import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
-// import InfoQuestionMark from '@/components/widgets/InfoQuestionMark.vue'
+import InfoQuestionMark from '@/components/widgets/InfoQuestionMark.vue'
 import PeopleQuotaInfo from '@/components/sides/PeopleQuotaInfo.vue'
-import StatusLog from '@/components/pages/statuslogs/StatusLog.vue'
+import StatusStats from '@/components/pages/status-stats/StatusStats.vue'
 import SearchField from '@/components/widgets/SearchField.vue'
 import TextField from '@/components/widgets/TextField.vue'
 
 export default {
-  name: 'production-statuslogs',
+  name: 'production-status-stats',
 
   components: {
     ButtonSimple,
     Combobox,
-    ComboboxStatus,
+    ComboboxStatuses,
     ComboboxTaskType,
-    //InfoQuestionMark,
+    InfoQuestionMark,
     PeopleQuotaInfo,
-    StatusLog,
+    StatusStats,
     SearchField,
     TextField
   },
@@ -160,25 +161,30 @@ export default {
   data() {
     return {
       taskTypeId: '',
-      taskStatusId: '',
+      taskStatusIds: [],
       countMode: 'frames',
       countModeOptions: [
-        { label: this.$t('statuslog.frames'), value: 'frames' },
-        { label: this.$t('statuslog.seconds'), value: 'seconds' },
-        { label: this.$t('statuslog.count'), value: 'count' }
+        { label: this.$t('status-stats.frames'), value: 'frames' },
+        { label: this.$t('status-stats.seconds'), value: 'seconds' },
+        { label: this.$t('status-stats.count'), value: 'count' }
       ],
       detailLevelOptions: [
-        { label: this.$t('statuslog.day'), value: 'day' },
-        { label: this.$t('statuslog.week'), value: 'week' },
-        { label: this.$t('statuslog.month'), value: 'month' }
+        { label: this.$t('status-stats.day'), value: 'day' },
+        { label: this.$t('status-stats.week'), value: 'week' },
+        { label: this.$t('status-stats.month'), value: 'month' }
       ],
-      computeModeOptions: [
-        { label: this.$t('statuslog.weighted'), value: 'weighted' },
-        { label: this.$t('statuslog.feedback_date'), value: 'feedback' },
-        { label: this.$t('statuslog.weighted_done'), value: 'weighteddone' },
-        { label: this.$t('statuslog.done_date'), value: 'done' }
+      userModeOptions: [
+        { label: this.$t('status-stats.person'), value: 'person' },
+        {
+          label: this.$t('status-stats.assignee_shared'),
+          value: 'assignee_shared'
+        },
+        {
+          label: this.$t('status-stats.assignee_split'),
+          value: 'assignee_split'
+        }
       ],
-      computeMode: 'weighted',
+      userMode: 'person',
       currentYear: moment().year(),
       currentMonth: moment().month() + 1,
       currentWeek: moment().week(),
@@ -260,7 +266,7 @@ export default {
 
     loadRoute() {
       const { month, year, week, day } = this.$route.params
-      const { countMode, taskTypeId, taskStatusId, computeMode } =
+      const { countMode, taskTypeId, taskStatusIds, userMode } =
         this.$route.query
 
       if (this.$route.path.indexOf('week') > 0) this.detailLevel = 'week'
@@ -276,18 +282,23 @@ export default {
       if (taskTypeId) {
         this.taskTypeId = taskTypeId
       } else {
-        const key = `quota:${this.currentProduction.id}:task-type-id`
+        const key = `status-stats:${this.currentProduction.id}:task-type-id`
         this.taskTypeId = localStorage.getItem(key) || this.shotTaskTypes[0].id
       }
-      if (taskStatusId) {
-        this.taskStatusId = taskStatusId
+      if (taskStatusIds) {
+        this.taskStatusIds = taskStatusIds
       } else {
-        const key = `quota:${this.currentProduction.id}:task-status-id`
-        this.taskStatusId = localStorage.getItem(key) || this.taskStatuses[0].id
+        const key = `quota:${this.currentProduction.id}:task-status-ids`
+        let status_ids = localStorage.getItem(key) || []
+        // if its a string, convert to array
+        if (status_ids === 'string') {
+          status_ids = [status_ids]
+        }
+        this.taskStatusIds = status_ids
       }
 
-      if (computeMode) {
-        this.computeMode = computeMode
+      if (userMode) {
+        this.userMode = userMode
       }
       if (month) {
         this.currentMonth = Number(month)
@@ -315,7 +326,7 @@ export default {
           month,
           week,
           day,
-          computeMode: this.computeMode
+          userMode: this.userMode
         }).then(shots => {
           this.isPersonShotsLoading = false
           this.personShots = shots
@@ -372,9 +383,9 @@ export default {
       this.$router.push({
         query: {
           countMode: this.countMode,
-          computeMode: this.computeMode,
+          userMode: this.userMode,
           taskTypeId: this.taskTypeId,
-          taskStatusId: this.taskStatusId
+          taskStatusIds: this.taskStatusIds
         }
       })
     },
@@ -394,7 +405,7 @@ export default {
           },
           query: {
             countMode: this.countMode,
-            computeMode: this.computeMode
+            userMode: this.userMode
           }
         }
         if (this.detailLevelString === 'day') {
@@ -415,7 +426,7 @@ export default {
           },
           query: {
             countMode: this.countMode,
-            computeMode: this.computeMode
+            userMode: this.userMode
           }
         }
         if (this.detailLevelString === 'day') {
@@ -438,7 +449,7 @@ export default {
           },
           query: {
             countMode: this.countMode,
-            computeMode: this.computeMode,
+            userMode: this.userMode,
             taskTypeId: this.taskTypeId
           }
         }
@@ -455,25 +466,25 @@ export default {
       }
     },
 
-    computeMode() {
-      if (this.$route.query.computeMode !== this.computeMode) {
+    userMode() {
+      if (this.$route.query.userMode !== this.userMode) {
         this.resetRouteQuery()
         this.currentPerson = null
       }
     },
 
     taskTypeId() {
-      const key = `statuslog:${this.currentProduction.id}:task-type-id`
+      const key = `status-stat:${this.currentProduction.id}:task-type-id`
       localStorage.setItem(key, this.taskTypeId)
       if (this.$route.query.taskTypeId !== this.taskTypeId) {
         this.resetRouteQuery()
       }
     },
-    taskStatusId() {
-      console.log('taskStatusId', this.taskStatusId)
-      const key = `statuslog:${this.currentProduction.id}:task-status-id`
-      localStorage.setItem(key, this.taskStatusId)
-      if (this.$route.query.taskStatusId !== this.taskStatusId) {
+    taskStatusIds() {
+      console.log('taskStatusIds', this.taskStatusIds)
+      const key = `status-stat:${this.currentProduction.id}:task-status-ids`
+      localStorage.setItem(key, this.taskStatusIds)
+      if (this.$route.query.taskStatusIds !== this.taskStatusIds) {
         this.resetRouteQuery()
       }
     },
@@ -502,7 +513,7 @@ export default {
   head() {
     const prodName = this.currentProduction.name
     return {
-      title: `${prodName} | ${this.$t('statuslog.title')} - Kitsu`
+      title: `${prodName} | ${this.$t('status-stats.title')} - Kitsu`
     }
   }
 }

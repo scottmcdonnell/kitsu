@@ -9,14 +9,14 @@
               class="name datatable-row-header"
               ref="rowHeaderName"
             >
-              {{ $t('statuslog.name') }}
+              {{ $t('status-stats.name') }}
             </th>
             <th
               scope="col"
               class="average datatable-row-header"
               :style="{ left: averageColumnX }"
             >
-              {{ $t('statuslog.average') }}
+              {{ $t('status-stats.average') }}
             </th>
             <template v-if="detailLevel === 'month'">
               <th
@@ -39,7 +39,7 @@
             </template>
           </tr>
         </thead>
-        <tbody class="datatable-body" v-if="quotaLength > 0 && !isLoading">
+        <tbody class="datatable-body" v-if="statsLength > 0 && !isLoading">
           <tr
             class="datatable-row"
             v-for="key in filteredPersonIds"
@@ -58,10 +58,25 @@
               <template
                 v-if="detailLevel === 'month' || detailLevel === 'week'"
               >
-                {{ getQuotaAverage(key, { year }) }}
+                {{ getStatsAverage(key, { year }) }}
               </template>
               <template v-else-if="detailLevel === 'day'">
-                {{ getQuotaAverage(key, { year, month }) }}
+                <span
+                  v-for="(stat, status_id) in getStatsAverage(key, {
+                    year,
+                    month
+                  })"
+                  :key="status_id"
+                >
+                  <status-chip
+                    v-if="stat"
+                    :status="taskStatusMap.get(status_id)"
+                    :date="`${year}-${month}-${day}`"
+                    :first-take="stat.first_take"
+                    :retake="stat.retake"
+                    :unit="countMode"
+                  />
+                </span>
               </template>
             </td>
             <template v-if="detailLevel === 'month'">
@@ -85,7 +100,7 @@
                       },
                       query: {
                         countMode: countMode,
-                        computeMode: computeMode,
+                        userMode: userMode,
                         taskTypeId: taskTypeId
                       }
                     })
@@ -122,17 +137,17 @@
                       },
                       query: {
                         countMode: countMode,
-                        computeMode: computeMode,
+                        userMode: userMode,
                         taskTypeId: taskTypeId
                       }
                     })
                   "
-                  v-if="getQuota(key, { year, week })"
+                  v-if="getStats(key, { year, week })"
                 >
                   {{
                     countMode === 'seconds'
-                      ? getQuota(key, { year, week }).toFixed(2)
-                      : getQuota(key, { year, week })
+                      ? getStats(key, { year, week }).toFixed(2)
+                      : getStats(key, { year, week })
                   }}
                 </router-link>
                 <span v-else> - </span>
@@ -143,38 +158,29 @@
                 :class="{
                   weekend: isWeekend(year, month, day),
                   selected: isDaySelected(key, year, month, day),
-                  'quota-low': isDayQuotaLow(key, year, month, day)
+                  'quota-low': isDayStatLow(key, year, month, day)
                 }"
                 :key="'day-' + day"
                 v-for="day in dayRange"
               >
-                <router-link
-                  class="quota-button"
-                  :to="
-                    episodifyRoute({
-                      name: 'quota-day-person',
-                      params: {
-                        person_id: key,
-                        year: year,
-                        month: month,
-                        day: day
-                      },
-                      query: {
-                        countMode: countMode,
-                        computeMode: computeMode,
-                        taskTypeId: taskTypeId
-                      }
-                    })
-                  "
-                  v-if="getQuota(key, { year, month, day })"
+                <span
+                  v-for="(stat, status_id) in getStats(key, {
+                    year,
+                    month,
+                    day
+                  })"
+                  :key="status_id"
                 >
-                  {{
-                    countMode === 'seconds'
-                      ? getQuota(key, { year, month, day }).toFixed(2)
-                      : getQuota(key, { year, month, day })
-                  }}
-                </router-link>
-                <span v-else> - </span>
+                  <status-chip
+                    v-if="stat"
+                    :status="taskStatusMap.get(status_id)"
+                    :date="`${year}-${month}-${day}`"
+                    :first-take="stat.first_take"
+                    :retake="stat.retake"
+                    :unit="countMode"
+                  />
+                  <span v-else> - </span>
+                </span>
               </td>
             </template>
           </tr>
@@ -183,7 +189,7 @@
     </div>
     <div
       class="has-text-centered empty-quota"
-      v-if="quotaLength === 0 && !isLoading"
+      v-if="statsLength === 0 && !isLoading"
     >
       <p class="info">{{ $t('quota.no_quota') }}</p>
     </div>
@@ -207,18 +213,20 @@ import {
 
 import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
 import TableInfo from '@/components/widgets/TableInfo.vue'
+import StatusChip from '@/components/widgets/StatusChip.vue'
 
 export default {
-  name: 'quota',
+  name: 'status-stats',
 
   components: {
     PeopleAvatar,
-    TableInfo
+    TableInfo,
+    StatusChip
   },
 
   props: {
-    taskStatusId: {
-      type: String,
+    taskStatusIds: {
+      type: Array,
       required: true
     },
     taskTypeId: {
@@ -235,9 +243,9 @@ export default {
       default: 'frames',
       required: true
     },
-    computeMode: {
+    userMode: {
       type: String,
-      default: 'weighted',
+      default: 'person',
       required: true
     },
     year: {
@@ -260,7 +268,7 @@ export default {
       type: String,
       default: ''
     },
-    maxQuota: {
+    maxStat: {
       default: 0
     }
   },
@@ -277,7 +285,8 @@ export default {
       isError: false,
       personIds: [],
       quotaMap: {},
-      quotaLength: 0,
+      statsMap: {},
+      statsLength: 0,
       selected: undefined,
       averageColumnX: '12rem'
     }
@@ -300,7 +309,14 @@ export default {
   },
 
   computed: {
-    ...mapGetters(['currentEpisode', 'isShotsLoading', 'shotMap', 'personMap']),
+    ...mapGetters([
+      'currentEpisode',
+      'isShotsLoading',
+      'shotMap',
+      'personMap',
+      'taskStatusMap',
+      'taskTypeMap'
+    ]),
 
     monthRange() {
       return getMonthRange(this.year, this.currentYear, this.currentMonth)
@@ -328,11 +344,115 @@ export default {
         ).map(person => person.id)
       }
       return personIds
+    },
+
+    dayStats() {
+      return this.getStats(this.key, {
+        year: this.year,
+        month: this.month,
+        day: this.day
+      })
+    },
+
+    routeParams() {
+      return this.episodifyRoute({
+        name: 'quota-day-person',
+        params: {
+          person_id: this.key,
+          year: this.year,
+          month: this.month,
+          day: this.day
+        },
+        query: {
+          countMode: this.countMode,
+          userMode: this.userMode,
+          taskTypeId: this.taskTypeId
+        }
+      })
     }
   },
 
   methods: {
-    ...mapActions(['loadShots', 'getStatusLogStats', 'getPeriodDetails']),
+    ...mapActions(['loadShots', 'getStatusStats', 'getPeriodDetails']),
+
+    /**
+     * Parse the date and return the appropriate key for the detail level
+     * @param datetime - The date to parse
+     * @param detailLevel - The detail level day/week/month
+     * @returns day: YYYY-MM-DD, week: YYYY-week, month: YYYY-MM
+     * examples: day: 2025-04-14, week: 2025-15, month: 2025-04
+     */
+    parseDateTime(datetime, detailLevel) {
+      const momentDate = moment(datetime)
+      switch (detailLevel) {
+        case 'day':
+          return momentDate.format('YYYY-MM-DD')
+        case 'week': {
+          const weekNum = momentDate.isoWeek().toString().padStart(2, '0')
+          return `${momentDate.year()}-${weekNum}`
+        }
+        case 'month':
+          return momentDate.format('YYYY-MM')
+        default:
+          throw new Error(`Invalid detail level: ${detailLevel}`)
+      }
+    },
+
+    getDateKey(opt) {
+      let key = false
+      if (opt.day) {
+        key = `${opt.year}-${this.dateDigit(opt.month)}-${this.dateDigit(opt.day)}`
+      } else if (opt.week) {
+        key = `${opt.year}-${opt.week}`
+      } else {
+        key = `${opt.year}-${this.dateDigit(opt.month)}`
+      }
+      return key
+    },
+
+    /**
+     * Restructure the api response to be grouped by person and detail level
+     * @param stats - The stats to group
+     * @param detailLevel - The detail level day/week/month
+     * @returns The grouped stats
+     * example day format:
+     * {
+     *   'person_id': {
+     *     'YYYY-MM-DD': {
+     *       'status_id': {
+     *         first_take: 40,
+     *         retake: 31
+     *       }
+     *     }
+     *   }
+     * }
+     */
+    groupStatsByPerson(stats, detailLevel = 'day') {
+      return stats.reduce((groupedStats, stat) => {
+        const personId = stat.person_id
+        const timeKey = this.parseDateTime(stat.date, detailLevel)
+
+        if (!groupedStats[personId]) groupedStats[personId] = {}
+        if (!groupedStats[personId][timeKey])
+          groupedStats[personId][timeKey] = {}
+
+        if (!groupedStats[personId][timeKey][stat.task_status_id])
+          groupedStats[personId][timeKey][stat.task_status_id] = {
+            first_take: 0,
+            retake: 0
+          }
+
+        // Increment the appropriate counter
+        if (stat.is_first) {
+          groupedStats[personId][timeKey][stat.task_status_id].first_take +=
+            stat.value
+        } else {
+          groupedStats[personId][timeKey][stat.task_status_id].retake +=
+            stat.value
+        }
+        return groupedStats
+      }, {})
+    },
 
     episodifyRoute(route) {
       if (this.currentEpisode) {
@@ -342,28 +462,47 @@ export default {
     },
 
     isWeekend(year, month, day) {
-      let date = moment(`${year}-${month}-${day}`, 'YYYY-MM-DD')
-      if (day < 10) date = moment(`${year}-${month}-0${day}`, 'YYYY-MM-DD')
-      return [0, 6].includes(date.day())
+      let momentDate = moment(`${year}-${month}-${day}`, 'YYYY-MM-DD')
+      if (day < 10)
+        momentDate = moment(`${year}-${month}-0${day}`, 'YYYY-MM-DD')
+      return [0, 6].includes(momentDate.day())
     },
 
     loadData() {
       if (this.taskTypeId) {
         this.isLoading = true
-        this.getStatusLogStats({
-          taskTypeId: this.taskTypeId,
-          taskStatusId: this.taskStatusId
-          //   detailLevel: this.detailLevel,
-          //   countMode: this.countMode,
-          //   computeMode: this.computeMode
-        }).then(quotas => {
-          this.quotaMap = quotas
-          this.quotaLength = Object.keys(this.quotaMap).length
-          this.calcAverageColumnX()
-          this.$nextTick(() => {
-            this.isLoading = false
-          })
-        })
+
+        const sample_data = [
+          {
+            date: '2025-05-08T10:47:38',
+            person_id: '22839c45-05eb-4a29-9d85-ca11d5cc2707',
+            is_first: true,
+            task_status_id: '8a2741ba-6282-4d06-ad10-74b635afed16',
+            value: 40
+          },
+          {
+            date: '2025-05-15T10:47:38',
+            person_id: '22839c45-05eb-4a29-9d85-ca11d5cc2707',
+            is_first: false,
+            task_status_id: '8a2741ba-6282-4d06-ad10-74b635afed16',
+            value: 10
+          },
+          {
+            date: '2025-05-16T10:47:38',
+            person_id: '22839c45-05eb-4a29-9d85-ca11d5cc2707',
+            is_first: false,
+            task_status_id: '8a2741ba-6282-4d06-ad10-74b635afed16',
+            value: 10
+          }
+        ]
+        this.statsList = sample_data
+
+        // Group stats by person and detail level
+        this.statsMap = this.groupStatsByPerson(sample_data, this.detailLevel)
+        this.personIds = Object.keys(this.statsMap)
+
+        this.statsLength = Object.keys(this.statsMap).length
+        this.isLoading = false
       }
     },
 
@@ -405,6 +544,50 @@ export default {
         const monthKey = `${opt.year}-${this.dateDigit(opt.month)}`
         return this.quotaMap[personId].month[this.countMode][monthKey]
       }
+    },
+
+    getStats(personId, opt = {}) {
+      const key = this.getDateKey(opt)
+      if (!this.statsMap[personId] || !this.statsMap[personId][key])
+        return false
+
+      return this.statsMap[personId][key]
+    },
+    getStatsAverage(personId, opt = {}) {
+      const totals = {}
+      const personStats = this.statsMap[personId] || {}
+
+      // Initialize totals first
+      for (const timeStats of Object.values(personStats)) {
+        for (const [status_id, stat] of Object.entries(timeStats)) {
+          if (!totals[status_id]) {
+            totals[status_id] = {
+              take_value: 0,
+              take_count: 0,
+              retake_value: 0,
+              retake_count: 0
+            }
+          }
+          totals[status_id].take_value += stat.first_take || 0
+          totals[status_id].take_count += 1
+          totals[status_id].retake_value += stat.retake || 0
+          totals[status_id].retake_count += 1
+        }
+      }
+
+      // Calculate averages
+      const averages = {}
+      for (const [status_id, total] of Object.entries(totals)) {
+        averages[status_id] = {
+          first_take: total.take_count
+            ? total.take_value / total.take_count
+            : 0,
+          retake: total.retake_count
+            ? total.retake_value / total.retake_count
+            : 0
+        }
+      }
+      return averages
     },
 
     getQuotaAverage(personId, opt = {}) {
@@ -456,27 +639,27 @@ export default {
       )
     },
 
-    isDayQuotaLow(personId, year, month, day) {
-      const quota = this.getQuota(personId, { year, month, day })
-      return quota !== null && this.maxQuota > quota
+    isDayStatLow(personId, year, month, day) {
+      const stat = this.getStats(personId, { year, month, day })
+      return stat !== null && this.maxStat > stat
     },
 
-    isWeekQuotaLow(personId, year, week) {
-      return this.maxQuota > this.getQuota(personId, { year, week })
+    isWeekStatLow(personId, year, week) {
+      return this.maxStat > this.getStats(personId, { year, week })
     },
 
-    isMonthQuotaLow(personId, year, month) {
-      return this.maxQuota > this.getQuota(personId, { year, month })
+    isMonthStatLow(personId, year, month) {
+      return this.maxStat > this.getStats(personId, { year, month })
     },
 
     calcAverageColumnX() {
-      if (this.quotaLength > 0) {
+      if (this.statsLength > 0) {
         this.averageColumnX = `${this.$refs.rowHeaderName.offsetWidth}px`
       }
     },
 
     resetPersonIds() {
-      const personIds = Object.keys(this.quotaMap)
+      const personIds = Object.keys(this.statsMap)
       const persons = personIds.map(pId => this.personMap.get(pId))
       this.personIndex = buildNameIndex(persons)
       this.personIds = personIds.sort((a, b) => {
@@ -499,12 +682,16 @@ export default {
     },
 
     computeMode() {
-      if (this.taskTypeId && this.taskStatusId) {
+      if (this.taskTypeId && this.taskStatusIds.length > 0) {
         this.loadData()
       }
     },
 
     quotaMap() {
+      this.resetPersonIds()
+    },
+
+    statsMap() {
       this.resetPersonIds()
     },
 
@@ -514,8 +701,8 @@ export default {
       }
     },
 
-    taskStatusId() {
-      if (this.taskStatusId) {
+    taskStatusIds() {
+      if (this.taskStatusIds.length > 0) {
         this.loadData()
       }
     }

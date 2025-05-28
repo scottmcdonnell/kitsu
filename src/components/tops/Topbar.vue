@@ -490,8 +490,8 @@ export default {
             value: 'quota'
           })
           options.push({
-            label: this.$t('statuslog.title'),
-            value: 'statuslogs'
+            label: this.$t('status-stats.title'),
+            value: 'status-stats'
           })
         }
         if (this.isCurrentUserAdmin) {
