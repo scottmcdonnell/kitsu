@@ -715,9 +715,29 @@ const actions = {
     )
   },
 
-  getStatusStats({ commit, state, rootGetters }, { taskTypeId, taskStatusId }) {
+  getStatusStats(
+    { commit, state, rootGetters },
+    {
+      year,
+      taskTypeId,
+      taskStatusIds,
+      personId,
+      detailLevel,
+      countMode,
+      userMode
+    }
+  ) {
     const production = rootGetters.currentProduction
-    return shotsApi.getStatusStats(production.id, taskTypeId, taskStatusId)
+    return shotsApi.getStatusStats(
+      production.id,
+      year,
+      taskTypeId,
+      taskStatusIds,
+      personId,
+      detailLevel,
+      countMode,
+      userMode
+    )
   },
 
   changeShotSort({ commit, rootGetters }, sortInfo) {

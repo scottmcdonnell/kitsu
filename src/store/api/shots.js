@@ -206,11 +206,94 @@ export default {
     )
   },
 
-  getStatusStats(productionId, taskTypeId, taskStatusId) {
-    return client.pget(
-      `/api/data/projects/${productionId}/taskstatuslogs/` +
-        `${taskTypeId}?task_status_id=${taskStatusId}`
-    )
+  getStatusStats(
+    productionId,
+    year,
+    taskTypeId,
+    taskStatusIds,
+    personId,
+    detailLevel,
+    countMode,
+    userMode
+  ) {
+    console.log('getStatusStats', {
+      productionId: productionId,
+      year: year,
+      taskStatusIds: taskStatusIds,
+      taskTypeId: taskTypeId,
+      personId: personId,
+      detailLevel: detailLevel,
+      countMode: countMode,
+      userMode: userMode
+    })
+    // return [
+    //   {
+    //     date: '2025-05-08T10:47:38',
+    //     person_id: '22839c45-05eb-4a29-9d85-ca11d5cc2707',
+    //     is_first: true,
+    //     task_status_id: '8a2741ba-6282-4d06-ad10-74b635afed16',
+    //     value: 40
+    //   },
+    //   {
+    //     date: '2025-05-08T10:47:38',
+    //     person_id: '22839c45-05eb-4a29-9d85-ca11d5cc2707',
+    //     is_first: true,
+    //     task_status_id: 'bea1c54d-2fa0-4f0f-9613-b90510b56ad9',
+    //     value: 40
+    //   },
+    //   {
+    //     date: '2025-05-15T10:47:38',
+    //     person_id: '22839c45-05eb-4a29-9d85-ca11d5cc2707',
+    //     is_first: false,
+    //     task_status_id: '8a2741ba-6282-4d06-ad10-74b635afed16',
+    //     value: 10
+    //   },
+    //   {
+    //     date: '2025-05-16T10:47:38',
+    //     person_id: '22839c45-05eb-4a29-9d85-ca11d5cc2707',
+    //     is_first: false,
+    //     task_status_id: '8a2741ba-6282-4d06-ad10-74b635afed16',
+    //     value: 10
+    //   }
+    // ]
+    const query = {}
+    if (taskTypeId) query.task_type_id = taskTypeId
+    if (taskStatusIds && taskStatusIds.length > 0)
+      query.task_status_id = taskStatusIds.join(',')
+
+    if (personId) {
+      if (userMode === 'person') query.person_id = personId
+      else query.assignee_id = personId
+    }
+    if (detailLevel) query.level = detailLevel
+    if (productionId) query.project_id = productionId
+
+    if (userMode) {
+      if (userMode === 'person') {
+        query.user_mode = 'person'
+      } else {
+        query.user_mode = 'assignee'
+      }
+    }
+    if (countMode) {
+      if (countMode === 'count') {
+        query.agg = 'count'
+      } else {
+        query.agg = 'sum'
+        query.units = countMode
+      }
+    }
+    if (year) {
+      query.created_at_from = `${year}-01-01`
+      query.created_at_to = `${year}-12-31`
+    }
+    console.log('query', query)
+
+    // convert query to url params
+    const urlParams = new URLSearchParams(query)
+    console.log('urlParams', urlParams)
+
+    return client.pget(`/api/data/task-status-logs/stats?${urlParams}`)
   },
 
   setNbFramesFromTaskTypePreviews(taskTypeId, productionId, episodeId) {
