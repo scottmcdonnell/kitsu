@@ -39,7 +39,9 @@
             color: color(option)
           }"
         >
-          <span class="multiselect__tag-text">{{ option.short_name }}</span>
+          <span class="multiselect__tag-text">{{
+            option ? option.short_name : ''
+          }}</span>
           <i
             tabindex="1"
             class="multiselect__tag-icon"
@@ -136,6 +138,7 @@ export default {
   computed: {
     ...mapGetters(['isDarkTheme', 'productionMap', 'taskStatusMap']),
     items() {
+      console.log('items', this.statuses)
       // if productionId is set, filter statuses by production
       if (this.productionId) {
         const production = this.productionMap.get(this.productionId)
@@ -149,13 +152,13 @@ export default {
   watch: {
     modelValue() {
       let status_ids = []
-      if (typeof this.modelValue === 'string') {
-        status_ids = [this.modelValue]
-      } else {
-        status_ids = this.modelValue || []
+      if (this.modelValue && typeof this.modelValue === 'object') {
+        status_ids = this.modelValue
       }
-      // convert from ids to status objects
-      this.selected = status_ids.map(id => this.taskStatusMap.get(id))
+      // convert from ids to status objects and filter out any missing
+      this.selected = status_ids
+        .map(id => this.taskStatusMap.get(id))
+        .filter(status => status)
     }
   },
 

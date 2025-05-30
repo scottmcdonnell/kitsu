@@ -41,14 +41,23 @@
         </thead>
         <tbody class="datatable-body" v-if="statsLength > 0 && !isLoading">
           <tr
-            class="datatable-row"
-            v-for="key in filteredPersonIds"
             :key="'name-' + key"
+            class="datatable-row"
+            v-for="key in entryIds"
           >
             <th scope="row" class="name datatable-row-header">
-              <div class="flexrow">
+              <div class="flexrow" v-if="taskTypeId && key !== 'total'">
                 <people-avatar :size="30" :person="personMap.get(key)" />
                 {{ personMap.get(key).full_name }}
+              </div>
+              <div class="flexrow" v-else-if="taskTypeId && key === 'total'">
+                {{ $t('main.total') }}
+              </div>
+              <div class="flexrow" v-else-if="personId && key !== 'total'">
+                {{ taskTypeMap.get(key).name }}
+              </div>
+              <div class="flexrow" v-else-if="personId && key === 'total'">
+                {{ $t('main.total') }}
               </div>
             </th>
             <td
@@ -67,11 +76,12 @@
                     month
                   })"
                   :key="status_id"
+                  class="stat-chip-container"
                 >
                   <status-chip
                     v-if="stat"
                     :status="taskStatusMap.get(status_id)"
-                    :date="`${year}-${month}-${day}`"
+                    :date="`${year}-${month}`"
                     :first-take="stat.first_take"
                     :retake="stat.retake"
                     :unit="countMode"
@@ -83,7 +93,7 @@
               <td
                 :class="{
                   selected: isMonthSelected(key, year, month),
-                  'quota-low': isMonthQuotaLow(key, year, month)
+                  'stat-low': isMonthStatLow(key, year, month)
                 }"
                 :key="'month-' + month"
                 v-for="month in monthRange"
@@ -94,24 +104,19 @@
                     episodifyRoute({
                       name: 'quota-month-person',
                       params: {
-                        person_id: key,
-                        year: year,
-                        month: month
+                        person_id: personId ?? key,
+                        year,
+                        month
                       },
                       query: {
-                        countMode: countMode,
-                        userMode: userMode,
-                        taskTypeId: taskTypeId
+                        ...$route.query,
+                        taskTypeId: personId ? key : null
                       }
                     })
                   "
-                  v-if="getQuota(key, { year, month })"
+                  v-if="key !== 'total' && getQuota(key, { year, month })"
                 >
-                  {{
-                    countMode === 'seconds'
-                      ? getQuota(key, { year, month }).toFixed(2)
-                      : getQuota(key, { year, month })
-                  }}
+                  {{ getStats(key, { year, month }) }}
                 </router-link>
                 <span v-else>-</span>
               </td>
@@ -120,7 +125,7 @@
               <td
                 :class="{
                   selected: isWeekSelected(key, year, week),
-                  'quota-low': isWeekQuotaLow(key, year, month)
+                  'stat-low': isWeekStatLow(key, year, month)
                 }"
                 :key="'week-' + week"
                 v-for="week in weekRange"
@@ -131,25 +136,23 @@
                     episodifyRoute({
                       name: 'quota-week-person',
                       params: {
-                        person_id: key,
-                        year: year,
-                        week: week
+                        person_id: personId ?? key,
+                        year,
+                        week
                       },
                       query: {
-                        countMode: countMode,
-                        userMode: userMode,
-                        taskTypeId: taskTypeId
+                        ...$route.query,
+                        taskTypeId: personId ? key : null
                       }
                     })
                   "
-                  v-if="getStats(key, { year, week })"
+                  v-if="key !== 'total' && getStats(key, { year, week })"
                 >
-                  {{
-                    countMode === 'seconds'
-                      ? getStats(key, { year, week }).toFixed(2)
-                      : getStats(key, { year, week })
-                  }}
+                  {{ getStats(key, { year, week }) }}
                 </router-link>
+                <span v-else-if="key === 'total'">
+                  {{ getStats(key, { year, week }) }}
+                </span>
                 <span v-else> - </span>
               </td>
             </template>
@@ -158,7 +161,7 @@
                 :class="{
                   weekend: isWeekend(year, month, day),
                   selected: isDaySelected(key, year, month, day),
-                  'quota-low': isDayStatLow(key, year, month, day)
+                  'stat-low': isDayStatLow(key, year, month, day)
                 }"
                 :key="'day-' + day"
                 v-for="day in dayRange"
@@ -170,6 +173,7 @@
                     day
                   })"
                   :key="status_id"
+                  class="stat-chip-container"
                 >
                   <status-chip
                     v-if="stat"
@@ -179,7 +183,6 @@
                     :retake="stat.retake"
                     :unit="countMode"
                   />
-                  <span v-else> - </span>
                 </span>
               </td>
             </template>
@@ -204,6 +207,8 @@ import { mapGetters, mapActions } from 'vuex'
 
 import { buildNameIndex, indexSearch } from '@/lib/indexing'
 import { episodifyRoute } from '@/lib/path'
+import { sortTaskTypes } from '@/lib/sorting'
+
 import {
   monthToString,
   getMonthRange,
@@ -231,21 +236,22 @@ export default {
     },
     taskTypeId: {
       type: String,
-      required: true
+      required: false
+    },
+    personId: {
+      type: String,
+      required: false
     },
     detailLevel: {
       type: String,
-      default: 'day',
       required: true
     },
     countMode: {
       type: String,
-      default: 'frames',
       required: true
     },
     userMode: {
       type: String,
-      default: 'person',
       required: true
     },
     year: {
@@ -253,14 +259,6 @@ export default {
       default: 0
     },
     month: {
-      type: Number,
-      default: 0
-    },
-    week: {
-      type: Number,
-      default: 0
-    },
-    day: {
       type: Number,
       default: 0
     },
@@ -278,21 +276,26 @@ export default {
       currentMonth: moment().month() + 1,
       currentYear: moment().year(),
       currentWeek: moment().week(),
-      detailsTitle: '',
       detailsMap: {},
-      isPanelShown: false,
       isLoading: true,
       isError: false,
       personIds: [],
-      quotaMap: {},
       statsMap: {},
       statsLength: 0,
-      selected: undefined,
       averageColumnX: '12rem'
     }
   },
 
   mounted() {
+    console.log(
+      'mounted',
+      this.taskStatusIds,
+      this.taskTypeId,
+      this.personId,
+      this.detailLevel,
+      this.countMode,
+      this.userMode
+    )
     if (this.shotMap.size < 2) {
       this.isLoading = true
       setTimeout(() => {
@@ -311,9 +314,10 @@ export default {
   computed: {
     ...mapGetters([
       'currentEpisode',
+      'currentProduction',
       'isShotsLoading',
-      'shotMap',
       'personMap',
+      'shotMap',
       'taskStatusMap',
       'taskTypeMap'
     ]),
@@ -334,6 +338,20 @@ export default {
     weekRange() {
       return getWeekRange(this.year, this.currentYear, this.currentWeek)
     },
+    entryIds() {
+      if (this.personId) {
+        return sortTaskTypes(
+          Object.keys(this.quotaMap)
+            .filter(key => key !== 'total')
+            .map(taskTypeId => this.taskTypeMap.get(taskTypeId)),
+          this.currentProduction
+        )
+          .map(taskType => taskType.id)
+          .concat(['total'])
+      } else {
+        return this.filteredPersonIds
+      }
+    },
 
     filteredPersonIds() {
       let personIds = this.personIds
@@ -344,31 +362,6 @@ export default {
         ).map(person => person.id)
       }
       return personIds
-    },
-
-    dayStats() {
-      return this.getStats(this.key, {
-        year: this.year,
-        month: this.month,
-        day: this.day
-      })
-    },
-
-    routeParams() {
-      return this.episodifyRoute({
-        name: 'quota-day-person',
-        params: {
-          person_id: this.key,
-          year: this.year,
-          month: this.month,
-          day: this.day
-        },
-        query: {
-          countMode: this.countMode,
-          userMode: this.userMode,
-          taskTypeId: this.taskTypeId
-        }
-      })
     }
   },
 
@@ -462,47 +455,54 @@ export default {
     },
 
     isWeekend(year, month, day) {
-      let momentDate = moment(`${year}-${month}-${day}`, 'YYYY-MM-DD')
-      if (day < 10)
-        momentDate = moment(`${year}-${month}-0${day}`, 'YYYY-MM-DD')
-      return [0, 6].includes(momentDate.day())
+      let date = moment(`${year}-${month}-${day}`, 'YYYY-MM-DD')
+      if (day < 10) date = moment(`${year}-${month}-0${day}`, 'YYYY-MM-DD')
+      return [0, 6].includes(date.day())
     },
 
     loadData() {
-      if (this.taskTypeId) {
+      if (this.taskTypeId || this.personId) {
         this.isLoading = true
 
-        const sample_data = [
-          {
-            date: '2025-05-08T10:47:38',
-            person_id: '22839c45-05eb-4a29-9d85-ca11d5cc2707',
-            is_first: true,
-            task_status_id: '8a2741ba-6282-4d06-ad10-74b635afed16',
-            value: 40
-          },
-          {
-            date: '2025-05-15T10:47:38',
-            person_id: '22839c45-05eb-4a29-9d85-ca11d5cc2707',
-            is_first: false,
-            task_status_id: '8a2741ba-6282-4d06-ad10-74b635afed16',
-            value: 10
-          },
-          {
-            date: '2025-05-16T10:47:38',
-            person_id: '22839c45-05eb-4a29-9d85-ca11d5cc2707',
-            is_first: false,
-            task_status_id: '8a2741ba-6282-4d06-ad10-74b635afed16',
-            value: 10
-          }
-        ]
-        this.statsList = sample_data
+        console.log('loadData', this.taskTypeId, this.personId)
+        console.log('taskStatusIds', this.taskStatusIds)
+        console.log('detailLevel', this.detailLevel)
+        console.log('countMode', this.countMode)
+        console.log('userMode', this.userMode)
 
-        // Group stats by person and detail level
-        this.statsMap = this.groupStatsByPerson(sample_data, this.detailLevel)
-        this.personIds = Object.keys(this.statsMap)
+        this.getStatusStats({
+          year: this.year,
+          taskTypeId: this.taskTypeId,
+          taskStatusIds: this.taskStatusIds,
+          personId: this.personId,
+          detailLevel: this.detailLevel,
+          countMode: this.countMode,
+          userMode: this.userMode
+        })
+          .then(stats_list => {
+            console.log('stats_list', stats_list)
+            this.statsList = stats_list
 
-        this.statsLength = Object.keys(this.statsMap).length
-        this.isLoading = false
+            // Group stats by person and detail level
+            this.statsMap = this.groupStatsByPerson(
+              stats_list,
+              this.detailLevel
+            )
+            this.statsLength = Object.keys(this.statsMap).length
+            this.calcAverageColumnX()
+
+            this.$nextTick(() => {
+              console.log('isLoading', this.isLoading)
+              this.isLoading = false
+            })
+          })
+          .catch(err => {
+            this.statsMap = {}
+            this.statsLength = 0
+            this.calcAverageColumnX()
+            this.isLoading = false
+            console.error(err)
+          })
       }
     },
 
@@ -531,20 +531,20 @@ export default {
       return date.toString().padStart(2, '0')
     },
 
-    getQuota(personId, opt = {}) {
-      if (opt.day) {
-        const dayKey = `${opt.year}-${this.dateDigit(
-          opt.month
-        )}-${this.dateDigit(opt.day)}`
-        return this.quotaMap[personId].day[this.countMode][dayKey]
-      } else if (opt.week) {
-        const weekKey = `${opt.year}-${opt.week}`
-        return this.quotaMap[personId].week[this.countMode][weekKey]
-      } else {
-        const monthKey = `${opt.year}-${this.dateDigit(opt.month)}`
-        return this.quotaMap[personId].month[this.countMode][monthKey]
-      }
-    },
+    // getQuota(personId, opt = {}) {
+    //   if (opt.day) {
+    //     const dayKey = `${opt.year}-${this.dateDigit(
+    //       opt.month
+    //     )}-${this.dateDigit(opt.day)}`
+    //     return this.quotaMap[personId].day[this.countMode][dayKey]
+    //   } else if (opt.week) {
+    //     const weekKey = `${opt.year}-${opt.week}`
+    //     return this.quotaMap[personId].week[this.countMode][weekKey]
+    //   } else {
+    //     const monthKey = `${opt.year}-${this.dateDigit(opt.month)}`
+    //     return this.quotaMap[personId].month[this.countMode][monthKey]
+    //   }
+    // },
 
     getStats(personId, opt = {}) {
       const key = this.getDateKey(opt)
@@ -554,6 +554,7 @@ export default {
       return this.statsMap[personId][key]
     },
     getStatsAverage(personId, opt = {}) {
+      console.log('getStatsAverage', personId, opt)
       const totals = {}
       const personStats = this.statsMap[personId] || {}
 
@@ -587,29 +588,30 @@ export default {
             : 0
         }
       }
+      console.log('averages', averages)
       return averages
     },
 
-    getQuotaAverage(personId, opt = {}) {
-      let average = 0
-      let total = 0
-      let nbEntries
-      if (this.detailLevel === 'day') {
-        const monthKey = `${opt.year}-${this.dateDigit(opt.month)}`
-        total = this.quotaMap[personId].month[this.countMode][monthKey]
-        nbEntries = this.quotaMap[personId].day.entries[monthKey]
-      } else if (this.detailLevel === 'week') {
-        const yearKey = opt.year
-        total = this.quotaMap[personId].year[this.countMode][yearKey]
-        nbEntries = this.quotaMap[personId].week.entries[yearKey]
-      } else if (this.detailLevel === 'month') {
-        const yearKey = opt.year
-        total = this.quotaMap[personId].year[this.countMode][yearKey]
-        nbEntries = this.quotaMap[personId].month.entries[yearKey]
-      }
-      average = total / nbEntries
-      return average ? average.toFixed(2) : '-'
-    },
+    // getQuotaAverage(personId, opt = {}) {
+    //   let average = 0
+    //   let total = 0
+    //   let nbEntries
+    //   if (this.detailLevel === 'day') {
+    //     const monthKey = `${opt.year}-${this.dateDigit(opt.month)}`
+    //     total = this.quotaMap[personId].month[this.countMode][monthKey]
+    //     nbEntries = this.quotaMap[personId].day.entries[monthKey]
+    //   } else if (this.detailLevel === 'week') {
+    //     const yearKey = opt.year
+    //     total = this.quotaMap[personId].year[this.countMode][yearKey]
+    //     nbEntries = this.quotaMap[personId].week.entries[yearKey]
+    //   } else if (this.detailLevel === 'month') {
+    //     const yearKey = opt.year
+    //     total = this.quotaMap[personId].year[this.countMode][yearKey]
+    //     nbEntries = this.quotaMap[personId].month.entries[yearKey]
+    //   }
+    //   average = total / nbEntries
+    //   return average ? average.toFixed(2) : '-'
+    // },
 
     isDaySelected(personId, year, month, day) {
       return (
@@ -640,8 +642,13 @@ export default {
     },
 
     isDayStatLow(personId, year, month, day) {
-      const stat = this.getStats(personId, { year, month, day })
-      return stat !== null && this.maxStat > stat
+      const stats = this.getStats(personId, { year, month, day })
+      for (const stat of Object.values(stats)) {
+        if (stat.first_take < this.maxStat) {
+          return true
+        }
+      }
+      return false
     },
 
     isWeekStatLow(personId, year, week) {
@@ -659,14 +666,18 @@ export default {
     },
 
     resetPersonIds() {
-      const personIds = Object.keys(this.statsMap)
+      const personIds = Object.keys(this.statsMap).filter(
+        personId => personId !== 'total'
+      )
       const persons = personIds.map(pId => this.personMap.get(pId))
       this.personIndex = buildNameIndex(persons)
-      this.personIds = personIds.sort((a, b) => {
-        const personAName = this.personMap.get(a).full_name
-        const personBName = this.personMap.get(b).full_name
-        return personAName.localeCompare(personBName)
-      })
+      this.personIds = personIds
+        .sort((a, b) => {
+          const personAName = this.personMap.get(a).full_name
+          const personBName = this.personMap.get(b).full_name
+          return personAName.localeCompare(personBName)
+        })
+        .concat(['total'])
     }
   },
 
@@ -682,7 +693,7 @@ export default {
     },
 
     computeMode() {
-      if (this.taskTypeId && this.taskStatusIds.length > 0) {
+      if (this.taskTypeId || this.personId) {
         this.loadData()
       }
     },
@@ -692,7 +703,9 @@ export default {
     },
 
     statsMap() {
-      this.resetPersonIds()
+      if (this.taskTypeId) {
+        this.resetPersonIds()
+      }
     },
 
     taskTypeId() {
@@ -703,6 +716,11 @@ export default {
 
     taskStatusIds() {
       if (this.taskStatusIds.length > 0) {
+        this.loadData()
+      }
+    },
+    personId() {
+      if (this.personId) {
         this.loadData()
       }
     }
@@ -766,11 +784,7 @@ export default {
   }
 }
 
-.quota-low {
-  color: red;
-}
-
-.quota-button {
+.stats-button {
   border-radius: 0.5rem;
   padding: 0.5rem;
   background: transparent;
@@ -785,17 +799,30 @@ export default {
   }
 }
 
-.empty-quota {
+.empty-stats {
   width: 100%;
 }
 
-.selected .quota-button {
+.selected .stats-button {
   background: $purple;
   color: #333;
 }
+td.stat-low {
+  background-color: rgba(255, 242, 65, 0.2);
+}
 
-.quota-button:hover {
+.stats-button:hover {
   background: #bbeebb;
+}
+.stat-chip-container {
+  .stat-chip {
+    margin-bottom: 5px;
+  }
+  &:last-child {
+    .stat-chip {
+      margin-bottom: 0;
+    }
+  }
 }
 
 .weekend {

@@ -24,6 +24,7 @@
           v-if="activeTab === 'persons'"
         />
         <combobox-statuses
+          class="flexrow-item"
           :production-id="currentProduction.id"
           :label="$t('status-stats.status_label')"
           :statuses="taskStatuses"
@@ -89,7 +90,7 @@
         <text-field
           class="flexrow-item max-stats-input"
           type="number"
-          v-model="maxStats"
+          v-model="maxStat"
         />
       </div>
 
@@ -108,7 +109,7 @@
         :count-mode="params.countMode"
         :user-mode="params.userMode"
         :search-text="searchText"
-        :max-stats="maxStats"
+        :max-stat="maxStat"
       />
     </div>
     <div class="column side-column" v-if="showInfo && currentPerson">
@@ -178,8 +179,8 @@ export default {
         { name: 'persons', label: this.$t('main.people') }
       ],
       countModeOptions: [
-        { label: this.$t('status-stats.frames'), value: 'frames' },
-        { label: this.$t('status-stats.seconds'), value: 'seconds' },
+        { label: this.$t('status-stats.frames'), value: 'nb_frames' },
+        { label: this.$t('status-stats.seconds'), value: 'nb_seconds' },
         { label: this.$t('status-stats.count'), value: 'count' }
       ],
       detailLevelOptions: [
@@ -209,7 +210,7 @@ export default {
 
       isLoading: false,
       isPersonShotsLoading: false,
-      maxStats: 0,
+      maxStat: 0,
 
       detailLevelString: 'day',
       monthString: `${moment().month() + 1}`,
@@ -217,7 +218,7 @@ export default {
 
       params: {
         countMode: 'frames',
-        userMode: 'weighted',
+        userMode: 'person',
         person: null,
         taskStatusIds: [],
         taskTypeId: ''
@@ -316,9 +317,11 @@ export default {
     },
 
     taskStatuses() {
-      return this.getProductionTaskStatuses(this.currentProduction.id).filter(
-        status => !status.for_concept
-      )
+      const statuses = this.getProductionTaskStatuses(
+        this.currentProduction.id
+      ).filter(status => !status.for_concept)
+      console.log('taskStatuses', statuses)
+      return statuses
     }
   },
 
@@ -352,7 +355,7 @@ export default {
         this.params.person = personMap.get(this.$route.query.personId)
       }
       if (taskStatusIds) {
-        this.params.taskStatusIds = taskStatusIds?.split(',')
+        this.params.taskStatusIds = taskStatusIds?.split(',') || []
       }
       if (userMode) {
         this.params.userMode = userMode
@@ -443,18 +446,18 @@ export default {
     setCountModeOptions() {
       if (this.isPaperProduction) {
         this.countModeOptions = [
-          { label: this.$t('quota.drawings'), value: 'drawings' },
-          { label: this.$t('quota.count'), value: 'count' }
+          { label: this.$t('status-stats.drawings'), value: 'nb_drawings' },
+          { label: this.$t('status-stats.count'), value: 'count' }
         ]
-        this.countMode = 'drawings'
+        this.countMode = 'nb_drawings'
         this.currentMode = this.params.countMode
       } else {
         this.countModeOptions = [
-          { label: this.$t('quota.frames'), value: 'frames' },
-          { label: this.$t('quota.seconds'), value: 'seconds' },
-          { label: this.$t('quota.count'), value: 'count' }
+          { label: this.$t('status-stats.frames'), value: 'nb_frames' },
+          { label: this.$t('status-stats.seconds'), value: 'nb_seconds' },
+          { label: this.$t('status-stats.count'), value: 'count' }
         ]
-        this.params.countMode = 'frames'
+        this.params.countMode = 'nb_frames'
         this.currentMode = this.params.countMode
       }
     },
@@ -630,6 +633,9 @@ export default {
   .field {
     padding-bottom: 0;
     margin-bottom: 0;
+    .label {
+      padding-top: 0;
+    }
   }
 
   .overall-man-days {
@@ -672,7 +678,7 @@ export default {
   color: var(--text);
 }
 
-.max-quota-input {
+.max-stat-input {
   width: 80px;
 }
 </style>

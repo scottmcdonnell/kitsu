@@ -7,15 +7,18 @@
     <div
       class="chip-half first-take"
       :style="{
-        'border-color': backgroundColor(),
-        'background-color': backgroundColor()
+        'border-color': backgroundColor(1),
+        'background-color': backgroundColor(0.9)
       }"
     >
       {{ formatValue(firstTake) }}
     </div>
     <div
       class="chip-half retake"
-      :style="{ 'border-color': backgroundColor() }"
+      :style="{
+        'border-color': backgroundColor(1),
+        'background-color': backgroundColor(0.3)
+      }"
     >
       {{ formatValue(retake) }}
     </div>
@@ -76,7 +79,7 @@ export default {
       const formattedDate = format(new Date(this.date), 'yyyy-MM-dd')
       const firstTake = this.formatValue(this.firstTake)
       const retake = this.formatValue(this.retake)
-      return `[${this.status.name}] - ${formattedDate}\nfirst take: ${firstTake}${this.shortUnit}\ntakes: ${retake}${this.shortUnit}`
+      return `[${this.status.name}] - ${formattedDate}\nFirst takes: ${firstTake}${this.shortUnit}\nRetakes: ${retake}${this.shortUnit}`
     }
   },
   methods: {
@@ -85,16 +88,16 @@ export default {
       return unit === 's' ? value.toFixed(2) : value.toFixed(0)
     },
 
-    backgroundColor() {
+    backgroundColor(opacity) {
       const status = this.status
       if ((!status || status.name === 'Todo') && !this.isDarkTheme) {
-        return '#ECECEC'
+        return colors.hexToRGBa('#ECECEC', opacity)
       } else if ((!status || status.name === 'Todo') && this.isDarkTheme) {
-        return '#5F626A'
+        return colors.hexToRGBa('#5F626A', opacity)
       } else if (this.isDarkTheme) {
-        return colors.darkenColor(status.color)
+        return colors.darkenColor(status.color).alpha(opacity)
       } else {
-        return status.color
+        return colors.hexToRGBa(status.color, opacity)
       }
     }
   }
@@ -109,6 +112,7 @@ export default {
   font-size: 0.8rem;
   height: 1.5rem;
   line-height: 1.5rem;
+  color: #fff;
 
   &.has-tooltip {
     cursor: help;
@@ -121,7 +125,6 @@ export default {
     &.first-take {
       border-radius: 1rem 0 0 1rem;
       border-right: none;
-      background-color: transparent;
     }
 
     &.retake {
