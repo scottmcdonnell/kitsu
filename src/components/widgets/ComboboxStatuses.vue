@@ -138,7 +138,6 @@ export default {
   computed: {
     ...mapGetters(['isDarkTheme', 'productionMap', 'taskStatusMap']),
     items() {
-      console.log('items', this.statuses)
       // if productionId is set, filter statuses by production
       if (this.productionId) {
         const production = this.productionMap.get(this.productionId)

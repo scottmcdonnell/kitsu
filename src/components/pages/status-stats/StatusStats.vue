@@ -18,25 +18,9 @@
             >
               {{ $t('status-stats.average') }}
             </th>
-            <template v-if="detailLevel === 'month'">
-              <th
-                scope="col"
-                :key="'month-' + month"
-                v-for="month in monthRange"
-              >
-                {{ monthToString(month) }}
-              </th>
-            </template>
-            <template v-else-if="detailLevel === 'week'">
-              <th scope="col" :key="'week-' + week" v-for="week in weekRange">
-                {{ week }}
-              </th>
-            </template>
-            <template v-else-if="detailLevel === 'day'">
-              <th scope="col" :key="'day-' + day" v-for="day in dayRange">
-                {{ day }}
-              </th>
-            </template>
+            <th scope="col" :key="'time-' + time" v-for="time in timeRange">
+              {{ timeToString(time) }}
+            </th>
           </tr>
         </thead>
         <tbody class="datatable-body" v-if="statsLength > 0 && !isLoading">
@@ -63,129 +47,57 @@
             <td
               class="average datatable-row-header"
               :style="{ left: averageColumnX }"
+              :set="stats = getStats(key, 'average')"
             >
-              <template
-                v-if="detailLevel === 'month' || detailLevel === 'week'"
+              <span
+                v-for="(stat, status_id) in stats"
+                :key="key + '-' + status_id"
+                class="stat-chip-container"
               >
-                {{ getStatsAverage(key, { year }) }}
-              </template>
-              <template v-else-if="detailLevel === 'day'">
-                <span
-                  v-for="(stat, status_id) in getStatsAverage(key, {
-                    year,
-                    month
-                  })"
-                  :key="status_id"
-                  class="stat-chip-container"
-                >
-                  <status-chip
-                    v-if="stat"
-                    :status="taskStatusMap.get(status_id)"
-                    :date="`${year}-${month}`"
-                    :first-take="stat.first_take"
-                    :retake="stat.retake"
-                    :unit="countMode"
-                  />
-                </span>
-              </template>
+                <status-chip
+                  v-if="stat"
+                  :status="taskStatusMap.get(status_id)"
+                  :date="stat.date"
+                  :first-take="stat.first_take"
+                  :retake="stat.retake"
+                  :unit="countMode"
+                />
+              </span>
             </td>
-            <template v-if="detailLevel === 'month'">
-              <td
+            <td
+              :key="'time-' + time"
+              v-for="time in timeRange"
+              :set="stats = getStats(key, time)"
+              :class="{
+                weekend: isWeekend(time),
+                selected: isSelected(key, time),
+                'stat-low': isStatLow(stats)
+              }"
+            >
+              <div
+                v-if="stats"
                 :class="{
-                  selected: isMonthSelected(key, year, month),
-                  'stat-low': isMonthStatLow(key, year, month)
+                  'stats-button': key !== 'total'
                 }"
-                :key="'month-' + month"
-                v-for="month in monthRange"
-              >
-                <router-link
-                  class="quota-button"
-                  :to="
-                    episodifyRoute({
-                      name: 'quota-month-person',
-                      params: {
-                        person_id: personId ?? key,
-                        year,
-                        month
-                      },
-                      query: {
-                        ...$route.query,
-                        taskTypeId: personId ? key : null
-                      }
-                    })
-                  "
-                  v-if="key !== 'total' && getQuota(key, { year, month })"
-                >
-                  {{ getStats(key, { year, month }) }}
-                </router-link>
-                <span v-else>-</span>
-              </td>
-            </template>
-            <template v-else-if="detailLevel === 'week'">
-              <td
-                :class="{
-                  selected: isWeekSelected(key, year, week),
-                  'stat-low': isWeekStatLow(key, year, month)
-                }"
-                :key="'week-' + week"
-                v-for="week in weekRange"
-              >
-                <router-link
-                  class="quota-button"
-                  :to="
-                    episodifyRoute({
-                      name: 'quota-week-person',
-                      params: {
-                        person_id: personId ?? key,
-                        year,
-                        week
-                      },
-                      query: {
-                        ...$route.query,
-                        taskTypeId: personId ? key : null
-                      }
-                    })
-                  "
-                  v-if="key !== 'total' && getStats(key, { year, week })"
-                >
-                  {{ getStats(key, { year, week }) }}
-                </router-link>
-                <span v-else-if="key === 'total'">
-                  {{ getStats(key, { year, week }) }}
-                </span>
-                <span v-else> - </span>
-              </td>
-            </template>
-            <template v-else-if="detailLevel === 'day'">
-              <td
-                :class="{
-                  weekend: isWeekend(year, month, day),
-                  selected: isDaySelected(key, year, month, day),
-                  'stat-low': isDayStatLow(key, year, month, day)
-                }"
-                :key="'day-' + day"
-                v-for="day in dayRange"
+                @click="openDetail(key, time, stats)"
               >
                 <span
-                  v-for="(stat, status_id) in getStats(key, {
-                    year,
-                    month,
-                    day
-                  })"
+                  v-for="(stat, status_id) in stats"
                   :key="status_id"
                   class="stat-chip-container"
                 >
                   <status-chip
                     v-if="stat"
                     :status="taskStatusMap.get(status_id)"
-                    :date="`${year}-${month}-${day}`"
+                    :date="stat.date"
                     :first-take="stat.first_take"
                     :retake="stat.retake"
                     :unit="countMode"
                   />
                 </span>
-              </td>
-            </template>
+              </div>
+              <span v-else> - </span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -281,21 +193,13 @@ export default {
       isError: false,
       personIds: [],
       statsMap: {},
+      totalsMap: {},
       statsLength: 0,
       averageColumnX: '12rem'
     }
   },
 
   mounted() {
-    console.log(
-      'mounted',
-      this.taskStatusIds,
-      this.taskTypeId,
-      this.personId,
-      this.detailLevel,
-      this.countMode,
-      this.userMode
-    )
     if (this.shotMap.size < 2) {
       this.isLoading = true
       setTimeout(() => {
@@ -321,6 +225,21 @@ export default {
       'taskStatusMap',
       'taskTypeMap'
     ]),
+
+    timeRange() {
+      if (this.detailLevel === 'day') {
+        return getDayRange(
+          this.year,
+          this.month,
+          this.currentYear,
+          this.currentMonth
+        )
+      } else if (this.detailLevel === 'week') {
+        return getWeekRange(this.year, this.currentYear, this.currentWeek)
+      } else {
+        return getMonthRange(this.year, this.currentYear, this.currentMonth)
+      }
+    },
 
     monthRange() {
       return getMonthRange(this.year, this.currentYear, this.currentMonth)
@@ -432,7 +351,8 @@ export default {
         if (!groupedStats[personId][timeKey][stat.task_status_id])
           groupedStats[personId][timeKey][stat.task_status_id] = {
             first_take: 0,
-            retake: 0
+            retake: 0,
+            date: timeKey
           }
 
         // Increment the appropriate counter
@@ -454,21 +374,9 @@ export default {
       return route
     },
 
-    isWeekend(year, month, day) {
-      let date = moment(`${year}-${month}-${day}`, 'YYYY-MM-DD')
-      if (day < 10) date = moment(`${year}-${month}-0${day}`, 'YYYY-MM-DD')
-      return [0, 6].includes(date.day())
-    },
-
     loadData() {
       if (this.taskTypeId || this.personId) {
         this.isLoading = true
-
-        console.log('loadData', this.taskTypeId, this.personId)
-        console.log('taskStatusIds', this.taskStatusIds)
-        console.log('detailLevel', this.detailLevel)
-        console.log('countMode', this.countMode)
-        console.log('userMode', this.userMode)
 
         this.getStatusStats({
           year: this.year,
@@ -480,7 +388,6 @@ export default {
           userMode: this.userMode
         })
           .then(stats_list => {
-            console.log('stats_list', stats_list)
             this.statsList = stats_list
 
             // Group stats by person and detail level
@@ -490,9 +397,10 @@ export default {
             )
             this.statsLength = Object.keys(this.statsMap).length
             this.calcAverageColumnX()
+            this.calcPersonAverageAndTotals()
+            this.calcTotals()
 
             this.$nextTick(() => {
-              console.log('isLoading', this.isLoading)
               this.isLoading = false
             })
           })
@@ -531,87 +439,101 @@ export default {
       return date.toString().padStart(2, '0')
     },
 
-    // getQuota(personId, opt = {}) {
-    //   if (opt.day) {
-    //     const dayKey = `${opt.year}-${this.dateDigit(
-    //       opt.month
-    //     )}-${this.dateDigit(opt.day)}`
-    //     return this.quotaMap[personId].day[this.countMode][dayKey]
-    //   } else if (opt.week) {
-    //     const weekKey = `${opt.year}-${opt.week}`
-    //     return this.quotaMap[personId].week[this.countMode][weekKey]
-    //   } else {
-    //     const monthKey = `${opt.year}-${this.dateDigit(opt.month)}`
-    //     return this.quotaMap[personId].month[this.countMode][monthKey]
-    //   }
-    // },
+    /**
+     * Get the stats for a person and time period
+     * @param key - The person id or 'total' for the total row
+     * @param column - The time period, day number, week number, or month number or 'average' for the average column
+     * @returns The stats for the person and time period
+     */
+    getStats(row, column) {
+      // key will either be 'average' or the time header eg 1, 2, 3...
 
-    getStats(personId, opt = {}) {
-      const key = this.getDateKey(opt)
-      if (!this.statsMap[personId] || !this.statsMap[personId][key])
-        return false
+      // convert 1, 2, 3... to YYYY-MM-DD, YYYY-MM, YYYY-MM-DD
+      if (column !== 'average') column = this.getDateKeyFromTimeColumn(column)
 
-      return this.statsMap[personId][key]
+      console.log(`getStats row ${row} column ${column}`)
+
+      if (row === 'total' && column !== 'average') {
+        console.log('total', this.totalsMap[column])
+        return this.totalsMap[column] || false
+      }
+
+      if (!this.statsMap[row] || !this.statsMap[row][column]) return false
+
+      // console.log('statsMap', this.statsMap[row][column])
+
+      return this.statsMap[row][column]
     },
-    getStatsAverage(personId, opt = {}) {
-      console.log('getStatsAverage', personId, opt)
-      const totals = {}
-      const personStats = this.statsMap[personId] || {}
 
-      // Initialize totals first
-      for (const timeStats of Object.values(personStats)) {
-        for (const [status_id, stat] of Object.entries(timeStats)) {
-          if (!totals[status_id]) {
-            totals[status_id] = {
-              take_value: 0,
-              take_count: 0,
-              retake_value: 0,
-              retake_count: 0
+    getDateKeyFromTimeColumn(time) {
+      if (typeof time === 'object') throw new Error('time is an object')
+      const year = this.year
+      let month = this.month
+      let week
+      let day
+
+      switch (this.detailLevel) {
+        case 'day':
+          day = time
+          return `${year}-${this.dateDigit(month)}-${this.dateDigit(day)}`
+        case 'week':
+          week = time
+          return `${year}-${week}`
+        case 'month':
+          month = time
+          return `${year}-${this.dateDigit(month)}`
+      }
+    },
+
+    calcPersonAverageAndTotals() {
+      for (const [personId, personStats] of Object.entries(this.statsMap)) {
+        const totals = {}
+
+        // Initialize totals first
+        for (const timeStats of Object.values(personStats)) {
+          for (const [status_id, stat] of Object.entries(timeStats)) {
+            if (!totals[status_id]) {
+              totals[status_id] = {
+                first_take: 0,
+                first_take_count: 0,
+                retake: 0,
+                retake_count: 0
+              }
             }
+            totals[status_id].first_take += stat.first_take || 0
+            totals[status_id].first_take_count += 1
+            totals[status_id].retake += stat.retake || 0
+            totals[status_id].retake_count += 1
           }
-          totals[status_id].take_value += stat.first_take || 0
-          totals[status_id].take_count += 1
-          totals[status_id].retake_value += stat.retake || 0
-          totals[status_id].retake_count += 1
         }
-      }
 
-      // Calculate averages
-      const averages = {}
-      for (const [status_id, total] of Object.entries(totals)) {
-        averages[status_id] = {
-          first_take: total.take_count
-            ? total.take_value / total.take_count
-            : 0,
-          retake: total.retake_count
-            ? total.retake_value / total.retake_count
-            : 0
+        // Calculate averages
+        const averages = {}
+        for (const [status_id, total] of Object.entries(totals)) {
+          averages[status_id] = {
+            first_take: total.first_take_count
+              ? total.first_take / total.first_take_count
+              : 0,
+            retake: total.retake_count ? total.retake / total.retake_count : 0
+          }
         }
+        this.statsMap[personId]['average'] = averages
+        this.statsMap[personId]['totals'] = totals
       }
-      console.log('averages', averages)
-      return averages
     },
 
-    // getQuotaAverage(personId, opt = {}) {
-    //   let average = 0
-    //   let total = 0
-    //   let nbEntries
-    //   if (this.detailLevel === 'day') {
-    //     const monthKey = `${opt.year}-${this.dateDigit(opt.month)}`
-    //     total = this.quotaMap[personId].month[this.countMode][monthKey]
-    //     nbEntries = this.quotaMap[personId].day.entries[monthKey]
-    //   } else if (this.detailLevel === 'week') {
-    //     const yearKey = opt.year
-    //     total = this.quotaMap[personId].year[this.countMode][yearKey]
-    //     nbEntries = this.quotaMap[personId].week.entries[yearKey]
-    //   } else if (this.detailLevel === 'month') {
-    //     const yearKey = opt.year
-    //     total = this.quotaMap[personId].year[this.countMode][yearKey]
-    //     nbEntries = this.quotaMap[personId].month.entries[yearKey]
-    //   }
-    //   average = total / nbEntries
-    //   return average ? average.toFixed(2) : '-'
-    // },
+    isSelected(personId, time) {
+      switch (this.detailLevel) {
+        case 'day':
+          return this.isDaySelected(personId, this.year, this.month, time)
+        case 'week':
+          return this.isWeekSelected(personId, this.year, time)
+        case 'month':
+          return this.isMonthSelected(personId, this.year, time)
+        default:
+          throw new Error(`Invalid detail level: ${this.detailLevel}`)
+      }
+    },
 
     isDaySelected(personId, year, month, day) {
       return (
@@ -641,8 +563,15 @@ export default {
       )
     },
 
-    isDayStatLow(personId, year, month, day) {
-      const stats = this.getStats(personId, { year, month, day })
+    isWeekend(time) {
+      if (this.detailLevel !== 'day') return false
+
+      const day = this.dateDigit(time)
+      const date = moment(`${this.year}-${this.month}-${day}`, 'YYYY-MM-DD')
+      return [0, 6].includes(date.day())
+    },
+
+    isStatLow(stats) {
       for (const stat of Object.values(stats)) {
         if (stat.first_take < this.maxStat) {
           return true
@@ -651,18 +580,15 @@ export default {
       return false
     },
 
-    isWeekStatLow(personId, year, week) {
-      return this.maxStat > this.getStats(personId, { year, week })
-    },
-
-    isMonthStatLow(personId, year, month) {
-      return this.maxStat > this.getStats(personId, { year, month })
-    },
-
     calcAverageColumnX() {
       if (this.statsLength > 0) {
         this.averageColumnX = `${this.$refs.rowHeaderName.offsetWidth}px`
       }
+    },
+
+    timeToString(time) {
+      if (this.detailLevel === 'month') return monthToString(time)
+      else return time
     },
 
     resetPersonIds() {
@@ -678,6 +604,40 @@ export default {
           return personAName.localeCompare(personBName)
         })
         .concat(['total'])
+    },
+
+    openDetail(key, time, stats) {
+      //if (!stats) return
+      console.log('openDetail', key, time, stats)
+    },
+
+    calcTotals() {
+      const totals = {}
+
+      // Iterate through all person_ids
+      for (const personStats of Object.values(this.statsMap)) {
+        // For each time period in this person's stats
+        for (const [timePeriod, periodStats] of Object.entries(personStats)) {
+          // init the object for this time period
+          if (!totals[timePeriod]) totals[timePeriod] = {}
+
+          // For each status in this time period
+          for (const [statusId, stats] of Object.entries(periodStats)) {
+            if (!totals[timePeriod][statusId]) {
+              totals[timePeriod][statusId] = {
+                first_take: 0,
+                retake: 0,
+                date: timePeriod
+              }
+            }
+
+            // Sum up first_take and last_take
+            totals[timePeriod][statusId].first_take += stats.first_take || 0
+            totals[timePeriod][statusId].retake += stats.retake || 0
+          }
+        }
+      }
+      this.totalsMap = totals
     }
   },
 
@@ -693,6 +653,12 @@ export default {
     },
 
     computeMode() {
+      if (this.taskTypeId || this.personId) {
+        this.loadData()
+      }
+    },
+
+    detailLevel() {
       if (this.taskTypeId || this.personId) {
         this.loadData()
       }
@@ -732,9 +698,6 @@ export default {
 .dark {
   .weekend {
     background-color: $dark-grey;
-  }
-  .quota-button:hover {
-    color: #333;
   }
   .info {
     color: $white;

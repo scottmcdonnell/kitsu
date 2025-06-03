@@ -216,16 +216,16 @@ export default {
     countMode,
     userMode
   ) {
-    console.log('getStatusStats', {
-      productionId: productionId,
-      year: year,
-      taskStatusIds: taskStatusIds,
-      taskTypeId: taskTypeId,
-      personId: personId,
-      detailLevel: detailLevel,
-      countMode: countMode,
-      userMode: userMode
-    })
+    // console.log('getStatusStats', {
+    //   productionId: productionId,
+    //   year: year,
+    //   taskStatusIds: taskStatusIds,
+    //   taskTypeId: taskTypeId,
+    //   personId: personId,
+    //   detailLevel: detailLevel,
+    //   countMode: countMode,
+    //   userMode: userMode
+    // })
     // return [
     //   {
     //     date: '2025-05-08T10:47:38',
@@ -287,12 +287,9 @@ export default {
       query.created_at_from = `${year}-01-01`
       query.created_at_to = `${year}-12-31`
     }
-    console.log('query', query)
 
     // convert query to url params
     const urlParams = new URLSearchParams(query)
-    console.log('urlParams', urlParams)
-
     return client.pget(`/api/data/task-status-logs/stats?${urlParams}`)
   },
 

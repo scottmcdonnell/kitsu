@@ -320,7 +320,6 @@ export default {
       const statuses = this.getProductionTaskStatuses(
         this.currentProduction.id
       ).filter(status => !status.for_concept)
-      console.log('taskStatuses', statuses)
       return statuses
     }
   },
@@ -506,7 +505,7 @@ export default {
     detailLevelString() {
       if (this.detailLevel !== this.detailLevelString) {
         const route = {
-          name: `quota-${this.detailLevelString}`,
+          name: `status-stats-${this.detailLevelString}`,
           params: {
             year: this.currentYear
           },
@@ -524,7 +523,7 @@ export default {
       const currentMonth = moment().month() + 1
       if (this.currentYear !== year) {
         const route = {
-          name: `quota-${this.detailLevelString}`,
+          name: `status-stats-${this.detailLevelString}`,
           params: {
             year
           },
@@ -543,7 +542,7 @@ export default {
     monthString() {
       if (this.currentMonth !== Number(this.monthString)) {
         const route = {
-          name: 'quota-day',
+          name: 'status-stats-day',
           params: {
             year: this.currentYear,
             month: this.monthString

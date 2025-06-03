@@ -26,7 +26,6 @@
 </template>
 
 <script>
-import { format } from 'date-fns'
 import { mapGetters } from 'vuex'
 import colors from '@/lib/colors'
 
@@ -40,7 +39,7 @@ export default {
     },
     date: {
       type: String,
-      required: true
+      default: ''
     },
     firstTake: {
       type: Number,
@@ -76,10 +75,10 @@ export default {
     },
 
     tooltipText() {
-      const formattedDate = format(new Date(this.date), 'yyyy-MM-dd')
+      const date = this.date ? ` - ${this.date}` : ''
       const firstTake = this.formatValue(this.firstTake)
       const retake = this.formatValue(this.retake)
-      return `[${this.status.name}] - ${formattedDate}\nFirst takes: ${firstTake}${this.shortUnit}\nRetakes: ${retake}${this.shortUnit}`
+      return `[${this.status.name}]${date}\nFirst takes: ${firstTake}${this.shortUnit}\nRetakes: ${retake}${this.shortUnit}`
     }
   },
   methods: {
