@@ -201,7 +201,6 @@ export default {
   },
 
   mounted() {
-    console.log('mounted month', this.month.toString())
     if (this.shotMap.size < 2) {
       this.isLoading = true
       setTimeout(() => {
@@ -261,14 +260,16 @@ export default {
     },
     entryIds() {
       if (this.personId) {
-        return sortTaskTypes(
-          Object.keys(this.quotaMap)
+        const result = sortTaskTypes(
+          Object.keys(this.taskTypeMap)
             .filter(key => key !== 'total')
             .map(taskTypeId => this.taskTypeMap.get(taskTypeId)),
           this.currentProduction
         )
           .map(taskType => taskType.id)
           .concat(['total'])
+        console.log('result', result)
+        return result
       } else {
         return this.filteredPersonIds
       }

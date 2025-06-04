@@ -149,6 +149,7 @@ const initialState = {
 
   person: {},
   personTasks: [],
+  personDoneTasks: [],
   displayedPersonTasks: [],
   displayedPersonDoneTasks: [],
   personTasksSearchText: '',
@@ -206,6 +207,8 @@ const getters = {
 
   displayedPersonTasks: state => state.displayedPersonTasks,
   displayedPersonDoneTasks: state => state.displayedPersonDoneTasks,
+  personTasks: state => state.personTasks,
+  personDoneTasks: state => state.personDoneTasks,
   personTasksSearchText: state => state.personTasksSearchText,
   personTaskSearchQueries: state => state.personTaskSearchQueries,
   personTaskSelectionGrid: state => state.personTaskSelectionGrid,
@@ -737,7 +740,7 @@ const mutations = {
   [LOAD_PERSON_DONE_TASKS_END](state, tasks) {
     tasks.forEach(populateTask)
     state.displayedPersonDoneTasks = tasks
-    cache.personDoneTasks = tasks
+    state.personDoneTasks = tasks
     cache.personDoneTasksIndex = buildTaskIndex(tasks)
   },
 
@@ -749,7 +752,7 @@ const mutations = {
     state.displayedPersonTasks = searchResult || state.personTasks
 
     searchResult = indexSearch(cache.personDoneTasksIndex, keywords)
-    state.displayedPersonDoneTasks = searchResult || cache.personDoneTasks
+    state.displayedPersonDoneTasks = searchResult || state.personDoneTasks
   },
 
   [SAVE_PERSON_TASKS_SEARCH_END](state, { searchQuery }) {
@@ -780,7 +783,7 @@ const mutations = {
       })
 
       cache.personTasksIndex = buildTaskIndex(state.personTasks)
-      cache.personDoneTasksIndex = buildTaskIndex(cache.personDoneTasks)
+      cache.personDoneTasksIndex = buildTaskIndex(state.personDoneTasks)
     }
   },
 
@@ -891,7 +894,6 @@ const mutations = {
     cache.peopleIndex = {}
     cache.personTasksIndex = {}
     cache.personDoneTasksIndex = {}
-    cache.personDoneTasks = []
   },
 
   [SAVE_PEOPLE_SEARCH_END](state, { searchQuery }) {

@@ -24,7 +24,11 @@
             :tabs="todoTabs"
           />
 
-          <div ref="search" class="flexrow" v-show="!isActiveTab('calendar')">
+          <div
+            ref="search"
+            class="flexrow"
+            v-show="!isActiveTab('calendar') && !isActiveTab('summary')"
+          >
             <search-field
               ref="person-tasks-search-field"
               class="search-field flexrow-item"
@@ -56,12 +60,24 @@
             />
           </div>
 
-          <div ref="query" class="query-list" v-if="!isActiveTab('calendar')">
+          <div
+            ref="query"
+            class="query-list"
+            v-if="!isActiveTab('calendar') && !isActiveTab('summary')"
+          >
             <search-query-list
               :queries="personTaskSearchQueries"
               type="person"
               @remove-search="removeSearchQuery"
             />
+          </div>
+
+          <div v-if="isActiveTab('summary')" class="summary-content">
+            <tasks-pie-chart
+              :tasks="personDoneTasks.concat(personTasks)"
+              :on-status-click="onPieChartStatusClick"
+            />
+            <person-status-stats :person-id="person.id" />
           </div>
 
           <todos-list
@@ -180,6 +196,8 @@ import SearchQueryList from '@/components/widgets/SearchQueryList.vue'
 import TimesheetList from '@/components/lists/TimesheetList.vue'
 import TodosList from '@/components/lists/TodosList.vue'
 import TaskInfo from '@/components/sides/TaskInfo.vue'
+import TasksPieChart from '@/components/widgets/TasksPieChart.vue'
+import PersonStatusStats from '@/components/widgets/PersonStatusStats.vue'
 import UserCalendar from '@/components/widgets/UserCalendar.vue'
 
 export default {
@@ -198,6 +216,8 @@ export default {
     SearchField,
     SearchQueryList,
     TaskInfo,
+    TasksPieChart,
+    PersonStatusStats,
     TimesheetList,
     TodosList,
     UserCalendar
@@ -205,7 +225,7 @@ export default {
 
   data() {
     return {
-      activeTab: 'todos',
+      activeTab: 'summary',
       currentSort: 'entity_name',
       daysOff: [],
       dayOffError: false,
@@ -269,6 +289,8 @@ export default {
     ...mapGetters([
       'displayedPersonTasks',
       'displayedPersonDoneTasks',
+      'personTasks',
+      'personDoneTasks',
       'getProductionTaskStatuses',
       'isCurrentUserAdmin',
       'isCurrentUserManager',
@@ -496,6 +518,10 @@ export default {
       )
       return [
         {
+          label: this.$t('people.summary'),
+          name: 'summary'
+        },
+        {
           label: this.$t('main.tasks'),
           name: 'todos'
         },
@@ -635,6 +661,16 @@ export default {
       this.setPersonTasksSearch(search)
     },
 
+    onPieChartStatusClick(status) {
+      this.$router.push({
+        query: {
+          ...this.$route.query,
+          section: status.is_done ? 'done' : 'todos',
+          search: status.short_name || status.name
+        }
+      })
+    },
+
     async loadPerson(personId) {
       this.person = this.personMap.get(personId)
 
@@ -713,6 +749,8 @@ export default {
 
     updateActiveTab() {
       const availableSections = [
+        'summary',
+        'todos',
         'board',
         'calendar',
         'done',
@@ -722,7 +760,7 @@ export default {
       const currentSection = this.$route.query.section
       this.activeTab = availableSections.includes(currentSection)
         ? currentSection
-        : 'todos'
+        : 'summary'
 
       if (this.activeTab === 'board') {
         const currentProduction = this.userOpenProductions.find(
@@ -944,5 +982,9 @@ export default {
 .calendar {
   flex: 1;
   overflow: auto;
+}
+
+.summary-content {
+  padding: 1rem 0;
 }
 </style>

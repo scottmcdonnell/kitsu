@@ -68,10 +68,18 @@
         />
         <div class="filler"></div>
         <button-simple
+          v-if="activeView === 'stats'"
           class="flexrow-item"
-          :title="$t('status-stats.export_stats')"
-          icon="download"
-          @click="exportStats"
+          :title="$t('status-stats.data-table')"
+          icon="grid"
+          @click="activeView = 'data-table'"
+        />
+        <button-simple
+          v-if="activeView === 'data-table'"
+          class="flexrow-item"
+          :title="$t('status-stats.stats')"
+          icon="quota"
+          @click="activeView = 'stats'"
         />
       </div>
 
@@ -95,7 +103,26 @@
       </div>
 
       <status-stats
+        v-if="activeView === 'stats'"
         ref="status-stat-list"
+        :task-type-id="activeTab === 'tasktypes' ? params.taskTypeId : null"
+        :person-id="
+          activeTab === 'persons' && params.person ? params.person.id : null
+        "
+        :task-status-ids="params.taskStatusIds"
+        :detail-level="detailLevelString"
+        :year="currentYear"
+        :month="currentMonth"
+        :week="currentWeek"
+        :day="currentDay"
+        :count-mode="params.countMode"
+        :user-mode="params.userMode"
+        :search-text="searchText"
+        :max-stat="maxStat"
+      />
+      <status-log-table
+        v-if="activeView === 'data-table'"
+        ref="status-log-table"
         :task-type-id="activeTab === 'tasktypes' ? params.taskTypeId : null"
         :person-id="
           activeTab === 'persons' && params.person ? params.person.id : null
@@ -133,9 +160,6 @@
 import moment from 'moment-timezone'
 import { mapGetters, mapActions } from 'vuex'
 
-import csv from '@/lib/csv'
-import stringHelpers from '@/lib/string'
-
 import { episodifyRoute } from '@/lib/path'
 import preferences from '@/lib/preferences'
 import { monthToString, range, getDateBoundaries } from '@/lib/time'
@@ -150,6 +174,7 @@ import InfoQuestionMark from '@/components/widgets/InfoQuestionMark.vue'
 import PeopleField from '@/components/widgets/PeopleField.vue'
 import PeopleStatusLogs from '@/components/sides/PeopleStatusLogs.vue'
 import StatusStats from '@/components/pages/status-stats/StatusStats.vue'
+import StatusLogTable from '@/components/pages/status-stats/StatusLogTable.vue'
 import RouteTabs from '@/components/widgets/RouteTabs.vue'
 import SearchField from '@/components/widgets/SearchField.vue'
 import TextField from '@/components/widgets/TextField.vue'
@@ -166,6 +191,7 @@ export default {
     PeopleField,
     PeopleStatusLogs,
     StatusStats,
+    StatusLogTable,
     RouteTabs,
     SearchField,
     TextField
@@ -174,6 +200,7 @@ export default {
   data() {
     return {
       activeTab: 'tasktypes',
+      activeView: 'stats', // stats or data-table
       tabs: [
         { name: 'tasktypes', label: this.$t('task_types.title') },
         { name: 'persons', label: this.$t('main.people') }
@@ -416,33 +443,6 @@ export default {
         episodifyRoute(route, this.currentEpisode.id)
       }
       return route
-    },
-
-    exportStats() {
-      const quotas = this.$refs['quota-list'].quotaMap
-
-      const nameData = ['quotas', this.detailLevel, this.currentYear]
-      if (this.detailLevel === 'day') nameData.push(this.currentMonth)
-      const name = stringHelpers.slugify(nameData.join('_'))
-      const people = Object.keys(quotas)
-        .map(personId => personMap.get(personId))
-        .sort((a, b) =>
-          a.full_name.localeCompare(b.full_name, undefined, {
-            numeric: true
-          })
-        )
-      csv.generateQuotas(
-        name,
-        quotas,
-        people,
-        this.countMode,
-        this.detailLevel,
-        moment().year(),
-        moment().month() + 1,
-        this.currentYear,
-        this.currentMonth,
-        this.currentWeek
-      )
     },
 
     onSearchChange(searchText) {
