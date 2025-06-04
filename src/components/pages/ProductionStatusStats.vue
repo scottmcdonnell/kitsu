@@ -113,15 +113,15 @@
       />
     </div>
     <div class="column side-column" v-if="showInfo && currentPerson">
-      <people-quota-info
+      <people-status-logs
         :person="currentPerson"
         :year="currentYear"
         :month="currentMonth"
         :week="currentWeek"
         :day="currentDay"
-        :is-loading="isPersonShotsLoading"
+        :is-loading="isPersonStatusLogsLoading"
         :is-loading-error="false"
-        :shots="personShots"
+        :status-logs="personStatusLogs"
         :count-mode="params.countMode"
         @close="hideSideInfo"
       />
@@ -138,7 +138,7 @@ import stringHelpers from '@/lib/string'
 
 import { episodifyRoute } from '@/lib/path'
 import preferences from '@/lib/preferences'
-import { monthToString, range } from '@/lib/time'
+import { monthToString, range, getDateBoundaries } from '@/lib/time'
 import { sortPeople } from '@/lib/sorting'
 import personStore from '@/store/modules/people'
 
@@ -148,7 +148,7 @@ import ComboboxStatuses from '@/components/widgets/ComboboxStatuses.vue'
 import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
 import InfoQuestionMark from '@/components/widgets/InfoQuestionMark.vue'
 import PeopleField from '@/components/widgets/PeopleField.vue'
-import PeopleQuotaInfo from '@/components/sides/PeopleQuotaInfo.vue'
+import PeopleStatusLogs from '@/components/sides/PeopleStatusLogs.vue'
 import StatusStats from '@/components/pages/status-stats/StatusStats.vue'
 import RouteTabs from '@/components/widgets/RouteTabs.vue'
 import SearchField from '@/components/widgets/SearchField.vue'
@@ -164,7 +164,7 @@ export default {
     ComboboxTaskType,
     InfoQuestionMark,
     PeopleField,
-    PeopleQuotaInfo,
+    PeopleStatusLogs,
     StatusStats,
     RouteTabs,
     SearchField,
@@ -209,7 +209,7 @@ export default {
       detailLevel: 'day',
 
       isLoading: false,
-      isPersonShotsLoading: false,
+      isPersonStatusLogsLoading: false,
       maxStat: 0,
 
       detailLevelString: 'day',
@@ -223,7 +223,7 @@ export default {
         taskStatusIds: [],
         taskTypeId: ''
       },
-      personShots: [],
+      personStatusLogs: [],
       silent: false,
 
       searchText: '',
@@ -325,7 +325,7 @@ export default {
   },
 
   methods: {
-    ...mapActions(['getPersonQuotaShots', 'loadShots']),
+    ...mapActions(['getStatusLogs', 'loadShots']),
 
     getCurrentPerson() {
       const personId = this.$route.params.person_id
@@ -377,18 +377,25 @@ export default {
 
       if (this.$route.path.indexOf('person') > 0) {
         this.isPersonShotsLoading = true
-        this.getPersonQuotaShots({
+        console.log('year', year)
+        console.log('month', month)
+        console.log('week', week)
+        console.log('day', day)
+        const { from, to } = getDateBoundaries(year, month, week, day)
+        console.log('from', from)
+        console.log('to', to)
+
+        this.getStatusLogs({
+          taskTypeId: null,
+          taskStatusIds: this.params.taskStatusIds,
           personId: this.currentPerson.id,
-          detailLevel: this.detailLevel,
-          taskTypeId: this.params.taskTypeId,
-          year,
-          month,
-          week,
-          day,
-          userMode: this.params.userMode
-        }).then(shots => {
-          this.isPersonShotsLoading = false
-          this.personShots = shots
+          userMode: this.params.userMode,
+          from,
+          to
+        }).then(logs => {
+          console.log('logs', logs)
+          this.isPersonStatusLogsLoading = false
+          this.personStatusLogs = logs
           this.showSideInfo()
         })
       } else {

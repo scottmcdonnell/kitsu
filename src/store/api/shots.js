@@ -208,13 +208,14 @@ export default {
 
   getStatusStats(
     productionId,
-    year,
     taskTypeId,
     taskStatusIds,
     personId,
     detailLevel,
     countMode,
-    userMode
+    userMode,
+    from,
+    to
   ) {
     // console.log('getStatusStats', {
     //   productionId: productionId,
@@ -283,14 +284,41 @@ export default {
         query.units = countMode
       }
     }
-    if (year) {
-      query.created_at_from = `${year}-01-01`
-      query.created_at_to = `${year}-12-31`
-    }
+    if (from) query.created_at_from = from
+    if (to) query.created_at_to = to
 
     // convert query to url params
     const urlParams = new URLSearchParams(query)
     return client.pget(`/api/data/task-status-logs/stats?${urlParams}`)
+  },
+
+  getStatusLogs(
+    productionId,
+    taskTypeId,
+    taskStatusIds,
+    personId,
+    userMode,
+    from,
+    to
+  ) {
+    const query = {}
+    if (taskTypeId) query.task_type_id = taskTypeId
+
+    if (taskStatusIds && taskStatusIds.length > 0)
+      query.task_status_id = taskStatusIds.join(',')
+
+    if (personId) {
+      if (userMode === 'person') query.person_id = personId
+      else query.assignee_id = personId
+    }
+    if (productionId) query.project_id = productionId
+
+    if (from) query.created_at_from = from
+    if (to) query.created_at_to = to
+
+    // convert query to url params
+    const urlParams = new URLSearchParams(query)
+    return client.pget(`/api/data/task-status-logs?${urlParams}`)
   },
 
   setNbFramesFromTaskTypePreviews(taskTypeId, productionId, episodeId) {

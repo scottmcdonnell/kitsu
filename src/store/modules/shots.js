@@ -718,25 +718,42 @@ const actions = {
   getStatusStats(
     { commit, state, rootGetters },
     {
-      year,
       taskTypeId,
       taskStatusIds,
       personId,
       detailLevel,
       countMode,
-      userMode
+      userMode,
+      from,
+      to
     }
   ) {
     const production = rootGetters.currentProduction
     return shotsApi.getStatusStats(
       production.id,
-      year,
       taskTypeId,
       taskStatusIds,
       personId,
       detailLevel,
       countMode,
-      userMode
+      userMode,
+      from,
+      to
+    )
+  },
+  getStatusLogs(
+    { commit, state, rootGetters },
+    { taskTypeId, taskStatusIds, personId, userMode, from, to }
+  ) {
+    const production = rootGetters.currentProduction
+    return shotsApi.getStatusLogs(
+      production.id,
+      taskTypeId,
+      taskStatusIds,
+      personId,
+      userMode,
+      from,
+      to
     )
   },
 

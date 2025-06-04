@@ -304,3 +304,26 @@ export const minutesToDays = (organisation, minutes) => {
 export const hoursToDays = (organisation, hours) => {
   return hours / organisation.hours_by_day
 }
+
+export const getDateBoundaries = (year, month, week, day) => {
+  let startDate, endDate
+
+  if (day) {
+    startDate = moment(`${year}-${month}-${day}`, 'YYYY-MM-DD')
+    endDate = startDate.clone().add(1, 'day')
+  } else if (week) {
+    startDate = moment(`${year}-${week}`, 'YYYY-W').startOf('week')
+    endDate = startDate.clone().endOf('week').add(1, 'day')
+  } else if (month) {
+    startDate = moment(`${year}-${month}`, 'YYYY-MM').startOf('month')
+    endDate = startDate.clone().endOf('month').add(1, 'day')
+  } else {
+    startDate = moment(`${year}`, 'YYYY').startOf('year')
+    endDate = startDate.clone().endOf('year').add(1, 'day')
+  }
+
+  return {
+    from: formatSimpleDate(startDate),
+    to: formatSimpleDate(endDate)
+  }
+}

@@ -79,7 +79,7 @@
                 :class="{
                   'stats-button': key !== 'total'
                 }"
-                @click="openDetail(key, time, stats)"
+                @click="openDetail(key, time, $route.query)"
               >
                 <span
                   v-for="(stat, status_id) in stats"
@@ -125,7 +125,8 @@ import {
   monthToString,
   getMonthRange,
   getWeekRange,
-  getDayRange
+  getDayRange,
+  getDateBoundaries
 } from '@/lib/time'
 
 import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
@@ -200,6 +201,7 @@ export default {
   },
 
   mounted() {
+    console.log('mounted month', this.month.toString())
     if (this.shotMap.size < 2) {
       this.isLoading = true
       setTimeout(() => {
@@ -285,7 +287,7 @@ export default {
   },
 
   methods: {
-    ...mapActions(['loadShots', 'getStatusStats', 'getPeriodDetails']),
+    ...mapActions(['loadShots', 'getStatusStats', 'getStatusLogs']),
 
     /**
      * Parse the date and return the appropriate key for the detail level
@@ -378,14 +380,20 @@ export default {
       if (this.taskTypeId || this.personId) {
         this.isLoading = true
 
+        const year = this.year
+        const month = this.detailLevel === 'month' ? this.month : null
+
+        const { from, to } = getDateBoundaries(year, month)
+
         this.getStatusStats({
-          year: this.year,
           taskTypeId: this.taskTypeId,
           taskStatusIds: this.taskStatusIds,
           personId: this.personId,
           detailLevel: this.detailLevel,
           countMode: this.countMode,
-          userMode: this.userMode
+          userMode: this.userMode,
+          from,
+          to
         })
           .then(stats_list => {
             this.statsList = stats_list
@@ -414,20 +422,30 @@ export default {
       }
     },
 
-    loadDetails(personId, dateString) {
+    loadDetails(row, column) {
       this.loadShots(err => {
         this.isLoading = true
         if (err) {
           console.error(err)
         } else {
           if (this.taskTypeId) {
-            this.getPeriodDetails({
+            const year = this.year
+            const month = this.month
+            const week = this.detailLevel === 'week' ? column : null
+            const day = this.detailLevel === 'day' ? column : null
+
+            const { from, to } = getDateBoundaries(year, month, week, day)
+
+            this.getStatusLogs({
               taskTypeId: this.taskTypeId,
-              detailLevel: this.detailLevel,
-              personId,
-              dateString
-            }).then(shots => {
-              this.detailsMap = shots
+              taskStatusIds: this.taskStatusIds,
+              personId: this.personId,
+              userMode: this.userMode,
+              from,
+              to
+            }).then(logs => {
+              this.detailsMap = logs
+              this.isLoading = false
             })
           }
         }
@@ -449,24 +467,17 @@ export default {
       // key will either be 'average' or the time header eg 1, 2, 3...
 
       // convert 1, 2, 3... to YYYY-MM-DD, YYYY-MM, YYYY-MM-DD
-      if (column !== 'average') column = this.getDateKeyFromTimeColumn(column)
-
-      console.log(`getStats row ${row} column ${column}`)
+      if (column !== 'average') column = this.getDateKeyFromColumn(column)
 
       if (row === 'total' && column !== 'average') {
-        console.log('total', this.totalsMap[column])
         return this.totalsMap[column] || false
       }
 
       if (!this.statsMap[row] || !this.statsMap[row][column]) return false
-
-      // console.log('statsMap', this.statsMap[row][column])
-
       return this.statsMap[row][column]
     },
 
-    getDateKeyFromTimeColumn(time) {
-      if (typeof time === 'object') throw new Error('time is an object')
+    getDateKeyFromColumn(column) {
       const year = this.year
       let month = this.month
       let week
@@ -474,13 +485,13 @@ export default {
 
       switch (this.detailLevel) {
         case 'day':
-          day = time
+          day = column
           return `${year}-${this.dateDigit(month)}-${this.dateDigit(day)}`
         case 'week':
-          week = time
+          week = column
           return `${year}-${week}`
         case 'month':
-          month = time
+          month = column
           return `${year}-${this.dateDigit(month)}`
       }
     },
@@ -606,9 +617,24 @@ export default {
         .concat(['total'])
     },
 
-    openDetail(key, time, stats) {
+    openDetail(row, column, query) {
+      console.log('openDetail', row, column, query)
       //if (!stats) return
-      console.log('openDetail', key, time, stats)
+      const path = episodifyRoute({
+        name: 'status-stats-day-person',
+        params: {
+          person_id: row,
+          year: this.year,
+          month: this.month,
+          day: column
+        },
+        query: {
+          ...query,
+          taskTypeId: this.taskTypeId
+        }
+      })
+      console.log('path', path)
+      this.$router.push(path)
     },
 
     calcTotals() {
