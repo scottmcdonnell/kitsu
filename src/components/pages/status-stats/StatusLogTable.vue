@@ -190,8 +190,10 @@
               {{ getEpisodeName(log.episode_id) }}
             </td>
             <td>
-              <check-icon v-if="log.is_first" class="check-icon" />
-              <x-icon v-else class="close-icon" />
+              <div class="flexrow">
+                <check-icon v-if="log.is_first" class="check-icon" :size="18" />
+                <x-icon v-else class="close-icon" :size="18" />
+              </div>
             </td>
           </tr>
         </tbody>
@@ -708,11 +710,13 @@ export default {
   min-width: 3rem;
 }
 
-// .check-icon {
-//   stroke: $dark-grey-lightest;
-// }
+.check-icon {
+  color: var(--green);
+  stroke: var(--green);
+}
 
 .close-icon {
-  stroke: $dark-grey-lightest;
+  color: var(--red);
+  stroke: var(--red);
 }
 </style>

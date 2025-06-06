@@ -3,30 +3,28 @@
     <table class="details table" v-if="!isLoading">
       <thead>
         <tr>
-          <th>{{ $t('quota.details_name') }}</th>
+          <th>{{ $t('status-stats.details_name') }}</th>
           <th>
             {{
-              countMode === 'seconds'
-                ? $t('quota.details_seconds')
-                : $t('quota.details_frames')
+              countMode === 'nb_seconds'
+                ? $t('status-stats.details_seconds')
+                : $t('status-stats.details_frames')
             }}
           </th>
-          <th>{{ $t('quota.weight') }}</th>
+          <th>{{ $t('status-stats.details_status') }}</th>
+          <th>{{ $t('status-stats.details_is_first') }}</th>
         </tr>
       </thead>
       <tbody>
-        <tr
-          :key="`status-log-${log.id}`"
-          v-for="log in statusLogs"
-          :set="entity = getEntity(log)"
-        >
-          <td>{{ taskStatusMap.get(log.task_status_id).name }}</td>
+        <tr :key="`status-log-${log.id}`" v-for="log in statusLogs">
           <td>
-            <a :href="getEntityPath(log.entity_id)">{{ log.entity_id }}</a>
+            <a @click="goToEntity(log)">{{ log.entity.name }}</a>
           </td>
-
-          <!--td>{{ getQuota(log) }}</td>
-          <td>{{ shot.weight }}</td-->
+          <td>
+            {{ getValue(log) }}
+          </td>
+          <td>{{ taskStatusMap.get(log.task_status_id).name }}</td>
+          <td>{{ log.is_first ? 'Yes' : 'No' }}</td>
         </tr>
       </tbody>
     </table>
@@ -65,31 +63,42 @@ export default {
     },
     countMode: {
       type: String,
-      default: 'frames'
+      default: 'nb_frames'
     }
   },
 
   computed: {
-    ...mapGetters(['currentProduction', 'taskStatusMap', 'shotMap'])
+    ...mapGetters([
+      'currentProduction',
+      'productionMap',
+      'taskStatusMap',
+      'shotMap'
+    ])
   },
 
   methods: {
-    getQuota(shot) {
-      if (this.countMode === 'seconds') {
-        return frameToSeconds(shot.nb_frames, this.currentProduction, shot)
+    getValue(log) {
+      if (this.countMode === 'nb_seconds') {
+        return frameToSeconds(log.entity.nb_frames, this.currentProduction, log)
       } else {
-        return shot.nb_frames
+        return log.entity.nb_frames
       }
     },
 
-    getEntity(log) {
-      const entity = this.shotMap.get(log.entity_id)
-
-      if (entity) return
-
-      const path = getEntityPath(entity)
-      console.log('entity', path)
-      return path
+    goToEntity(statusLog) {
+      const project = this.productionMap.get(statusLog.project_id)
+      const isTVShow = project.production_type === 'tvshow'
+      let episodeId = null
+      const section = 'shots'
+      if (isTVShow) episodeId = statusLog.episode_id || 'main'
+      const params = getEntityPath(
+        statusLog.entity_id,
+        statusLog.project_id,
+        section,
+        episodeId
+      )
+      console.log('params', params)
+      //this.$router.push(params)
     }
   }
 }

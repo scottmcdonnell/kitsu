@@ -68,18 +68,25 @@
         />
         <div class="filler"></div>
         <button-simple
-          v-if="activeView === 'stats'"
           class="flexrow-item"
+          :is-on="activeView === 'stats'"
+          :title="$t('status-stats.stats')"
+          icon="status-stats"
+          @click="activeView = 'stats'"
+        />
+        <button-simple
+          class="flexrow-item"
+          :is-on="activeView === 'data-table'"
           :title="$t('status-stats.data-table')"
           icon="grid"
           @click="activeView = 'data-table'"
         />
         <button-simple
-          v-if="activeView === 'data-table'"
           class="flexrow-item"
-          :title="$t('status-stats.stats')"
-          icon="quota"
-          @click="activeView = 'stats'"
+          :is-on="activeView === 'charts'"
+          :title="$t('status-stats.charts')"
+          icon="chart"
+          @click="activeView = 'charts'"
         />
       </div>
 
@@ -105,6 +112,24 @@
       <status-stats
         v-if="activeView === 'stats'"
         ref="status-stat-list"
+        :task-type-id="activeTab === 'tasktypes' ? params.taskTypeId : null"
+        :person-id="
+          activeTab === 'persons' && params.person ? params.person.id : null
+        "
+        :task-status-ids="params.taskStatusIds"
+        :detail-level="detailLevelString"
+        :year="currentYear"
+        :month="currentMonth"
+        :week="currentWeek"
+        :day="currentDay"
+        :count-mode="params.countMode"
+        :user-mode="params.userMode"
+        :search-text="searchText"
+        :max-stat="maxStat"
+      />
+      <status-stats-charts
+        v-if="activeView === 'charts'"
+        ref="status-stats-charts"
         :task-type-id="activeTab === 'tasktypes' ? params.taskTypeId : null"
         :person-id="
           activeTab === 'persons' && params.person ? params.person.id : null
@@ -160,7 +185,6 @@
 import moment from 'moment-timezone'
 import { mapGetters, mapActions } from 'vuex'
 
-import { episodifyRoute } from '@/lib/path'
 import preferences from '@/lib/preferences'
 import { monthToString, range, getDateBoundaries } from '@/lib/time'
 import { sortPeople } from '@/lib/sorting'
@@ -175,6 +199,7 @@ import PeopleField from '@/components/widgets/PeopleField.vue'
 import PeopleStatusLogs from '@/components/sides/PeopleStatusLogs.vue'
 import StatusStats from '@/components/pages/status-stats/StatusStats.vue'
 import StatusLogTable from '@/components/pages/status-stats/StatusLogTable.vue'
+import StatusStatsCharts from '@/components/widgets/StatusStatsCharts.vue'
 import RouteTabs from '@/components/widgets/RouteTabs.vue'
 import SearchField from '@/components/widgets/SearchField.vue'
 import TextField from '@/components/widgets/TextField.vue'
@@ -192,6 +217,7 @@ export default {
     PeopleStatusLogs,
     StatusStats,
     StatusLogTable,
+    StatusStatsCharts,
     RouteTabs,
     SearchField,
     TextField
@@ -200,7 +226,7 @@ export default {
   data() {
     return {
       activeTab: 'tasktypes',
-      activeView: 'stats', // stats or data-table
+      activeView: 'stats', // stats, charts, or data-table
       tabs: [
         { name: 'tasktypes', label: this.$t('task_types.title') },
         { name: 'persons', label: this.$t('main.people') }
@@ -381,7 +407,10 @@ export default {
         this.params.person = personMap.get(this.$route.query.personId)
       }
       if (taskStatusIds) {
-        this.params.taskStatusIds = taskStatusIds?.split(',') || []
+        const ids = taskStatusIds?.split(',') || []
+        // only update if changed otherwise it will trigger a watch
+        const idsEqual = ids.every(id => this.params.taskStatusIds.includes(id))
+        if (!idsEqual) this.params.taskStatusIds = ids
       }
       if (userMode) {
         this.params.userMode = userMode
@@ -404,13 +433,8 @@ export default {
 
       if (this.$route.path.indexOf('person') > 0) {
         this.isPersonShotsLoading = true
-        console.log('year', year)
-        console.log('month', month)
-        console.log('week', week)
-        console.log('day', day)
+
         const { from, to } = getDateBoundaries(year, month, week, day)
-        console.log('from', from)
-        console.log('to', to)
 
         this.getStatusLogs({
           taskTypeId: null,
@@ -420,9 +444,13 @@ export default {
           from,
           to
         }).then(logs => {
-          console.log('logs', logs)
           this.isPersonStatusLogsLoading = false
           this.personStatusLogs = logs
+
+          // make sure they are filtered by status id
+          this.personStatusLogs = this.personStatusLogs.filter(log =>
+            this.params.taskStatusIds.includes(log.task_status_id)
+          )
           this.showSideInfo()
         })
       } else {
@@ -436,13 +464,6 @@ export default {
 
     hideSideInfo() {
       this.showInfo = false
-    },
-
-    episodifyRoute(route) {
-      if (this.currentEpisode) {
-        episodifyRoute(route, this.currentEpisode.id)
-      }
-      return route
     },
 
     onSearchChange(searchText) {
@@ -521,7 +542,7 @@ export default {
         if (this.detailLevelString === 'day') {
           route.params.month = this.currentMonth
         }
-        this.$router.push(this.episodifyRoute(route))
+        this.$router.push(route)
       }
     },
 
@@ -542,7 +563,7 @@ export default {
             currentMonth
           )}`
         }
-        this.$router.push(this.episodifyRoute(route))
+        this.$router.push(route)
       }
     },
 
@@ -556,7 +577,7 @@ export default {
           },
           query: this.getQuery()
         }
-        this.$router.push(this.episodifyRoute(route))
+        this.$router.push(route)
       }
     },
 
@@ -634,6 +655,7 @@ export default {
 }
 
 .filters {
+  flex: 0 0 auto;
   padding-bottom: 2rem;
 
   .field {
@@ -660,9 +682,15 @@ export default {
   border: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding-top: 2em;
   padding-right: 2em;
+  height: 100%;
+}
+
+.route-tabs {
+  flex: 0 0 auto;
 }
 
 .zoom-level {

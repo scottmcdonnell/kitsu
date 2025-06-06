@@ -29,6 +29,7 @@
 <script>
 import { mapGetters, mapActions } from 'vuex'
 import moment from 'moment-timezone'
+
 import { formatSimpleDate } from '@/lib/time'
 import StatusChip from '@/components/widgets/StatusChip.vue'
 
@@ -75,13 +76,17 @@ export default {
         const to = moment()
         const from = moment().subtract(4, 'weeks')
 
+        const testing = true
+        if (testing) console.log('TESTING in PersonStatusStats')
+
         const statsList = await this.getStatusStats({
           personId: this.personId,
           detailLevel: 'month',
           countMode: 'count',
           userMode: 'person',
-          from: formatSimpleDate(from),
-          to: formatSimpleDate(to)
+          // TODO: remove this test data
+          from: testing ? '2024-12-01' : formatSimpleDate(from),
+          to: testing ? '2025-01-01' : formatSimpleDate(to)
         })
 
         // Process the stats to get totals by status

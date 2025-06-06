@@ -378,12 +378,13 @@ export default {
     },
 
     loadData() {
+      console.log('loadData', this.taskTypeId, this.personId)
+
       if (this.taskTypeId || this.personId) {
         this.isLoading = true
 
         const year = this.year
-        const month = this.detailLevel === 'month' ? this.month : null
-
+        const month = this.detailLevel === 'day' ? this.month : null
         const { from, to } = getDateBoundaries(year, month)
 
         this.getStatusStats({
@@ -404,6 +405,7 @@ export default {
               stats_list,
               this.detailLevel
             )
+            console.log('statsMap', this.statsMap)
             this.statsLength = Object.keys(this.statsMap).length
             this.calcAverageColumnX()
             this.calcPersonAverageAndTotals()
@@ -680,39 +682,41 @@ export default {
     },
 
     computeMode() {
+      console.log('computeMode', this.taskTypeId, this.personId)
       if (this.taskTypeId || this.personId) {
         this.loadData()
       }
     },
 
     detailLevel() {
+      console.log('detailLevel', this.taskTypeId, this.personId)
       if (this.taskTypeId || this.personId) {
         this.loadData()
       }
     },
 
-    quotaMap() {
-      this.resetPersonIds()
-    },
-
     statsMap() {
+      console.log('statsMap', this.taskTypeId, this.personId)
       if (this.taskTypeId) {
         this.resetPersonIds()
       }
     },
 
     taskTypeId() {
+      console.log('taskTypeId', this.taskTypeId)
       if (this.taskTypeId) {
         this.loadData()
       }
     },
 
     taskStatusIds() {
+      console.log('taskStatusIds', this.taskStatusIds)
       if (this.taskStatusIds.length > 0) {
         this.loadData()
       }
     },
     personId() {
+      console.log('personId', this.personId)
       if (this.personId) {
         this.loadData()
       }
