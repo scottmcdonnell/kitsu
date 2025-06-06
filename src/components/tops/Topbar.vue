@@ -493,6 +493,10 @@ export default {
             label: this.$t('status-stats.title'),
             value: 'status-stats'
           })
+          options.push({
+            label: this.$t('news.stats_title'),
+            value: 'news-stats'
+          })
         }
         if (this.isCurrentUserAdmin) {
           options.push({ label: this.$t('budget.title'), value: 'budget' })
@@ -582,6 +586,7 @@ export default {
       }
       if (name === 'asset-types') name = 'assetTypes'
       if (name === 'news-feed') name = 'newsFeed'
+      if (name === 'news-stats') name = 'news-stats'
       return name
     },
 

@@ -294,6 +294,16 @@ export default {
     }
   },
 
+  datatable: {
+    export_csv: 'Export CSV',
+    showing: 'Showing',
+    to: 'to',
+    of: 'of',
+    entries: 'entries',
+    previous: 'Previous',
+    next: 'Next',
+  },
+
   status_automations: {
     change_ready_for: 'changes "ready for" to',
     change_status: 'changes task status to',
@@ -812,9 +822,15 @@ export default {
     no_news: 'There is no news.',
     set_preview_on: 'set preview on',
     show_stats: 'Show stats',
+    stats_title: 'News Stats',
     task_status: 'Task status',
     task_type: 'Task type',
-    title: 'News Feed'
+    title: 'News Feed',
+    is_initial: 'Initial',
+    is_change: 'Change',
+    entity: 'Entity',
+    author: 'Author',
+
   },
 
   not_found: {
@@ -951,7 +967,16 @@ export default {
       freelance: 'Freelance',
       apprentice: 'Apprentice',
       internship: 'Internship'
-    }
+    },
+    status_charts: 'Performance Charts',
+    first_take_weekly: 'First Take Count per Week',
+    work_comparison: 'First Take vs Retake Comparison',
+    performance_trend: 'Performance Trend (4-Week Rolling Average)',
+    no_chart_data: 'No chart data available for the selected period',
+    first_take_count: 'First Takes',
+    retake_count: 'Retakes',
+    avg_first_take: 'Avg First Takes',
+    avg_retake: 'Avg Retakes'
   },
 
   preview_room: {
@@ -1520,6 +1545,8 @@ export default {
     details_name: 'Name',
     details_seconds: 'Seconds',
     details_frames: 'Frames',
+    details_status: 'Status',
+    details_is_first: 'Is first',
     done_date: 'Approval date',
     feedback_date: 'Feedback date',
     explanation_person: 'The 1 person that made the status change at the time of the status change. This works for artists and reviewers, only if the person themselves makes the status change.',
@@ -1547,7 +1574,19 @@ export default {
     weight: 'Weight',
     weighted: 'Weighted (Feedback)',
     weighted_done: 'Weighted (Approval)',
-    week: 'Week'
+    week: 'Week',
+    charts: 'Charts',
+    charts_title: 'WIP Performance Charts',
+    first_take_timeline: 'First Take Count Over Time',
+    work_comparison: 'First Take vs Retake Comparison',
+    performance_trend: 'Performance Trend (Rolling Average)',
+    top_performers: 'Top Performers',
+    no_chart_data: 'No chart data available for the selected period',
+    first_take_count: 'First Takes',
+    retake_count: 'Retakes',
+    avg_first_take: 'Avg First Takes',
+    avg_retake: 'Avg Retakes',
+    'data-table': 'Data Table'
   },
 
 

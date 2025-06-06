@@ -23,5 +23,10 @@ export default {
   getNews(projectId, newsId) {
     const path = `/api/data/projects/${projectId}/news/${newsId}`
     return client.pget(path)
+  },
+
+  getNewsStats(params) {
+    const path = buildQueryString('/api/data/news/stats', params)
+    return client.pget(path)
   }
 }

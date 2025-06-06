@@ -1,32 +1,36 @@
 <template>
-  <div class="tasks-pie-chart">
-    <h4 class="chart-title">{{ $t('tasks.status_breakdown') }}</h4>
-    <pie-chart
-      v-if="chartData.length > 0"
-      :data="chartData"
-      :colors="chartColors"
-      height="300px"
-      :legend="false"
-      :library="chartOptions"
-      @click="handleChartClick"
-    />
-    <div v-else class="empty-chart">
-      <p>{{ $t('people.no_task_assigned') }}</p>
+  <div class="tasks-pie-chart flexrow">
+    <div class="chart-container flexrow-item">
+      <h4 class="chart-title">{{ $t('tasks.status_breakdown') }}</h4>
+      <pie-chart
+        v-if="chartData.length > 0"
+        :data="chartData"
+        :colors="chartColors"
+        height="300px"
+        :legend="false"
+        :library="chartOptions"
+        @click="handleChartClick"
+      />
+      <div v-else class="empty-chart">
+        <p>{{ $t('people.no_task_assigned') }}</p>
+      </div>
     </div>
 
     <!-- Clickable status list below chart -->
-    <div v-if="chartData.length > 0" class="status-list">
+    <div v-if="chartData.length > 0" class="status-list flexrow-item">
       <div
         v-for="status in Object.values(statusCounts)"
         :key="status.statusId"
-        class="status-item"
+        class="status-item flexrow"
         @click="handleStatusClick(status)"
       >
         <div
-          class="status-color"
+          class="status-color flexrow-item"
           :style="{ backgroundColor: status.color }"
         ></div>
-        <span class="status-text">{{ status.name }} ({{ status.count }})</span>
+        <span class="status-text flexrow-item"
+          >{{ status.name }} ({{ status.count }})</span
+        >
       </div>
     </div>
   </div>
@@ -57,7 +61,6 @@ export default {
       const totalTasks = this.tasks.length
 
       this.tasks.forEach(task => {
-        console.log('task', task)
         const statusId = task.task_status_id
         const status = this.taskStatusMap.get(statusId)
         if (status) {
@@ -151,7 +154,12 @@ export default {
 .tasks-pie-chart {
   border-radius: 10px;
   padding: 1.5rem;
-  margin-bottom: 2rem;
+  flex-direction: column;
+  width: 100%;
+
+  .chart-container {
+    width: 100%;
+  }
 
   .chart-title {
     font-weight: bold;
@@ -183,9 +191,8 @@ export default {
       cursor: pointer;
       padding: 0.5rem;
       border-radius: 5px;
-      display: flex;
-      align-items: center;
       transition: background-color 0.2s ease;
+      gap: 0.5rem;
 
       &:hover {
         background-color: var(--background-selectable-hover);
@@ -195,13 +202,10 @@ export default {
         width: 1rem;
         height: 1rem;
         border-radius: 50%;
-        margin-right: 0.5rem;
       }
 
       .status-text {
         font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--text);
       }
     }
   }

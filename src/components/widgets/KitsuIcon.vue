@@ -10,6 +10,7 @@ import automations from '@/assets/icons/fi-automations.svg'
 import bot from '@/assets/icons/fi_user-bot.svg'
 import bigThumbnail from '@/assets/icons/fi-big-thumbnail.svg'
 import breakdown from '@/assets/icons/fi-breakdown.svg'
+import chart from '@/assets/icons/fi-chart.svg'
 import concepts from '@/assets/icons/fi-image.svg'
 import custom from '@/assets/icons/fi-sliders.svg'
 import departments from '@/assets/icons/fi-departments.svg'
@@ -77,6 +78,7 @@ const icons = {
   box,
   breakdown,
   brief: infos,
+  chart,
   compare,
   concepts,
   custom,

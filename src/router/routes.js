@@ -52,6 +52,8 @@ const ProductionAssetTypes = () =>
 const ProductionQuota = () => import('@/components/pages/ProductionQuota.vue')
 const ProductionStatusStats = () =>
   import('@/components/pages/ProductionStatusStats.vue')
+const ProductionNewsStats = () =>
+  import('@/components/pages/ProductionNewsStats.vue')
 const Productions = () => import('@/components/pages/Productions.vue')
 const ProductionSchedule = () =>
   import('@/components/pages/ProductionSchedule.vue')
@@ -615,6 +617,82 @@ export const routes = [
             path: 'day/:year/:month/:day/persons/:person_id',
             component: ProductionStatusStats,
             name: 'episode-status-stats-day-person'
+          }
+        ]
+      },
+
+      {
+        path: 'productions/:production_id/news-stats',
+        component: ProductionNewsStats,
+        name: 'news-stats',
+        children: [
+          {
+            path: 'month/:year',
+            component: ProductionNewsStats,
+            name: 'news-stats-month'
+          },
+          {
+            path: 'month/:year/:month/persons/:person_id',
+            component: ProductionNewsStats,
+            name: 'news-stats-month-person'
+          },
+          {
+            path: 'week/:year',
+            component: ProductionNewsStats,
+            name: 'news-stats-week'
+          },
+          {
+            path: 'week/:year/:week/persons/:person_id',
+            component: ProductionNewsStats,
+            name: 'news-stats-week-person'
+          },
+          {
+            path: 'day/:year/:month',
+            component: ProductionNewsStats,
+            name: 'news-stats-day'
+          },
+          {
+            path: 'day/:year/:month/:day/persons/:person_id',
+            component: ProductionNewsStats,
+            name: 'news-stats-day-person'
+          }
+        ]
+      },
+
+      {
+        path: 'productions/:production_id/episodes/:episode_id/news-stats',
+        component: ProductionNewsStats,
+        name: 'episode-news-stats',
+        children: [
+          {
+            path: 'month/:year',
+            component: ProductionNewsStats,
+            name: 'episode-news-stats-month'
+          },
+          {
+            path: 'month/:year/:month/persons/:person_id',
+            component: ProductionNewsStats,
+            name: 'episode-news-stats-month-person'
+          },
+          {
+            path: 'week/:year',
+            component: ProductionNewsStats,
+            name: 'episode-news-stats-week'
+          },
+          {
+            path: 'week/:year/:week/persons/:person_id',
+            component: ProductionNewsStats,
+            name: 'episode-news-stats-week-person'
+          },
+          {
+            path: 'day/:year/:month',
+            component: ProductionNewsStats,
+            name: 'episode-news-stats-day'
+          },
+          {
+            path: 'day/:year/:month/:day/persons/:person_id',
+            component: ProductionNewsStats,
+            name: 'episode-news-stats-day-person'
           }
         ]
       },

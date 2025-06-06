@@ -78,6 +78,7 @@
               :on-status-click="onPieChartStatusClick"
             />
             <person-status-stats :person-id="person.id" />
+            <person-status-stats-charts :person-id="person.id" />
           </div>
 
           <todos-list
@@ -198,6 +199,7 @@ import TodosList from '@/components/lists/TodosList.vue'
 import TaskInfo from '@/components/sides/TaskInfo.vue'
 import TasksPieChart from '@/components/widgets/TasksPieChart.vue'
 import PersonStatusStats from '@/components/widgets/PersonStatusStats.vue'
+import PersonStatusStatsCharts from '@/components/widgets/PersonStatusStatsCharts.vue'
 import UserCalendar from '@/components/widgets/UserCalendar.vue'
 
 export default {
@@ -218,6 +220,7 @@ export default {
     TaskInfo,
     TasksPieChart,
     PersonStatusStats,
+    PersonStatusStatsCharts,
     TimesheetList,
     TodosList,
     UserCalendar
