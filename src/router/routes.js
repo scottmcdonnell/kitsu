@@ -660,44 +660,6 @@ export const routes = [
       },
 
       {
-        path: 'productions/:production_id/episodes/:episode_id/news-stats',
-        component: ProductionNewsStats,
-        name: 'episode-news-stats',
-        children: [
-          {
-            path: 'month/:year',
-            component: ProductionNewsStats,
-            name: 'episode-news-stats-month'
-          },
-          {
-            path: 'month/:year/:month/persons/:person_id',
-            component: ProductionNewsStats,
-            name: 'episode-news-stats-month-person'
-          },
-          {
-            path: 'week/:year',
-            component: ProductionNewsStats,
-            name: 'episode-news-stats-week'
-          },
-          {
-            path: 'week/:year/:week/persons/:person_id',
-            component: ProductionNewsStats,
-            name: 'episode-news-stats-week-person'
-          },
-          {
-            path: 'day/:year/:month',
-            component: ProductionNewsStats,
-            name: 'episode-news-stats-day'
-          },
-          {
-            path: 'day/:year/:month/:day/persons/:person_id',
-            component: ProductionNewsStats,
-            name: 'episode-news-stats-day-person'
-          }
-        ]
-      },
-
-      {
         path: 'productions/:production_id/playlists',
         component: Playlist,
         name: 'playlists',

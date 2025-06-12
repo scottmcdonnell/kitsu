@@ -160,6 +160,7 @@ export const getProductionPath = (
     production.production_type === 'tvshow' &&
     ![
       'news-feed',
+      'news-stats',
       'schedule',
       'production-settings',
       'quota',
