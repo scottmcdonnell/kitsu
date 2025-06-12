@@ -7,7 +7,7 @@
         <div class="flexrow-item" v-if="activeTab === 'tasktypes'">
           <combobox-task-type
             class="flexrow-item"
-            :label="$t('status-stats.type_label')"
+            :label="$t('news-stats.type_label')"
             :task-type-list="taskTypeList"
             :disabled="!params.person"
             v-model="params.taskTypeId"
@@ -26,65 +26,55 @@
         <combobox-statuses
           class="flexrow-item"
           :production-id="currentProduction.id"
-          :label="$t('status-stats.status_label')"
+          :label="$t('news-stats.status_label')"
           :statuses="taskStatuses"
           :multiple="true"
           v-model="params.taskStatusIds"
         />
         <combobox
           class="flexrow-item"
-          :label="$t('status-stats.detail_label')"
+          :label="$t('news-stats.detail_label')"
           :options="detailLevelOptions"
           v-model="detailLevelString"
         />
         <combobox
           class="flexrow-item"
-          :label="$t('status-stats.month_label')"
+          :label="$t('news-stats.month_label')"
           :options="monthOptions"
           v-model="monthString"
           v-if="detailLevelString === 'day'"
         />
         <combobox
           class="flexrow-item"
-          :label="$t('status-stats.year_label')"
+          :label="$t('news-stats.year_label')"
           :options="yearOptions"
           v-model="yearString"
         />
         <combobox
           class="flexrow-item"
-          :label="$t('status-stats.count_label')"
+          :label="$t('news-stats.count_label')"
           :options="countModeOptions"
           v-model="params.countMode"
-        />
-        <combobox
-          class="flexrow-item"
-          :label="$t('status-stats.user_mode')"
-          :options="userModeOptions"
-          v-model="params.userMode"
-        />
-        <info-question-mark
-          class="mt2"
-          :text="$t('status-stats.explanation_' + userMode)"
         />
         <div class="filler"></div>
         <button-simple
           class="flexrow-item"
           :is-on="activeView === 'stats'"
-          :title="$t('status-stats.stats')"
-          icon="status-stats"
+          :title="$t('news-stats.stats_label')"
+          icon="stats"
           @click="activeView = 'stats'"
         />
         <button-simple
           class="flexrow-item"
           :is-on="activeView === 'data-table'"
-          :title="$t('status-stats.data-table')"
+          :title="$t('news-stats.data_table_label')"
           icon="grid"
           @click="activeView = 'data-table'"
         />
         <button-simple
           class="flexrow-item"
           :is-on="activeView === 'charts'"
-          :title="$t('status-stats.charts')"
+          :title="$t('news-stats.charts_label')"
           icon="chart"
           @click="activeView = 'charts'"
         />
@@ -99,7 +89,7 @@
         />
 
         <span class="label flexrow-item">
-          {{ $t('status-stats.highlight_stats') }}
+          {{ $t('news-stats.highlight_stats') }}
         </span>
 
         <text-field
@@ -129,9 +119,9 @@
         :before="beforeDate"
         :after="afterDate"
       />
-      <status-stats-charts
+      <news-charts
         v-if="activeView === 'charts'"
-        ref="status-stats-charts"
+        ref="news-charts"
         :task-type-id="activeTab === 'tasktypes' ? params.taskTypeId : null"
         :person-id="
           activeTab === 'persons' && params.person ? params.person.id : null
@@ -147,9 +137,9 @@
         :search-text="searchText"
         :max-stat="maxStat"
       />
-      <news-log-table
+      <news-data-table
         v-if="activeView === 'data-table'"
-        ref="news-log-table"
+        ref="news-data-table"
         :task-type-id="activeTab === 'tasktypes' ? params.taskTypeId : null"
         :person-id="
           activeTab === 'persons' && params.person ? params.person.id : null
@@ -191,7 +181,6 @@ import { mapGetters, mapActions } from 'vuex'
 
 import preferences from '@/lib/preferences'
 import { monthToString, range, getDateBoundaries } from '@/lib/time'
-import { formatFullDateWithRevertedTimezone } from '@/lib/time'
 import { sortPeople } from '@/lib/sorting'
 import personStore from '@/store/modules/people'
 
@@ -199,32 +188,33 @@ import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
 import Combobox from '@/components/widgets/Combobox.vue'
 import ComboboxStatuses from '@/components/widgets/ComboboxStatuses.vue'
 import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
-import InfoQuestionMark from '@/components/widgets/InfoQuestionMark.vue'
 import PeopleField from '@/components/widgets/PeopleField.vue'
 import PeopleNewsLogs from '@/components/sides/PeopleNewsLogs.vue'
 import NewsStats from '@/components/pages/news-stats/NewsStats.vue'
-import NewsLogTable from '@/components/pages/news-stats/NewsLogTable.vue'
-import StatusStatsCharts from '@/components/widgets/StatusStatsCharts.vue'
+import NewsDataTable from '@/components/pages/news-stats/NewsDataTable.vue'
+import NewsCharts from '@/components/pages/news-stats/NewsCharts.vue'
 import RouteTabs from '@/components/widgets/RouteTabs.vue'
 import SearchField from '@/components/widgets/SearchField.vue'
 import TextField from '@/components/widgets/TextField.vue'
+import { timeMixin } from '@/components/mixins/time'
 
 const personMap = personStore.cache.personMap
 
 export default {
   name: 'production-news-stats',
 
+  mixins: [timeMixin],
+
   components: {
     ButtonSimple,
     Combobox,
     ComboboxStatuses,
     ComboboxTaskType,
-    InfoQuestionMark,
     PeopleField,
     PeopleNewsLogs,
     NewsStats,
-    NewsLogTable,
-    StatusStatsCharts,
+    NewsDataTable,
+    NewsCharts,
     RouteTabs,
     SearchField,
     TextField
@@ -239,23 +229,23 @@ export default {
         { name: 'persons', label: this.$t('main.people') }
       ],
       countModeOptions: [
-        { label: this.$t('status-stats.frames'), value: 'nb_frames' },
-        { label: this.$t('status-stats.seconds'), value: 'nb_seconds' },
-        { label: this.$t('status-stats.count'), value: 'count' }
+        { label: this.$t('news-stats.frames'), value: 'nb_frames' },
+        { label: this.$t('news-stats.seconds'), value: 'nb_seconds' },
+        { label: this.$t('news-stats.count'), value: 'count' }
       ],
       detailLevelOptions: [
-        { label: this.$t('status-stats.day'), value: 'day' },
-        { label: this.$t('status-stats.week'), value: 'week' },
-        { label: this.$t('status-stats.month'), value: 'month' }
+        { label: this.$t('news-stats.day'), value: 'day' },
+        { label: this.$t('news-stats.week'), value: 'week' },
+        { label: this.$t('news-stats.month'), value: 'month' }
       ],
       userModeOptions: [
-        { label: this.$t('status-stats.person'), value: 'person' },
+        { label: this.$t('news-stats.person'), value: 'person' },
         {
-          label: this.$t('status-stats.assignee_shared'),
+          label: this.$t('news-stats.assignee_shared'),
           value: 'assignee_shared'
         },
         {
-          label: this.$t('status-stats.assignee_split'),
+          label: this.$t('news-stats.assignee_split'),
           value: 'assignee_split'
         }
       ],
@@ -265,7 +255,7 @@ export default {
       currentWeek: moment().week(),
       currentDay: moment().date(),
       currentPerson: this.getCurrentPerson(),
-      currentMode: 'frames',
+      currentMode: 'nb_frames',
       detailLevel: 'day',
 
       isLoading: false,
@@ -277,7 +267,7 @@ export default {
       yearString: `${moment().year()}`,
 
       params: {
-        countMode: 'frames',
+        countMode: 'nb_frames',
         userMode: 'person',
         person: null,
         taskStatusIds: [],
@@ -302,6 +292,7 @@ export default {
       taskStatusIds: []
     }
     this.activeTab = this.$route.query.tab || 'tasktypes'
+    this.activeView = this.$route.query.view || 'stats'
     this.params = {
       countMode:
         this.$route.query.countMode ||
@@ -335,9 +326,7 @@ export default {
       'getProductionTaskStatuses',
       'isCurrentUserArtist',
       'isPaperProduction',
-      'productionShotTaskTypes',
-      'user',
-      'timezone'
+      'productionShotTaskTypes'
     ]),
 
     taskTypeList() {
@@ -392,7 +381,7 @@ export default {
         this.currentWeek,
         this.currentDay
       )
-      return formatFullDateWithRevertedTimezone(boundaries.to, this.timezone)
+      return this.formatDateAsUTC(boundaries.to)
     },
 
     afterDate() {
@@ -402,7 +391,7 @@ export default {
         this.currentWeek,
         this.currentDay
       )
-      return formatFullDateWithRevertedTimezone(boundaries.from, this.timezone)
+      return this.formatDateAsUTC(boundaries.from)
     },
 
     newsParams() {
@@ -421,7 +410,7 @@ export default {
         page: 1,
         before: this.beforeDate,
         after: this.afterDate,
-        only_first_status: true // New parameter to filter for first status changes
+        initial_status: true // New parameter to filter for first status changes
       }
     }
   },
@@ -515,16 +504,16 @@ export default {
     setCountModeOptions() {
       if (this.isPaperProduction) {
         this.countModeOptions = [
-          { label: this.$t('status-stats.drawings'), value: 'nb_drawings' },
-          { label: this.$t('status-stats.count'), value: 'count' }
+          { label: this.$t('news-stats.drawings'), value: 'nb_drawings' },
+          { label: this.$t('news-stats.count'), value: 'count' }
         ]
         this.countMode = 'nb_drawings'
         this.currentMode = this.params.countMode
       } else {
         this.countModeOptions = [
-          { label: this.$t('status-stats.frames'), value: 'nb_frames' },
-          { label: this.$t('status-stats.seconds'), value: 'nb_seconds' },
-          { label: this.$t('status-stats.count'), value: 'count' }
+          { label: this.$t('news-stats.frames'), value: 'nb_frames' },
+          { label: this.$t('news-stats.seconds'), value: 'nb_seconds' },
+          { label: this.$t('news-stats.count'), value: 'count' }
         ]
         this.params.countMode = 'nb_frames'
         this.currentMode = this.params.countMode
@@ -553,9 +542,10 @@ export default {
       const query = {
         countMode: this.params.countMode,
         userMode: this.params.userMode,
-        taskStatusIds: this.params.taskStatusIds.join(','),
+        taskStatusIds: this.params.taskStatusIds.join(',') || undefined,
         tab: this.activeTab || 'tasktypes',
-        taskTypeId,
+        view: this.activeView || 'stats',
+        taskTypeId: taskTypeId || undefined,
         personId: personId || undefined
       }
       return query
@@ -623,6 +613,10 @@ export default {
       }
     },
 
+    activeView() {
+      this.resetRouteQuery()
+    },
+
     'params.countMode'() {
       this.resetRouteQuery()
       this.currentMode = this.params.countMode
@@ -675,6 +669,7 @@ export default {
 
     $route() {
       this.activeTab = this.$route.query.tab || 'tasktypes'
+      this.activeView = this.$route.query.view || 'stats'
       this.resetRouteQuery()
       this.loadRoute()
     }

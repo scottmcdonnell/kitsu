@@ -62,7 +62,6 @@ const actions = {
   async loadNews({ commit, state }, params) {
     commit(CLEAR_NEWS)
     const newsList = await newsApi.getLastNews(params)
-    console.log('newsList', newsList)
     commit(ADD_PREVIOUS_NEWS, newsList.data)
     commit(NEWS_SET_TOTAL, newsList.total)
     commit(NEWS_SET_STATS, newsList.stats)
@@ -78,8 +77,8 @@ const actions = {
     return commit(ADD_FIRST_NEWS, news)
   },
 
-  async loadNewsStats({ commit, state }, params) {
-    const statsData = await newsApi.getNewsStats(params)
+  async loadNewsStats({ commit, state }, { productionId, ...params }) {
+    const statsData = await newsApi.getNewsStats(productionId, params)
     return statsData
   }
 }

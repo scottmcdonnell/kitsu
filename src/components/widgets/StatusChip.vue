@@ -64,9 +64,11 @@ export default {
     shortUnit() {
       switch (this.unit) {
         case 'seconds':
+        case 'nb_seconds':
         case 's':
           return 's'
         case 'frames':
+        case 'nb_frames':
         case 'f':
           return 'f'
         default:
@@ -78,13 +80,16 @@ export default {
       const date = this.date ? ` - ${this.date}` : ''
       const firstTake = this.formatValue(this.firstTake)
       const retake = this.formatValue(this.retake)
-      return `[${this.status.name}]${date}\nFirst takes: ${firstTake}${this.shortUnit}\nRetakes: ${retake}${this.shortUnit}`
+      return `[${this.status.name.toUpperCase()}]${date}\nFirst takes: ${firstTake} ${this.shortUnit}\nRetakes: ${retake} ${this.shortUnit}`
     }
   },
   methods: {
     formatValue(value) {
       const unit = this.shortUnit
-      return unit === 's' ? value.toFixed(2) : value.toFixed(0)
+      return unit === 's' ? this.roundValue(value, 100) : this.roundValue(value)
+    },
+    roundValue(value, precision = 1) {
+      return Math.round((value + Number.EPSILON) * precision) / precision
     },
 
     backgroundColor(opacity) {

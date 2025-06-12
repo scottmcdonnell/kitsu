@@ -235,8 +235,14 @@
         <span class="pagination-info">
           {{ $t('datatable.showing') }} {{ (currentPage - 1) * pageSize + 1 }}
           {{ $t('datatable.to') }}
-          {{ Math.min(currentPage * pageSize, filteredNewsList.length) }}
-          {{ $t('datatable.of') }} {{ filteredNewsList.length }}
+          {{
+            Math.min(
+              currentPage * pageSize,
+              filteredNewsList.length
+            ).toLocaleString()
+          }}
+          {{ $t('datatable.of') }}
+          {{ filteredNewsList.length.toLocaleString() }}
           {{ $t('datatable.entries') }}
         </span>
       </div>
@@ -267,14 +273,14 @@
 </template>
 
 <script>
-import { formatDate, formatFullDate } from '@/lib/time'
+import moment from 'moment-timezone'
 import { mapGetters, mapActions } from 'vuex'
 import { XIcon, CheckIcon } from 'lucide-vue-next'
+
 import csv from '@/lib/csv'
-import {
-  getDateBoundaries,
-  formatFullDateWithRevertedTimezone
-} from '@/lib/time'
+import { formatDate, formatFullDate, getDateBoundaries } from '@/lib/time'
+import { timeMixin } from '@/components/mixins/time'
+
 import { indexSearch, buildNameIndex } from '@/lib/indexing'
 
 import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
@@ -285,7 +291,9 @@ import ValidationTag from '@/components/widgets/ValidationTag.vue'
 import TableInfo from '@/components/widgets/TableInfo.vue'
 
 export default {
-  name: 'news-log-table',
+  name: 'news-data-table',
+
+  mixins: [timeMixin],
 
   components: {
     ButtonSimple,
@@ -367,8 +375,7 @@ export default {
       'newsList',
       'personMap',
       'taskStatusMap',
-      'taskTypeMap',
-      'user'
+      'taskTypeMap'
     ]),
 
     fps() {
@@ -507,13 +514,18 @@ export default {
     },
 
     openNewsDetail(news) {
+      const after = moment.tz(news.created_at, 'UTC').tz(this.timezone)
+      const before = moment(after).subtract(1, 'day')
+
       const route = {
         name: 'news-feed',
         query: {
           task_type_id: this.taskTypeId,
           task_status_id: this.taskStatusIds.join(','),
           person_id: this.personId,
-          news_id: news.id
+          news_id: news.id,
+          after: after.format('YYYY-MM-DD'),
+          before: before.format('YYYY-MM-DD')
         }
       }
       this.$router.push(route)
@@ -533,11 +545,10 @@ export default {
         only_preview: false,
         limit: 1000000000000,
         task_type_id: this.taskTypeId || undefined,
-        task_status_id:
-          this.taskStatusIds.length > 0 ? this.taskStatusIds : undefined,
+        task_status_id: this.taskStatusIds?.join(',') || undefined,
         person_id: this.personId || undefined,
-        before: formatFullDateWithRevertedTimezone(to, this.timezone),
-        after: formatFullDateWithRevertedTimezone(from, this.timezone)
+        before: this.formatDateAsUTC(to),
+        after: this.formatDateAsUTC(from)
       }
 
       this.loadNews(params)
@@ -601,7 +612,7 @@ export default {
       const nameData = [
         formatDate(new Date()),
         this.currentProduction.name,
-        'news-logs'
+        'news-data'
       ]
 
       const fileName = nameData

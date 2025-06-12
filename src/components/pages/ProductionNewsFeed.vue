@@ -290,7 +290,10 @@ import { mapGetters, mapActions } from 'vuex'
 import moment from 'moment-timezone'
 
 import { sortByName, sortPeople } from '@/lib/sorting'
-import { formatFullDateWithRevertedTimezone } from '@/lib/time'
+import {
+  formatSimpleDate,
+  formatFullDateWithRevertedTimezone
+} from '@/lib/time'
 import { timeMixin } from '@/components/mixins/time'
 
 import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
@@ -376,9 +379,12 @@ export default {
     if (this.$route && this.$route.query && this.$route.query.task_status_id) {
       this.taskStatusId = this.$route.query.task_status_id
     }
-    this.before = null
-    this.after = null
+    this.before = this.dateToMoment(this.$route?.query?.before)
+    this.after = this.dateToMoment(this.$route?.query?.after)
     this.$options.silent = false
+    this.isFiltersDisplayed =
+      this.$route?.query?.before || this.$route?.query?.after || false
+
     window.addEventListener('keydown', this.onKeyDown, false)
 
     if (!this.loading.news) {
@@ -541,6 +547,11 @@ export default {
       return person ? person.full_name : ''
     },
 
+    dateToMoment(dateString) {
+      if (!dateString) return null
+      return moment.tz(dateString, 'UTC').tz(this.timezone)
+    },
+
     buildTaskFromNews(news) {
       return {
         id: news.task_id,
@@ -615,6 +626,9 @@ export default {
           task_status_id: this.params.task_status_id,
           task_type_id: this.params.task_type_id
         }
+        if (this.before) query.before = formatSimpleDate(this.before)
+        if (this.after) query.after = formatSimpleDate(this.after)
+
         if (this.$router) this.$router.push({ query })
         this.loadNews(this.params)
           .then(() => {

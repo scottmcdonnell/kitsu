@@ -9,14 +9,14 @@
               class="name datatable-row-header"
               ref="rowHeaderName"
             >
-              {{ $t('status-stats.name') }}
+              {{ $t('news-stats.name') }}
             </th>
             <th
               scope="col"
               class="average datatable-row-header"
               :style="{ left: averageColumnX }"
             >
-              {{ $t('status-stats.average') }}
+              {{ $t('news-stats.average') }}
             </th>
             <th scope="col" :key="'time-' + time" v-for="time in timeRange">
               {{ timeToString(time) }}
@@ -118,7 +118,6 @@ import moment from 'moment-timezone'
 import { mapGetters, mapActions } from 'vuex'
 
 import { buildNameIndex, indexSearch } from '@/lib/indexing'
-import { episodifyRoute } from '@/lib/path'
 import { sortTaskTypes } from '@/lib/sorting'
 
 import {
@@ -128,6 +127,7 @@ import {
   getDayRange,
   getDateBoundaries
 } from '@/lib/time'
+import { timeMixin } from '@/components/mixins/time'
 
 import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
 import TableInfo from '@/components/widgets/TableInfo.vue'
@@ -135,6 +135,8 @@ import StatusChip from '@/components/widgets/StatusChip.vue'
 
 export default {
   name: 'news-stats',
+
+  mixins: [timeMixin],
 
   components: {
     PeopleAvatar,
@@ -207,6 +209,7 @@ export default {
       currentWeek: moment().week(),
       detailsMap: {},
       isLoading: true,
+      isLoadingData: false,
       isError: false,
       personIds: [],
       statsMap: {},
@@ -334,9 +337,12 @@ export default {
      * }
      */
     groupStatsByAuthor(stats, detailLevel = 'day') {
+      const value_key = this.countMode
+      console.log('groupStatsByAuthor value_key', value_key)
+
       return stats.reduce((groupedStats, stat) => {
         const authorId = stat.author_id
-        const timeKey = this.parseDateTime(stat.created_at, detailLevel)
+        const timeKey = this.parseDateTime(stat.date, detailLevel)
 
         if (!groupedStats[authorId]) groupedStats[authorId] = {}
         if (!groupedStats[authorId][timeKey])
@@ -350,54 +356,55 @@ export default {
           }
 
         // For news data, we'll count based on is_first_status
-        if (stat.is_first_status) {
+        if (stat.initial_status) {
           groupedStats[authorId][timeKey][stat.task_status_id].first_take +=
-            stat.value
+            stat[value_key]
         } else {
           groupedStats[authorId][timeKey][stat.task_status_id].retake +=
-            stat.value
+            stat[value_key]
         }
         return groupedStats
       }, {})
     },
 
     episodifyRoute(route) {
-      if (this.currentEpisode) {
-        episodifyRoute(route, this.currentEpisode.id)
-      }
+      // no episode routes please
       return route
     },
 
     loadData() {
-      if (this.taskTypeId || this.personId) {
-        this.isLoading = true
+      if (!this.isLoadingData && (this.taskTypeId || this.personId)) {
+        this.isLoading = this.isLoadingData = true
 
-        const { from, to } = getDateBoundaries(
-          this.year,
-          this.month,
-          this.week,
-          this.day
-        )
+        const year = this.year
+        const month = this.detailLevel === 'day' ? this.month : null
+        const { from, to } = getDateBoundaries(year, month)
 
         this.loadNewsStats({
-          taskTypeId: this.taskTypeId,
-          taskStatusIds: this.taskStatusIds,
-          personId: this.personId,
-          detailLevel: this.detailLevel,
-          countMode: this.countMode,
-          userMode: this.userMode,
-          from: this.after || from,
-          to: this.before || to
+          productionId: this.currentProduction?.id,
+          task_type_ids: this.taskTypeId || undefined,
+          task_status_ids: this.taskStatusIds?.join(',') || undefined,
+          person_ids: this.personId || undefined,
+          detail: this.detailLevel,
+          change: 1,
+
+          // 1: author,task_type,task_status,initial_status
+          // 2: author,task_status,initial_status
+
+          task_type_group: 1,
+          after: this.formatDateAsUTC(from),
+          before: this.formatDateAsUTC(to)
         })
           .then(stats_list => {
             this.statsList = stats_list
+            console.log('stats_list', stats_list)
 
             // Group stats by author and detail level
             this.statsMap = this.groupStatsByAuthor(
               stats_list,
               this.detailLevel
             )
-
+            console.log('statsMap', this.statsMap)
             this.personIds = Object.keys(this.statsMap)
             this.statsLength = this.personIds.length
             this.calcAverageColumnX()
@@ -405,14 +412,14 @@ export default {
             this.calcTotals()
 
             this.$nextTick(() => {
-              this.isLoading = false
+              this.isLoading = this.isLoadingData = false
             })
           })
           .catch(err => {
             this.statsMap = {}
             this.statsLength = 0
             this.calcAverageColumnX()
-            this.isLoading = false
+            this.isLoading = this.isLoadingData = false
             this.isError = true
             console.error(err)
           })
@@ -496,28 +503,73 @@ export default {
       }
     },
 
-    isWeekend(dayNumber) {
-      if (this.detailLevel !== 'day') return false
-      const year = this.year
-      const month = this.month
-      const momentDate = moment(`${year}-${month}-${dayNumber}`, 'YYYY-MM-DD')
-      return momentDate.day() === 0 || momentDate.day() === 6
+    // isWeekend(dayNumber) {
+    //   if (this.detailLevel !== 'day') return false
+    //   const year = this.year
+    //   const month = this.month
+    //   const momentDate = moment(`${year}-${month}-${dayNumber}`, 'YYYY-MM-DD')
+    //   return momentDate.day() === 0 || momentDate.day() === 6
+    // },
+
+    isSelected(personId, time) {
+      switch (this.detailLevel) {
+        case 'day':
+          return this.isDaySelected(personId, this.year, this.month, time)
+        case 'week':
+          return this.isWeekSelected(personId, this.year, time)
+        case 'month':
+          return this.isMonthSelected(personId, this.year, time)
+        default:
+          throw new Error(`Invalid detail level: ${this.detailLevel}`)
+      }
     },
 
-    isSelected(key, column) {
-      return false // TODO: implement selection state
+    isDaySelected(personId, year, month, day) {
+      return (
+        this.$route.params.person_id &&
+        this.$route.params.person_id === personId &&
+        '' + this.$route.params.year === '' + year &&
+        '' + this.$route.params.month === '' + month &&
+        '' + this.$route.params.day === '' + day
+      )
+    },
+
+    isWeekSelected(personId, year, week) {
+      return (
+        this.$route.params.person_id &&
+        this.$route.params.person_id === personId &&
+        '' + this.$route.params.year === '' + year &&
+        '' + this.$route.params.week === '' + week
+      )
+    },
+
+    isMonthSelected(personId, year, month) {
+      return (
+        this.$route.params.person_id &&
+        this.$route.params.person_id === personId &&
+        '' + this.$route.params.year === '' + year &&
+        '' + this.$route.params.month === '' + month
+      )
+    },
+
+    isWeekend(time) {
+      if (this.detailLevel !== 'day') return false
+
+      const day = this.dateDigit(time)
+      const date = moment(`${this.year}-${this.month}-${day}`, 'YYYY-MM-DD')
+      return [0, 6].includes(date.day())
     },
 
     isStatLow(stats) {
       if (!stats || this.maxStat === 0) return false
       const totalValue = Object.values(stats).reduce((sum, stat) => {
-        return sum + (stat.first_take || 0) + (stat.retake || 0)
+        return sum + stat.first_take || 0
       }, 0)
       return totalValue < this.maxStat
     },
 
-    openDetail(key, time, query) {
-      if (key === 'total') return
+    openDetail(row, column, query) {
+      if (row === 'total') return
 
       // Navigate to news feed with filters
       const route = {
@@ -526,7 +578,7 @@ export default {
           ...query,
           task_type_id: this.taskTypeId,
           task_status_id: this.taskStatusIds.join(','),
-          person_id: key
+          person_id: row
         }
       }
       this.$router.push(route)
@@ -662,93 +714,100 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+.dark {
+  .weekend {
+    background-color: $dark-grey;
+  }
+  .info {
+    color: $white;
+  }
+}
+
 .data-list {
   margin-top: 0;
-  max-height: 100%;
-  overflow-y: auto;
 }
 
 .datatable-wrapper {
-  overflow-x: auto;
-  overflow-y: auto;
+  overflow: auto;
+  margin-bottom: 1rem;
 }
 
 .datatable {
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.datatable-head {
-  color: var(--text);
-  position: sticky;
-  top: 0;
-  background: var(--background-header);
-  z-index: 2000;
-}
-
-.datatable-row-header {
-  min-width: 12rem;
-  position: sticky;
-  left: 0;
-  background: var(--background-header);
-  z-index: 1000;
-  border-right: 1px solid var(--border);
-}
-
-.name {
-  min-width: 200px;
-  width: 200px;
-}
-
-.average {
-  min-width: 100px;
-  width: 100px;
-  z-index: 1500;
-}
-
-.datatable-row {
-  background: var(--background);
-  border-bottom: 1px solid var(--border-alt);
-
-  &:hover {
-    background: var(--background-hover);
+  min-width: auto;
+  .name {
+    min-width: 12rem;
+    text-align: left;
+    justify-content: flex-start;
+    .avatar {
+      margin-right: 0.5rem;
+    }
+  }
+  .average {
+    width: 8rem;
+  }
+  th,
+  td {
+    text-align: center;
   }
 }
 
-.datatable-body td {
-  padding: 0.5rem;
-  text-align: center;
-  border-right: 1px solid var(--border-alt);
-  min-width: 50px;
-  width: 50px;
+.datatable-head th {
+  min-width: 4rem;
 }
 
-.weekend {
-  background: var(--background-weekend);
+.datatable-body th {
+  padding: 1rem;
 }
 
-.selected {
-  background: var(--background-selected);
-}
-
-.stat-low {
-  opacity: 0.6;
+.datatable-body {
+  th,
+  td {
+    border: 0;
+  }
 }
 
 .stats-button {
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  background: transparent;
+  border: 0;
   cursor: pointer;
-
-  &:hover {
-    background: var(--background-selectable);
+  color: inherit;
+  font-size: inherit;
+  &:hover,
+  &:focus,
+  &.is-selected {
+    background-color: $dark-grey-lightest;
   }
 }
 
-.stat-chip-container {
-  display: inline-block;
-  margin: 0.1rem;
+.empty-stats {
+  width: 100%;
 }
 
-.empty-quota {
-  padding: 2rem;
+.selected .stats-button {
+  background: $purple;
+  color: #333;
+}
+td.stat-low {
+  background-color: rgba(255, 242, 65, 0.2);
+}
+
+.stats-button:hover {
+  background: #bbeebb;
+}
+.stat-chip-container {
+  .stat-chip {
+    margin-bottom: 5px;
+  }
+  &:last-child {
+    .stat-chip {
+      margin-bottom: 0;
+    }
+  }
+}
+
+.weekend {
+  background-color: $white-grey;
 }
 </style>
