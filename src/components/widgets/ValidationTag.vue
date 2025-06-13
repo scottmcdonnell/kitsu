@@ -12,7 +12,7 @@
       </router-link>
 
       <span
-        class="tag"
+        :class="{ tag: true, 'initial-status': isInitial }"
         :style="tagStyle"
         :title="taskStatus.name"
         @click="$event => $emit('click', $event)"
@@ -45,6 +45,14 @@
       </router-link>
       <span class="tag" v-else> &nbsp; </span>
     </template>
+    <span class="initial-status-indicator">
+      <span
+        v-if="isInitial"
+        class="has-tooltip"
+        title="First occurance of this status for this task"
+        >*</span
+      >
+    </span>
   </span>
 </template>
 
@@ -78,6 +86,11 @@ export default {
       type: Boolean
     },
     thin: {
+      default: false,
+      type: Boolean
+    },
+    // true if the status is the first occurance of the status in the task
+    isInitial: {
       default: false,
       type: Boolean
     }
@@ -221,6 +234,21 @@ export default {
   letter-spacing: 1px;
   margin-right: 0.1em;
   text-transform: uppercase;
+}
+
+.initial-status-indicator {
+  display: inline-flex;
+  width: 10px;
+  color: $white;
+  justify-content: center;
+  align-items: center;
+  margin-left: 2px;
+  span {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+  }
 }
 
 .tag.dynamic:hover {
