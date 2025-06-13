@@ -514,8 +514,9 @@ export default {
     },
 
     openNewsDetail(news) {
-      const after = moment.tz(news.created_at, 'UTC').tz(this.timezone)
-      const before = moment(after).subtract(1, 'day')
+      // show just the day in question
+      const before = moment.tz(news.created_at, 'UTC').tz(this.timezone)
+      const after = moment(after).add(1, 'day')
 
       const route = {
         name: 'news-feed',
