@@ -250,19 +250,9 @@ export default {
     },
 
     entryIds() {
-      if (this.personId) {
-        const result = sortTaskTypes(
-          Object.keys(this.taskTypeMap)
-            .filter(key => key !== 'total')
-            .map(taskTypeId => this.taskTypeMap.get(taskTypeId)),
-          this.currentProduction
-        )
-          .map(taskType => taskType.id)
-          .concat(['total'])
-        return result
-      } else {
-        return this.filteredPersonIds
-      }
+      console.log('entryIds', this.personId)
+      if (this.personId) return this.personTaskTypeIds
+      else return this.filteredPersonIds
     },
 
     filteredPersonIds() {
@@ -273,7 +263,22 @@ export default {
           this.searchText.split(' ')
         ).map(person => person.id)
       }
+      console.log('filteredPersonIds', personIds)
       return personIds
+    },
+
+    personTaskTypeIds() {
+      const taskTypeIds = sortTaskTypes(
+        Object.keys(this.statsMap)
+          .filter(key => key !== 'total')
+          .map(taskTypeId => this.taskTypeMap.get(taskTypeId)),
+        this.currentProduction
+      ).map(taskType => taskType.id)
+
+      // we only need a total row if we have more than 1 task type
+      return taskTypeIds.length > 1
+        ? taskTypeIds.concat(['total'])
+        : taskTypeIds
     }
   },
 
@@ -320,15 +325,16 @@ export default {
     },
 
     /**
-     * Restructure the api response to be grouped by person/author and detail level
+     * Restructure the api response to be grouped by task_type > author > detail level
      * @param stats - The news stats to group
      * @param detailLevel - The detail level day/week/month
      * @returns The grouped stats
      * example day format:
      * {
-     *   'author_id': {
-     *     'YYYY-MM-DD': {
-     *       'status_id': {
+     *   'task_type_id': {
+     *     'author_id': {
+     *       'YYYY-MM-DD': {
+     *        'status_id': {
      *         first_take: 40,
      *         retake: 31
      *       }
@@ -336,40 +342,50 @@ export default {
      *   }
      * }
      */
-    groupStatsByAuthor(stats, detailLevel = 'day') {
+    groupStats(stats, detailLevel = 'day') {
       const value_key = this.countMode
-      console.log('groupStatsByAuthor value_key', value_key)
-
       return stats.reduce((groupedStats, stat) => {
+        const taskTypeId = stat.task_type_id
         const authorId = stat.author_id
         const timeKey = this.parseDateTime(stat.date, detailLevel)
 
-        if (!groupedStats[authorId]) groupedStats[authorId] = {}
-        if (!groupedStats[authorId][timeKey])
-          groupedStats[authorId][timeKey] = {}
+        if (!groupedStats[taskTypeId]) groupedStats[taskTypeId] = {}
+        if (!groupedStats[taskTypeId][authorId])
+          groupedStats[taskTypeId][authorId] = {}
+        if (!groupedStats[taskTypeId][authorId][timeKey])
+          groupedStats[taskTypeId][authorId][timeKey] = {}
 
-        if (!groupedStats[authorId][timeKey][stat.task_status_id])
-          groupedStats[authorId][timeKey][stat.task_status_id] = {
+        if (!groupedStats[taskTypeId][authorId][timeKey][stat.task_status_id])
+          groupedStats[taskTypeId][authorId][timeKey][stat.task_status_id] = {
             first_take: 0,
             retake: 0,
             date: timeKey
           }
 
-        // For news data, we'll count based on is_first_status
+        // For news data, we'll count based on initial_status
+        // if true its the first occurance of the status for the task
+        // if false its a retake of the status for the task
         if (stat.initial_status) {
-          groupedStats[authorId][timeKey][stat.task_status_id].first_take +=
-            stat[value_key]
+          groupedStats[taskTypeId][authorId][timeKey][
+            stat.task_status_id
+          ].first_take += stat[value_key]
         } else {
-          groupedStats[authorId][timeKey][stat.task_status_id].retake +=
-            stat[value_key]
+          groupedStats[taskTypeId][authorId][timeKey][
+            stat.task_status_id
+          ].retake += stat[value_key]
         }
         return groupedStats
       }, {})
     },
 
-    episodifyRoute(route) {
-      // no episode routes please
-      return route
+    getPersonIds() {
+      const personIds = []
+      Object.keys(this.statsMap).forEach(taskTypeId => {
+        Object.keys(this.statsMap[taskTypeId]).forEach(personId => {
+          if (!personIds.includes(personId)) personIds.push(personId)
+        })
+      })
+      return personIds
     },
 
     loadData() {
@@ -386,30 +402,23 @@ export default {
           task_status_ids: this.taskStatusIds?.join(',') || undefined,
           person_ids: this.personId || undefined,
           detail: this.detailLevel,
+          // we want only the changed statuses
           change: 1,
-
-          // 1: author,task_type,task_status,initial_status
-          // 2: author,task_status,initial_status
-
-          task_type_group: 1,
+          // timezone for calulating the group by day/week/month correctly
+          timezone: this.timezone, // eg. "Europe/London" "UTC"
           after: this.formatDateAsUTC(from),
           before: this.formatDateAsUTC(to)
         })
           .then(stats_list => {
             this.statsList = stats_list
-            console.log('stats_list', stats_list)
-
-            // Group stats by author and detail level
-            this.statsMap = this.groupStatsByAuthor(
-              stats_list,
-              this.detailLevel
-            )
-            console.log('statsMap', this.statsMap)
-            this.personIds = Object.keys(this.statsMap)
+            this.statsMap = this.groupStats(stats_list, this.detailLevel)
+            this.personIds = this.getPersonIds()
             this.statsLength = this.personIds.length
             this.calcAverageColumnX()
             this.calcPersonAverageAndTotals()
             this.calcTotals()
+
+            console.log('statsMap', this.statsMap)
 
             this.$nextTick(() => {
               this.isLoading = this.isLoadingData = false
@@ -480,8 +489,16 @@ export default {
         return this.totalsMap[column] || false
       }
 
-      if (!this.statsMap[row] || !this.statsMap[row][column]) return false
-      return this.statsMap[row][column]
+      // if we are in person mode then the row is the task_type_id
+      if (this.personId) {
+        return this.statsMap?.[row]?.[this.personId]?.[column] || false
+      }
+      // other wise the row is the author_id
+      else if (this.taskTypeId) {
+        return this.statsMap?.[this.taskTypeId]?.[row]?.[column] || false
+      }
+      // else we have a problem
+      else return false
     },
 
     getDateKeyFromColumn(column) {
@@ -570,15 +587,19 @@ export default {
 
     openDetail(row, column, query) {
       if (row === 'total') return
+      if (!column) return
 
-      // Navigate to news feed with filters
       const route = {
-        name: 'news-feed',
+        name: 'news-stats-day-person',
+        params: {
+          person_id: row,
+          year: this.year,
+          month: this.month,
+          day: column
+        },
         query: {
           ...query,
-          task_type_id: this.taskTypeId,
-          task_status_id: this.taskStatusIds.join(','),
-          person_id: row
+          taskTypeId: this.taskTypeId
         }
       }
       this.$router.push(route)
@@ -601,70 +622,84 @@ export default {
     },
 
     calcPersonAverageAndTotals() {
-      // Calculate averages for each person
-      Object.keys(this.statsMap).forEach(personId => {
-        const personStats = this.statsMap[personId]
-        const timeKeys = Object.keys(personStats).filter(
-          key => key !== 'average'
-        )
+      // Calculate averages for each person within each task type
+      Object.keys(this.statsMap).forEach(taskTypeId => {
+        const taskTypeStats = this.statsMap[taskTypeId]
+        Object.keys(taskTypeStats).forEach(personId => {
+          const personStats = taskTypeStats[personId]
+          const timeKeys = Object.keys(personStats).filter(
+            key => key !== 'average'
+          )
 
-        if (timeKeys.length > 0) {
-          const averageStats = {}
+          if (timeKeys.length > 0) {
+            const averageStats = {}
 
-          // Calculate average for each status
-          timeKeys.forEach(timeKey => {
-            const dayStats = personStats[timeKey]
-            Object.keys(dayStats).forEach(statusId => {
-              if (!averageStats[statusId]) {
-                averageStats[statusId] = {
-                  first_take: 0,
-                  retake: 0,
-                  date: 'average'
+            // Calculate average for each status
+            timeKeys.forEach(timeKey => {
+              const dayStats = personStats[timeKey]
+              Object.keys(dayStats).forEach(statusId => {
+                if (!averageStats[statusId]) {
+                  averageStats[statusId] = {
+                    first_take: 0,
+                    retake: 0,
+                    date: 'average'
+                  }
                 }
-              }
-              averageStats[statusId].first_take += dayStats[statusId].first_take
-              averageStats[statusId].retake += dayStats[statusId].retake
+                averageStats[statusId].first_take +=
+                  dayStats[statusId].first_take
+                averageStats[statusId].retake += dayStats[statusId].retake
+              })
             })
-          })
 
-          // Divide by number of days for average
-          Object.keys(averageStats).forEach(statusId => {
-            averageStats[statusId].first_take = Math.round(
-              averageStats[statusId].first_take / timeKeys.length
-            )
-            averageStats[statusId].retake = Math.round(
-              averageStats[statusId].retake / timeKeys.length
-            )
-          })
+            // Divide by number of days for average
+            Object.keys(averageStats).forEach(statusId => {
+              averageStats[statusId].first_take = Math.round(
+                averageStats[statusId].first_take / timeKeys.length
+              )
+              averageStats[statusId].retake = Math.round(
+                averageStats[statusId].retake / timeKeys.length
+              )
+            })
 
-          this.statsMap[personId]['average'] = averageStats
-        }
+            this.statsMap[taskTypeId][personId]['average'] = averageStats
+          }
+        })
       })
     },
 
     calcTotals() {
-      // Calculate totals across all persons for each time period
-      const allTimeKeys = new Set()
-      Object.values(this.statsMap).forEach(personStats => {
-        Object.keys(personStats).forEach(timeKey => {
-          if (timeKey !== 'average') allTimeKeys.add(timeKey)
+      this.totalsMap = {}
+
+      // Collect all time keys across all task types and persons
+      const allTimeKeys = []
+      Object.values(this.statsMap).forEach(taskTypeStats => {
+        Object.values(taskTypeStats).forEach(personStats => {
+          Object.keys(personStats).forEach(timeKey => {
+            if (timeKey !== 'average') allTimeKeys.push(timeKey)
+          })
         })
       })
 
+      // Calculate totals for each time period
       allTimeKeys.forEach(timeKey => {
         const totals = {}
-        Object.values(this.statsMap).forEach(personStats => {
-          if (personStats[timeKey]) {
-            Object.keys(personStats[timeKey]).forEach(statusId => {
-              if (!totals[statusId]) {
-                totals[statusId] = { first_take: 0, retake: 0, date: timeKey }
-              }
-              totals[statusId].first_take +=
-                personStats[timeKey][statusId].first_take
-              totals[statusId].retake += personStats[timeKey][statusId].retake
-            })
-          }
+
+        // Sum up stats across all task types and persons
+        Object.values(this.statsMap).forEach(taskTypeStats => {
+          Object.values(taskTypeStats).forEach(personStats => {
+            if (personStats[timeKey]) {
+              Object.keys(personStats[timeKey]).forEach(statusId => {
+                if (!totals[statusId]) {
+                  totals[statusId] = { first_take: 0, retake: 0, date: timeKey }
+                }
+                totals[statusId].first_take +=
+                  personStats[timeKey][statusId].first_take
+                totals[statusId].retake += personStats[timeKey][statusId].retake
+              })
+            }
+          })
         })
+
         if (Object.keys(totals).length > 0) {
           this.totalsMap[timeKey] = totals
         }
@@ -683,9 +718,6 @@ export default {
       this.loadData()
     },
     detailLevel() {
-      this.loadData()
-    },
-    countMode() {
       this.loadData()
     },
     userMode() {

@@ -208,16 +208,8 @@
               />
             </td>
             <td>
-              <div
-                class="flexrow"
-                :style="{ stroke: news.initial_status ? 'green' : 'red' }"
-              >
-                <check-icon
-                  v-if="news.initial_status"
-                  class="check-icon"
-                  :size="18"
-                />
-                <x-icon v-else class="close-icon" :size="18" />
+              <div class="flexrow initial-status-indicator">
+                <span v-if="news.initial_status"> * </span>
               </div>
             </td>
             <td v-if="countMode !== 'count'">{{ getNewsValue(news) }}</td>
@@ -275,7 +267,6 @@
 <script>
 import moment from 'moment-timezone'
 import { mapGetters, mapActions } from 'vuex'
-import { XIcon, CheckIcon } from 'lucide-vue-next'
 
 import csv from '@/lib/csv'
 import { formatDate, formatFullDate, getDateBoundaries } from '@/lib/time'
@@ -301,9 +292,7 @@ export default {
     EntityThumbnail,
     TaskTypeName,
     ValidationTag,
-    TableInfo,
-    XIcon,
-    CheckIcon
+    TableInfo
   },
 
   props: {
@@ -505,18 +494,18 @@ export default {
       switch (this.countMode) {
         case 'nb_frames':
         default:
-          return this.$t('status-stats.frames')
+          return this.$t('news-stats.frames')
         case 'nb_seconds':
-          return this.$t('status-stats.seconds')
+          return this.$t('news-stats.seconds')
         case 'nb_drawings':
-          return this.$t('status-stats.drawings')
+          return this.$t('news-stats.drawings')
       }
     },
 
     openNewsDetail(news) {
       // show just the day in question
-      const before = moment.tz(news.created_at, 'UTC').tz(this.timezone)
-      const after = moment(after).add(1, 'day')
+      const after = moment.tz(news.created_at, 'UTC').tz(this.timezone)
+      const before = moment(after).add(1, 'day')
 
       const route = {
         name: 'news-feed',
@@ -545,6 +534,7 @@ export default {
         productionId: this.currentProduction?.id,
         only_preview: false,
         limit: 1000000000000,
+        change: 1,
         task_type_id: this.taskTypeId || undefined,
         task_status_id: this.taskStatusIds?.join(',') || undefined,
         person_id: this.personId || undefined,
@@ -651,9 +641,6 @@ export default {
     detailLevel() {
       this.loadData()
     },
-    countMode() {
-      this.loadData()
-    },
     userMode() {
       this.loadData()
     },
@@ -739,6 +726,10 @@ export default {
     padding: 0.75rem;
     vertical-align: middle;
     border-bottom: 1px solid var(--border);
+  }
+
+  .initial-status-indicator {
+    font-size: 1.5rem;
   }
 }
 
