@@ -16,7 +16,9 @@
             class="flexrow-item"
             :task="{ task_status_id: comment.task_status.id }"
             :is-static="true"
-            :thin="!isChange"
+            :style="
+              comment.initial_status ? 'full' : isChange ? 'thin' : 'half'
+            "
           />
           <people-avatar
             class="flexrow-item"
@@ -333,7 +335,7 @@
           class="flexrow-item"
           :task="{ task_status_id: comment.task_status.id }"
           :is-static="true"
-          :thin="!isChange"
+          :style="comment.initial_status ? 'full' : isChange ? 'thin' : 'half'"
         />
         <people-avatar
           class="flexrow-item"
@@ -465,6 +467,10 @@ export default {
       type: Boolean,
       default: false
     },
+    isInitial: {
+      type: Boolean,
+      default: false
+    },
     isCheckable: {
       type: Boolean,
       default: false
@@ -500,6 +506,11 @@ export default {
   },
 
   mounted() {
+    console.log(
+      'comment',
+      this.comment.task_status.name,
+      this.comment.initial_status
+    )
     if (this.comment.checklist) {
       this.$options.silent = true
       this.checklist = [...this.comment.checklist]

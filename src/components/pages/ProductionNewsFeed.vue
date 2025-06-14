@@ -412,7 +412,6 @@ export default {
       'runningEpisodes',
       'taskStatusMap',
       'taskTypeMap',
-      'taskStatusMap',
       'user'
     ]),
 
@@ -554,7 +553,6 @@ export default {
     },
 
     buildTaskFromNews(news) {
-      if (news.initial_status) console.log('buildTaskFromNews', news)
       return {
         id: news.task_id,
         task_status_id: news.task_status_id,

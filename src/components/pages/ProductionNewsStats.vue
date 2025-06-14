@@ -7,7 +7,7 @@
         <div class="flexrow-item" v-if="activeTab === 'tasktypes'">
           <combobox-task-type
             class="flexrow-item"
-            :label="$t('news-stats.type_label')"
+            :label="$t('news-stats.type')"
             :task-type-list="taskTypeList"
             :disabled="!params.person"
             v-model="params.taskTypeId"
@@ -26,33 +26,33 @@
         <combobox-statuses
           class="flexrow-item"
           :production-id="currentProduction.id"
-          :label="$t('news-stats.status_label')"
+          :label="$t('news-stats.status')"
           :statuses="taskStatuses"
           :multiple="true"
           v-model="params.taskStatusIds"
         />
         <combobox
           class="flexrow-item"
-          :label="$t('news-stats.detail_label')"
+          :label="$t('news-stats.detail')"
           :options="detailLevelOptions"
           v-model="detailLevelString"
         />
         <combobox
           class="flexrow-item"
-          :label="$t('news-stats.month_label')"
+          :label="$t('news-stats.month')"
           :options="monthOptions"
           v-model="monthString"
           v-if="detailLevelString === 'day'"
         />
         <combobox
           class="flexrow-item"
-          :label="$t('news-stats.year_label')"
+          :label="$t('news-stats.year')"
           :options="yearOptions"
           v-model="yearString"
         />
         <combobox
           class="flexrow-item"
-          :label="$t('news-stats.count_label')"
+          :label="$t('news-stats.count_mode')"
           :options="countModeOptions"
           v-model="params.countMode"
         />
@@ -60,21 +60,21 @@
         <button-simple
           class="flexrow-item"
           :is-on="activeView === 'stats'"
-          :title="$t('news-stats.stats_label')"
+          :title="$t('news-stats.stats')"
           icon="stats"
           @click="activeView = 'stats'"
         />
         <button-simple
           class="flexrow-item"
           :is-on="activeView === 'data-table'"
-          :title="$t('news-stats.data_table_label')"
+          :title="$t('news-stats.data_table')"
           icon="grid"
           @click="activeView = 'data-table'"
         />
         <button-simple
           class="flexrow-item"
           :is-on="activeView === 'charts'"
-          :title="$t('news-stats.charts_label')"
+          :title="$t('news-stats.charts')"
           icon="chart"
           @click="activeView = 'charts'"
         />
@@ -112,8 +112,7 @@
         :month="currentMonth"
         :week="currentWeek"
         :day="currentDay"
-        :count-mode="params.countMode"
-        :user-mode="params.userMode"
+        :count-mode="currentMode"
         :search-text="searchText"
         :max-stat="maxStat"
         :before="beforeDate"
@@ -133,7 +132,6 @@
         :week="currentWeek"
         :day="currentDay"
         :count-mode="params.countMode"
-        :user-mode="params.userMode"
         :search-text="searchText"
         :max-stat="maxStat"
       />
@@ -151,7 +149,6 @@
         :week="currentWeek"
         :day="currentDay"
         :count-mode="params.countMode"
-        :user-mode="params.userMode"
         :search-text="searchText"
         :max-stat="maxStat"
         :before="beforeDate"
@@ -159,16 +156,17 @@
       />
     </div>
     <div class="column side-column" v-if="showInfo && currentPerson">
-      <people-news-logs
+      <people-news-stats-info
         :person="currentPerson"
         :year="currentYear"
         :month="currentMonth"
         :week="currentWeek"
         :day="currentDay"
-        :is-loading="isPersonNewsLogsLoading"
+        :is-loading="isNewsLoading"
         :is-loading-error="false"
-        :news-logs="personNewsLogs"
+        :news-list="newsList"
         :count-mode="params.countMode"
+        :detail-level="detailLevel"
         @close="hideSideInfo"
       />
     </div>
@@ -189,7 +187,7 @@ import Combobox from '@/components/widgets/Combobox.vue'
 import ComboboxStatuses from '@/components/widgets/ComboboxStatuses.vue'
 import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
 import PeopleField from '@/components/widgets/PeopleField.vue'
-import PeopleNewsLogs from '@/components/sides/PeopleNewsLogs.vue'
+import PeopleNewsStatsInfo from '@/components/sides/PeopleNewsStatsInfo.vue'
 import NewsStats from '@/components/pages/news-stats/NewsStats.vue'
 import NewsDataTable from '@/components/pages/news-stats/NewsDataTable.vue'
 import NewsCharts from '@/components/pages/news-stats/NewsCharts.vue'
@@ -211,7 +209,7 @@ export default {
     ComboboxStatuses,
     ComboboxTaskType,
     PeopleField,
-    PeopleNewsLogs,
+    PeopleNewsStatsInfo,
     NewsStats,
     NewsDataTable,
     NewsCharts,
@@ -238,18 +236,6 @@ export default {
         { label: this.$t('news-stats.week'), value: 'week' },
         { label: this.$t('news-stats.month'), value: 'month' }
       ],
-      userModeOptions: [
-        { label: this.$t('news-stats.person'), value: 'person' },
-        {
-          label: this.$t('news-stats.assignee_shared'),
-          value: 'assignee_shared'
-        },
-        {
-          label: this.$t('news-stats.assignee_split'),
-          value: 'assignee_split'
-        }
-      ],
-      userMode: 'person',
       currentYear: moment().year(),
       currentMonth: moment().month() + 1,
       currentWeek: moment().week(),
@@ -259,7 +245,7 @@ export default {
       detailLevel: 'day',
 
       isLoading: false,
-      isPersonNewsLogsLoading: false,
+      isNewsLoading: false,
       maxStat: 0,
 
       detailLevelString: 'day',
@@ -268,12 +254,11 @@ export default {
 
       params: {
         countMode: 'nb_frames',
-        userMode: 'person',
         person: null,
         taskStatusIds: [],
         taskTypeId: ''
       },
-      personNewsLogs: [],
+      personNews: [],
       silent: false,
 
       searchText: '',
@@ -287,7 +272,6 @@ export default {
     const savedParams = preferences.getObjectPreference(key) || {}
     const defaultParams = {
       countMode: this.countModeOptions[0].value,
-      userMode: this.userModeOptions[0].value,
       taskTypeId: this.productionShotTaskTypes[0].id,
       taskStatusIds: []
     }
@@ -298,10 +282,6 @@ export default {
         this.$route.query.countMode ||
         savedParams.countMode ||
         defaultParams.countMode,
-      userMode:
-        this.$route.query.userMode ||
-        savedParams.userMode ||
-        defaultParams.userMode,
       taskTypeId: this.$route.query.taskTypeId,
       person: this.$route.query.personId
         ? personMap.get(this.$route.query.personId)
@@ -321,6 +301,7 @@ export default {
 
   computed: {
     ...mapGetters([
+      'newsList',
       'currentEpisode',
       'currentProduction',
       'getProductionTaskStatuses',
@@ -392,26 +373,6 @@ export default {
         this.currentDay
       )
       return this.formatDateAsUTC(boundaries.from)
-    },
-
-    newsParams() {
-      return {
-        isStudio: false,
-        productionId: this.currentProduction?.id,
-        only_preview: false,
-        page_size: 50,
-        task_type_id:
-          this.params.taskTypeId !== '' ? this.params.taskTypeId : undefined,
-        task_status_id:
-          this.params.taskStatusIds.length > 0
-            ? this.params.taskStatusIds
-            : undefined,
-        person_id: this.params.person ? this.params.person.id : undefined,
-        page: 1,
-        before: this.beforeDate,
-        after: this.afterDate,
-        initial_status: true // New parameter to filter for first status changes
-      }
     }
   },
 
@@ -420,13 +381,12 @@ export default {
 
     getCurrentPerson() {
       const personId = this.$route.params.person_id
-      return personMap?.get(personId) ?? {}
+      return personMap.get(personId) || {}
     },
 
     loadRoute() {
       const { month, year, week, day } = this.$route.params
-      const { countMode, taskTypeId, taskStatusIds, userMode } =
-        this.$route.query
+      const { countMode, taskTypeId, taskStatusIds } = this.$route.query
 
       if (this.$route.path.indexOf('week') > 0) this.detailLevel = 'week'
       if (this.$route.path.indexOf('month') > 0) this.detailLevel = 'month'
@@ -450,9 +410,13 @@ export default {
         const idsEqual = ids.every(id => this.params.taskStatusIds.includes(id))
         if (!idsEqual) this.params.taskStatusIds = ids
       }
-      if (userMode) {
-        this.params.userMode = userMode
-      }
+
+      this.currentYear =
+        this.currentMonth =
+        this.currentWeek =
+        this.currentDay =
+          null
+
       if (month) {
         this.currentMonth = Number(month)
         this.monthString = `${month}`
@@ -468,27 +432,46 @@ export default {
       if (day) {
         this.currentDay = Number(day)
       }
+      console.log(
+        'loadRoute after',
+        this.currentYear,
+        this.currentMonth,
+        this.currentWeek,
+        this.currentDay
+      )
 
       if (this.$route.path.indexOf('person') > 0) {
-        this.isPersonNewsLogsLoading = true
-
-        this.loadNews(this.newsParams).then(news => {
-          this.isPersonNewsLogsLoading = false
-          this.personNewsLogs = news
-
-          // Filter by person if needed
-          if (this.currentPerson.id) {
-            this.personNewsLogs = this.personNewsLogs.filter(
-              log => log.author_id === this.currentPerson.id
-            )
-          }
-          this.showSideInfo()
-        })
+        this.loadSideInfoNews()
       } else {
         this.hideSideInfo()
       }
     },
+    loadSideInfoNews() {
+      this.isNewsLoading = true
+      const person_id = this.getCurrentPerson()?.id
+      const task_status_id =
+        this.params.taskStatusIds.length > 0
+          ? this.params.taskStatusIds.join(',')
+          : undefined
+      const queryParams = {
+        isStudio: false,
+        productionId: this.currentProduction?.id,
+        only_preview: false,
+        page_size: 1000000,
+        task_type_id: this.params.taskTypeId,
+        task_status_id: task_status_id,
+        person_id: person_id,
+        change: 1, // only get changed statuses
+        page: 1,
+        before: this.beforeDate,
+        after: this.afterDate
+      }
 
+      this.loadNews(queryParams).then(() => {
+        this.isNewsLoading = false
+        this.showSideInfo()
+      })
+    },
     showSideInfo() {
       this.showInfo = true
     },
@@ -541,7 +524,6 @@ export default {
 
       const query = {
         countMode: this.params.countMode,
-        userMode: this.params.userMode,
         taskStatusIds: this.params.taskStatusIds.join(',') || undefined,
         tab: this.activeTab || 'tasktypes',
         view: this.activeView || 'stats',
@@ -622,12 +604,6 @@ export default {
       this.currentMode = this.params.countMode
     },
 
-    'params.userMode'() {
-      if (this.$route.query.userMode !== this.params.userMode) {
-        this.resetRouteQuery()
-        this.currentPerson = null
-      }
-    },
     'params.taskTypeId'() {
       if (!this.silent && this.params.taskTypeId) {
         this.silent = true

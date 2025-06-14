@@ -5,6 +5,7 @@ import Color from '@/lib/color2'
 const darkenColorIndex = {}
 const lightenColorIndex = {}
 const fadeColorIndex = {}
+const alphaColorIndex = {}
 
 let colorHashConstructor = ColorHash
 if (ColorHash.default) colorHashConstructor = ColorHash.default
@@ -79,6 +80,16 @@ export default {
       fadeColorIndex[colorHash + level] = Color(colorHash).fade(level)
     }
     return fadeColorIndex[colorHash + level]
+  },
+
+  /*
+   * Turn hexadecimal color (#FFFFFF) to an alpha version.
+   */
+  alphaColor(colorHash, alpha = 0.3) {
+    if (!alphaColorIndex[colorHash + alpha]) {
+      alphaColorIndex[colorHash + alpha] = Color(colorHash).alpha(alpha)
+    }
+    return alphaColorIndex[colorHash + alpha]
   },
 
   /*

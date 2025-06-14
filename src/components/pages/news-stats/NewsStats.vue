@@ -165,10 +165,6 @@ export default {
       type: String,
       required: true
     },
-    userMode: {
-      type: String,
-      required: true
-    },
     year: {
       type: Number,
       default: 0
@@ -211,6 +207,7 @@ export default {
       isLoading: true,
       isLoadingData: false,
       isError: false,
+      lastParams: false,
       personIds: [],
       statsMap: {},
       totalsMap: {},
@@ -250,7 +247,6 @@ export default {
     },
 
     entryIds() {
-      console.log('entryIds', this.personId)
       if (this.personId) return this.personTaskTypeIds
       else return this.filteredPersonIds
     },
@@ -263,7 +259,6 @@ export default {
           this.searchText.split(' ')
         ).map(person => person.id)
       }
-      console.log('filteredPersonIds', personIds)
       return personIds
     },
 
@@ -296,16 +291,19 @@ export default {
      * @returns day: YYYY-MM-DD, week: YYYY-week, month: YYYY-MM
      * examples: day: 2025-04-14, week: 2025-15, month: 2025-04
      */
-    parseDateTime(datetime, detailLevel) {
-      const momentDate = moment(datetime)
+    parseDateTime(stat, detailLevel) {
+      let momentDate
       switch (detailLevel) {
         case 'day':
+          momentDate = moment(stat.date)
           return momentDate.format('YYYY-MM-DD')
         case 'week': {
+          momentDate = moment(stat.week)
           const weekNum = momentDate.isoWeek().toString().padStart(2, '0')
           return `${momentDate.year()}-${weekNum}`
         }
         case 'month':
+          momentDate = moment(stat.month)
           return momentDate.format('YYYY-MM')
         default:
           throw new Error(`Invalid detail level: ${detailLevel}`)
@@ -347,7 +345,7 @@ export default {
       return stats.reduce((groupedStats, stat) => {
         const taskTypeId = stat.task_type_id
         const authorId = stat.author_id
-        const timeKey = this.parseDateTime(stat.date, detailLevel)
+        const timeKey = this.parseDateTime(stat, detailLevel)
 
         if (!groupedStats[taskTypeId]) groupedStats[taskTypeId] = {}
         if (!groupedStats[taskTypeId][authorId])
@@ -390,17 +388,15 @@ export default {
 
     loadData() {
       if (!this.isLoadingData && (this.taskTypeId || this.personId)) {
-        this.isLoading = this.isLoadingData = true
-
         const year = this.year
         const month = this.detailLevel === 'day' ? this.month : null
         const { from, to } = getDateBoundaries(year, month)
 
-        this.loadNewsStats({
+        const params = {
           productionId: this.currentProduction?.id,
-          task_type_ids: this.taskTypeId || undefined,
-          task_status_ids: this.taskStatusIds?.join(',') || undefined,
-          person_ids: this.personId || undefined,
+          task_type_id: this.taskTypeId || undefined,
+          task_status_id: this.taskStatusIds?.join(',') || undefined,
+          person_id: this.personId || undefined,
           detail: this.detailLevel,
           // we want only the changed statuses
           change: 1,
@@ -408,7 +404,15 @@ export default {
           timezone: this.timezone, // eg. "Europe/London" "UTC"
           after: this.formatDateAsUTC(from),
           before: this.formatDateAsUTC(to)
-        })
+        }
+
+        // dont reload if the params are the same
+        if (JSON.stringify(params) === JSON.stringify(this.lastParams)) return
+
+        this.lastParams = params
+        this.isLoading = this.isLoadingData = true
+
+        this.loadNewsStats(params)
           .then(stats_list => {
             this.statsList = stats_list
             this.statsMap = this.groupStats(stats_list, this.detailLevel)
@@ -418,10 +422,10 @@ export default {
             this.calcPersonAverageAndTotals()
             this.calcTotals()
 
-            console.log('statsMap', this.statsMap)
-
             this.$nextTick(() => {
               this.isLoading = this.isLoadingData = false
+              // Wait for data to be rendered and then scroll
+              setTimeout(() => this.scrollToSelected(), 500)
             })
           })
           .catch(err => {
@@ -589,30 +593,48 @@ export default {
       if (row === 'total') return
       if (!column) return
 
+      const person_id = this.personId ? this.personId : row
+      const task_type_id = this.taskTypeId ? this.taskTypeId : row
+
+      let route_name, month, week, day
+      switch (this.detailLevel) {
+        case 'day':
+        default:
+          route_name = 'news-stats-day-person'
+          month = this.month
+          day = column
+          break
+        case 'week':
+          route_name = 'news-stats-week-person'
+          week = column
+          break
+        case 'month':
+          route_name = 'news-stats-month-person'
+          month = column
+          break
+      }
+
       const route = {
-        name: 'news-stats-day-person',
+        name: route_name,
         params: {
-          person_id: row,
+          person_id: person_id,
           year: this.year,
-          month: this.month,
-          day: column
+          month: month,
+          week: week,
+          day: day
         },
         query: {
           ...query,
-          taskTypeId: this.taskTypeId
+          taskTypeId: task_type_id
         }
       }
       this.$router.push(route)
     },
 
     timeToString(time) {
-      if (this.detailLevel === 'day') {
-        return time.toString()
-      } else if (this.detailLevel === 'week') {
-        return `W${time}`
-      } else {
-        return monthToString(time)
-      }
+      return this.detailLevel === 'month'
+        ? monthToString(time)
+        : time.toString()
     },
 
     calcAverageColumnX() {
@@ -704,10 +726,50 @@ export default {
           this.totalsMap[timeKey] = totals
         }
       })
+    },
+
+    scrollToSelected() {
+      if (!this.$refs.body) {
+        return
+      }
+
+      // Find the selected cell - try different selectors
+      const selectedCell = this.$refs.body.querySelector('td.selected')
+
+      if (!selectedCell) {
+        return
+      }
+
+      // Get the container's scroll position
+      const container = this.$refs.body
+      const containerRect = container.getBoundingClientRect()
+      const cellRect = selectedCell.getBoundingClientRect()
+
+      // Calculate the scroll position needed to center the cell
+      const scrollLeft =
+        cellRect.left -
+        containerRect.left -
+        containerRect.width / 2 +
+        cellRect.width / 2
+      const scrollTop =
+        cellRect.top -
+        containerRect.top -
+        containerRect.height / 2 +
+        cellRect.height / 2
+
+      // Scroll the container
+      container.scrollTo({
+        left: container.scrollLeft + scrollLeft,
+        top: container.scrollTop + scrollTop,
+        behavior: 'smooth'
+      })
     }
   },
 
   watch: {
+    countMode() {
+      // watch to trigger refresh on mode change
+    },
     taskTypeId() {
       this.loadData()
     },
@@ -718,9 +780,6 @@ export default {
       this.loadData()
     },
     detailLevel() {
-      this.loadData()
-    },
-    userMode() {
       this.loadData()
     },
     year() {
@@ -808,7 +867,7 @@ export default {
   font-size: inherit;
   &:hover,
   &:focus,
-  &.is-selected {
+  &.selected {
     background-color: $dark-grey-lightest;
   }
 }

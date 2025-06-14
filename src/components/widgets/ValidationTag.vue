@@ -5,16 +5,16 @@
         class="tag dynamic"
         :to="taskPath(task)"
         :style="tagStyle"
-        :title="taskStatus.name"
+        :title="title"
         v-if="!isStatic && !isCurrentUserClient"
       >
         {{ taskStatus.short_name }}
       </router-link>
 
       <span
-        :class="{ tag: true, 'initial-status': isInitial }"
+        class="tag"
         :style="tagStyle"
-        :title="taskStatus.name"
+        :title="title"
         @click="$event => $emit('click', $event)"
         v-else
       >
@@ -38,21 +38,13 @@
         :to="taskPath(task)"
         class="tag dynamic"
         :style="tagStyle"
-        :title="taskStatus.name"
+        :title="title"
         v-if="!isStatic && !isCurrentUserClient"
       >
         &nbsp;
       </router-link>
       <span class="tag" v-else> &nbsp; </span>
     </template>
-    <span class="initial-status-indicator">
-      <span
-        v-if="isInitial"
-        class="has-tooltip"
-        title="First occurance of this status for this task"
-        >*</span
-      >
-    </span>
   </span>
 </template>
 
@@ -85,14 +77,10 @@ export default {
       default: false,
       type: Boolean
     },
-    thin: {
-      default: false,
-      type: Boolean
-    },
-    // true if the status is the first occurance of the status in the task
-    isInitial: {
-      default: false,
-      type: Boolean
+    style: {
+      // full, half, thin
+      default: 'full',
+      type: String
     }
   },
 
@@ -111,6 +99,18 @@ export default {
 
     cursor() {
       return this.pointer ? 'pointer' : 'default'
+    },
+
+    title() {
+      let title = this.taskStatus.name
+      if (this.style === 'half')
+        title += ` (${this.$t('productions.status.half')})`
+      else if (this.style === 'thin')
+        title += ` (${this.$t('productions.status.thin')})`
+      else if (this.style === 'full')
+        title += ` (${this.$t('productions.status.full')})`
+
+      return title
     },
 
     taskStatus() {
@@ -158,7 +158,10 @@ export default {
     tagStyle() {
       const isStatic = !this.isStatic && !this.isCurrentUserClient
       const isTodo = this.taskStatus.name === 'Todo'
-      if (this.thin && !isTodo) {
+
+      console.log('tagStyle', this.style, isTodo)
+
+      if (this.style === 'thin' && !isTodo) {
         if (this.isDarkTheme) {
           return {
             background: 'transparent',
@@ -177,6 +180,16 @@ export default {
             color: this.backgroundColor,
             cursor: isStatic ? 'pointer' : this.cursor
           }
+        }
+      } else if (this.style === 'half') {
+        return {
+          background: colors.alphaColor(
+            this.backgroundColor,
+            this.isDarkTheme ? 0.4 : 0.2
+          ),
+          border: '1px solid ' + this.backgroundColor,
+          color: this.isDarkTheme ? this.color : this.backgroundColor,
+          cursor: isStatic ? 'pointer' : this.cursor
         }
       } else {
         return {
@@ -234,21 +247,6 @@ export default {
   letter-spacing: 1px;
   margin-right: 0.1em;
   text-transform: uppercase;
-}
-
-.initial-status-indicator {
-  display: inline-flex;
-  width: 10px;
-  color: $white;
-  justify-content: center;
-  align-items: center;
-  margin-left: 2px;
-  span {
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-  }
 }
 
 .tag.dynamic:hover {

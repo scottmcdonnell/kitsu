@@ -205,6 +205,7 @@
                 :task="buildTaskFromNews(news)"
                 :is-static="true"
                 :thin="!news.change"
+                :is-initial="news.initial_status"
               />
             </td>
             <td>
