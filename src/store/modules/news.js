@@ -79,8 +79,80 @@ const actions = {
 
   async loadNewsStats({ commit, state }, { productionId, ...params }) {
     const statsData = await newsApi.getNewsStats(productionId, params)
+
+    // restructure the stats to be grouped by task_type > author > detail level
+    if ('detail' in params) return groupStats(statsData, params.detail)
+
     return statsData
   }
+}
+
+/**
+ * Restructure the api response to be grouped by task_type > author > detail level
+ * @param stats - The news stats to group
+ * @param detailLevel - The detail level day/week/month
+ * @returns The grouped stats
+ * example day format:
+ * {
+ *   'task_type_id': {
+ *     'author_id': {
+ *       'YYYY-MM-DD': {
+ *        'status_id': {
+ *         first_take: 40,
+ *         retake: 31
+ *       }
+ *     }
+ *   }
+ * }
+ */
+const groupStats = (stats, detailLevel = 'day') => {
+  return stats.reduce((groupedStats, stat) => {
+    const taskTypeId = stat.task_type_id
+    const authorId = stat.author_id
+    const timeKey = stat[detailLevel] || stat.date
+
+    if (!groupedStats[taskTypeId]) groupedStats[taskTypeId] = {}
+    if (!groupedStats[taskTypeId][authorId])
+      groupedStats[taskTypeId][authorId] = {}
+    if (!groupedStats[taskTypeId][authorId][timeKey])
+      groupedStats[taskTypeId][authorId][timeKey] = {}
+
+    if (!groupedStats[taskTypeId][authorId][timeKey][stat.task_status_id])
+      groupedStats[taskTypeId][authorId][timeKey][stat.task_status_id] = {
+        initial_status: {
+          nb_frames: 0,
+          nb_seconds: 0,
+          nb_drawings: 0,
+          count: 0
+        },
+        repeat_status: {
+          nb_frames: 0,
+          nb_seconds: 0,
+          nb_drawings: 0,
+          count: 0
+        },
+        date: timeKey
+      }
+
+    const groupedStat =
+      groupedStats[taskTypeId][authorId][timeKey][stat.task_status_id]
+
+    // For news data, we'll count based on initial_status
+    // if true its the first occurance of the status for the task
+    // if false its a retake of the status for the task
+    if (stat.initial_status) {
+      groupedStat.initial_status.count += 1
+      groupedStat.initial_status.nb_frames += stat.nb_frames
+      groupedStat.initial_status.nb_seconds += stat.nb_seconds
+      groupedStat.initial_status.nb_drawings += stat.nb_drawings
+    } else {
+      groupedStat.repeat_status.count += 1
+      groupedStat.repeat_status.nb_frames += stat.nb_frames
+      groupedStat.repeat_status.nb_seconds += stat.nb_seconds
+      groupedStat.repeat_status.nb_drawings += stat.nb_drawings
+    }
+    return groupedStats
+  }, {})
 }
 
 const mutations = {

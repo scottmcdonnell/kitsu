@@ -432,14 +432,6 @@ export default {
       if (day) {
         this.currentDay = Number(day)
       }
-      console.log(
-        'loadRoute after',
-        this.currentYear,
-        this.currentMonth,
-        this.currentWeek,
-        this.currentDay
-      )
-
       if (this.$route.path.indexOf('person') > 0) {
         this.loadSideInfoNews()
       } else {
@@ -447,6 +439,7 @@ export default {
       }
     },
     loadSideInfoNews() {
+      if (this.isNewsLoading) return
       this.isNewsLoading = true
       const person_id = this.getCurrentPerson()?.id
       const task_status_id =
@@ -467,10 +460,14 @@ export default {
         after: this.afterDate
       }
 
-      this.loadNews(queryParams).then(() => {
-        this.isNewsLoading = false
-        this.showSideInfo()
-      })
+      this.loadNews(queryParams)
+        .then(() => {
+          this.isNewsLoading = false
+          this.showSideInfo()
+        })
+        .catch(() => {
+          this.isNewsLoading = false
+        })
     },
     showSideInfo() {
       this.showInfo = true

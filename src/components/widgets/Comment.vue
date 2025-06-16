@@ -17,7 +17,7 @@
             :task="{ task_status_id: comment.task_status.id }"
             :is-static="true"
             :style="
-              comment.initial_status ? 'full' : isChange ? 'thin' : 'half'
+              comment.initial_status ? 'full' : isChange ? 'half' : 'thin'
             "
           />
           <people-avatar

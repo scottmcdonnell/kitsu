@@ -159,8 +159,6 @@ export default {
       const isStatic = !this.isStatic && !this.isCurrentUserClient
       const isTodo = this.taskStatus.name === 'Todo'
 
-      console.log('tagStyle', this.style, isTodo)
-
       if (this.style === 'thin' && !isTodo) {
         if (this.isDarkTheme) {
           return {

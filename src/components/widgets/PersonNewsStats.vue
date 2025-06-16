@@ -1,16 +1,12 @@
 <template>
-  <div class="person-status-stats">
-    <h4 class="stats-title">{{ $t('people.status_statistics') }}</h4>
+  <div class="person-news-stats">
+    <h4 class="stats-title">{{ $t('people.news_statistics') }}</h4>
     <div v-if="isLoading" class="loading-container">
       <p>{{ $t('main.loading') }}...</p>
     </div>
-    <div v-else-if="statusStats.length > 0" class="status-stats-grid">
-      <div
-        v-for="stat in statusStats"
-        :key="stat.status.id"
-        class="status-stat-item"
-      >
-        <div class="status-name">{{ stat.status.name }}</div>
+    <div v-else-if="newsStats.length > 0" class="news-stats-grid">
+      <div v-for="stat in newsStats" :key="stat.news.id" class="news-stat-item">
+        <div class="news-name">{{ stat.status.name }}</div>
         <status-chip
           :status="stat.status"
           :first-take="stat.firstTake"
@@ -21,7 +17,7 @@
       </div>
     </div>
     <div v-else class="empty-stats">
-      <p>{{ $t('people.no_status_stats') }}</p>
+      <p>{{ $t('people.no_news_stats') }}</p>
     </div>
   </div>
 </template>
@@ -30,7 +26,6 @@
 import { mapGetters, mapActions } from 'vuex'
 import moment from 'moment-timezone'
 
-import { formatSimpleDate } from '@/lib/time'
 import StatusChip from '@/components/widgets/StatusChip.vue'
 
 export default {
@@ -44,13 +39,19 @@ export default {
     personId: {
       type: String,
       required: true
+    },
+    productions: {
+      type: Array,
+      required: true
     }
   },
 
   data() {
     return {
       isLoading: false,
-      statusStats: []
+      isError: false,
+      statsMap: {},
+      newsStats: []
     }
   },
 
@@ -59,75 +60,52 @@ export default {
   },
 
   async mounted() {
-    await this.loadStatusStats()
+    await this.loadStats()
   },
 
   methods: {
-    ...mapActions(['getStatusStats']),
+    ...mapActions(['loadNewsStats']),
 
-    async loadStatusStats() {
-      if (!this.currentProduction || !this.personId) {
+    async loadStats() {
+      if (this.isLoading) return
+
+      if (!this.productions || !this.personId) {
+        this.statsMap = {}
         return
       }
-
       this.isLoading = true
-      try {
+
+      const stats = []
+
+      for (const production of this.productions) {
+        console.log('production', production)
+
         // Calculate date range for last 4 weeks
         const to = moment()
-        const from = moment().subtract(4, 'weeks')
+        const from = moment().startOf('week').subtract(4, 'weeks')
 
         const testing = true
-        if (testing) console.log('TESTING in PersonStatusStats')
+        if (testing) console.log('TESTING in PersonNewsStats')
 
-        const statsList = await this.getStatusStats({
-          personId: this.personId,
-          detailLevel: 'month',
-          countMode: 'count',
-          userMode: 'person',
-          // TODO: remove this test data
-          from: testing ? '2024-12-01' : formatSimpleDate(from),
-          to: testing ? '2025-01-01' : formatSimpleDate(to)
+        const params = {
+          productionId: this.currentProduction?.id,
+          // task_status_id: this.taskStatusIds?.join(',') || undefined,
+          person_id: this.personId,
+          detail: 'week',
+          // we want only the changed statuses
+          change: 1,
+          // timezone for calulating the group by day/week/month correctly
+          timezone: this.timezone, // eg. "Europe/London" "UTC"
+          after: testing ? '2024-12-01' : this.formatDateAsUTC(from),
+          before: testing ? '2025-01-01' : this.formatDateAsUTC(to)
+        }
+        this.loadNewsStats(params).then(stats_list => {
+          stats.push(...stats_list)
         })
-
-        // Process the stats to get totals by status
-        const statusTotals = {}
-        statsList.forEach(stat => {
-          const statusId = stat.task_status_id
-          if (!statusTotals[statusId]) {
-            statusTotals[statusId] = {
-              firstTake: 0,
-              retake: 0
-            }
-          }
-
-          if (stat.is_first) {
-            statusTotals[statusId].firstTake += stat.value
-          } else {
-            statusTotals[statusId].retake += stat.value
-          }
-        })
-
-        // Convert to display format
-        this.statusStats = Object.entries(statusTotals)
-          .map(([statusId, totals]) => {
-            const status = this.taskStatusMap.get(statusId)
-            return status
-              ? {
-                  status,
-                  firstTake: totals.firstTake,
-                  retake: totals.retake
-                }
-              : null
-          })
-          .filter(Boolean)
-          .filter(stat => stat.status.is_artist_allowed)
-          .sort((a, b) => a.status.priority - b.status.priority)
-      } catch (error) {
-        console.error('Failed to load status stats:', error)
-        this.statusStats = []
-      } finally {
-        this.isLoading = false
       }
+
+      this.statsMap = stats
+      this.isLoading = false
     }
   },
 

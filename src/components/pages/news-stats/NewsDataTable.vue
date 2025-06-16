@@ -204,8 +204,9 @@
               <validation-tag
                 :task="buildTaskFromNews(news)"
                 :is-static="true"
-                :thin="!news.change"
-                :is-initial="news.initial_status"
+                :style="
+                  news.initial_status ? 'full' : news.change ? 'half' : 'thin'
+                "
               />
             </td>
             <td>
@@ -602,15 +603,12 @@ export default {
       })
 
       const nameData = [
-        formatDate(new Date()),
+        moment().format('YYYY-MM-DD_HHmm'),
         this.currentProduction.name,
-        'news-data'
+        'StatusChanges'
       ]
 
-      const fileName = nameData
-        .join('_')
-        .replace(/[^a-z0-9]/gi, '_')
-        .toLowerCase()
+      const fileName = nameData.join('_').replace(/[^-a-zA-Z0-9]/gi, '_')
       csv.buildCsvFile(fileName, csvData)
     },
 

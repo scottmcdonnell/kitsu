@@ -5,22 +5,22 @@
     :title="tooltipText"
   >
     <div
-      class="chip-half first-take"
+      class="chip-half initial"
       :style="{
         'border-color': backgroundColor(1),
         'background-color': backgroundColor(0.9)
       }"
     >
-      {{ formatValue(firstTake) }}
+      {{ formatValue(initial) }}
     </div>
     <div
-      class="chip-half retake"
+      class="chip-half repeat"
       :style="{
         'border-color': backgroundColor(1),
         'background-color': backgroundColor(0.3)
       }"
     >
-      {{ formatValue(retake) }}
+      {{ formatValue(repeat) }}
     </div>
   </div>
 </template>
@@ -41,17 +41,17 @@ export default {
       type: String,
       default: ''
     },
-    firstTake: {
-      type: Number,
+    initial: {
+      type: Object,
       required: true
     },
-    retake: {
-      type: Number,
+    repeat: {
+      type: Object,
       required: true
     },
-    unit: {
+    countMode: {
       type: String,
-      default: 's'
+      default: 'count'
     },
     showTooltip: {
       type: Boolean,
@@ -61,15 +61,13 @@ export default {
 
   computed: {
     ...mapGetters(['isDarkTheme']),
-    shortUnit() {
-      switch (this.unit) {
+    unit() {
+      switch (this.countMode) {
         case 'seconds':
         case 'nb_seconds':
-        case 's':
           return 's'
         case 'frames':
         case 'nb_frames':
-        case 'f':
           return 'f'
         default:
           return ''
@@ -78,15 +76,17 @@ export default {
 
     tooltipText() {
       const date = this.date ? ` - ${this.date}` : ''
-      const firstTake = this.formatValue(this.firstTake)
-      const retake = this.formatValue(this.retake)
-      return `[${this.status.name.toUpperCase()}]${date}\nFirst takes: ${firstTake} ${this.shortUnit}\nRetakes: ${retake} ${this.shortUnit}`
+      const initial = this.formatValue(this.initial)
+      const repeat = this.formatValue(this.repeat)
+      return `[${this.status.name.toUpperCase()}]${date}\nInitial: ${initial} ${this.unit}\nRepeat: ${repeat} ${this.unit}`
     }
   },
   methods: {
-    formatValue(value) {
-      const unit = this.shortUnit
-      return unit === 's' ? this.roundValue(value, 100) : this.roundValue(value)
+    formatValue(valueObj) {
+      const value = this.countMode in valueObj ? valueObj[this.countMode] : 0
+      return this.countMode === 'nb_seconds'
+        ? this.roundValue(value, 100)
+        : this.roundValue(value)
     },
     roundValue(value, precision = 1) {
       return Math.round((value + Number.EPSILON) * precision) / precision
@@ -126,12 +126,12 @@ export default {
     padding: 0 0.5rem;
     border: 1px solid;
 
-    &.first-take {
+    &.initial {
       border-radius: 1rem 0 0 1rem;
       border-right: none;
     }
 
-    &.retake {
+    &.repeat {
       border-radius: 0 1rem 1rem 0;
       border-left: none;
     }

@@ -25,17 +25,103 @@
       <table class="details table" v-if="!isLoading">
         <thead>
           <tr>
-            <th v-if="!day">{{ $t('news-stats.date') }}</th>
-            <th>{{ $t('news-stats.time') }}</th>
-            <th>{{ $t('news-stats.name') }}</th>
-            <th>{{ $t('news-stats.status') }}</th>
-            <th v-if="countMode !== 'count'">
-              {{ countModeLabel }}
+            <th v-if="!day" class="sortable" @click="toggleSort('created_at')">
+              <div class="flexrow">
+                <span class="flexrow-item">{{ $t('news-stats.date') }}</span>
+                <span class="flexrow-item ml05">
+                  <span
+                    v-if="
+                      sortColumn === 'created_at' && sortDirection === 'asc'
+                    "
+                    >↑</span
+                  >
+                  <span
+                    v-else-if="
+                      sortColumn === 'created_at' && sortDirection === 'desc'
+                    "
+                    >↓</span
+                  >
+                  <span v-else>↕</span>
+                </span>
+              </div>
+            </th>
+            <th class="sortable" @click="toggleSort('time')">
+              <div class="flexrow">
+                <span class="flexrow-item">{{ $t('news-stats.time') }}</span>
+                <span class="flexrow-item ml05">
+                  <span v-if="sortColumn === 'time' && sortDirection === 'asc'"
+                    >↑</span
+                  >
+                  <span
+                    v-else-if="
+                      sortColumn === 'time' && sortDirection === 'desc'
+                    "
+                    >↓</span
+                  >
+                  <span v-else>↕</span>
+                </span>
+              </div>
+            </th>
+            <th class="sortable" @click="toggleSort('name')">
+              <div class="flexrow">
+                <span class="flexrow-item">{{ $t('news-stats.name') }}</span>
+                <span class="flexrow-item ml05">
+                  <span v-if="sortColumn === 'name' && sortDirection === 'asc'"
+                    >↑</span
+                  >
+                  <span
+                    v-else-if="
+                      sortColumn === 'name' && sortDirection === 'desc'
+                    "
+                    >↓</span
+                  >
+                  <span v-else>↕</span>
+                </span>
+              </div>
+            </th>
+            <th class="sortable" @click="toggleSort('status')">
+              <div class="flexrow">
+                <span class="flexrow-item">{{ $t('news-stats.status') }}</span>
+                <span class="flexrow-item ml05">
+                  <span
+                    v-if="sortColumn === 'status' && sortDirection === 'asc'"
+                    >↑</span
+                  >
+                  <span
+                    v-else-if="
+                      sortColumn === 'status' && sortDirection === 'desc'
+                    "
+                    >↓</span
+                  >
+                  <span v-else>↕</span>
+                </span>
+              </div>
+            </th>
+            <th
+              v-if="countMode !== 'count'"
+              class="sortable"
+              @click="toggleSort('count')"
+            >
+              <div class="flexrow">
+                <span class="flexrow-item">{{ countModeLabel }}</span>
+                <span class="flexrow-item ml05">
+                  <span v-if="sortColumn === 'count' && sortDirection === 'asc'"
+                    >↑</span
+                  >
+                  <span
+                    v-else-if="
+                      sortColumn === 'count' && sortDirection === 'desc'
+                    "
+                    >↓</span
+                  >
+                  <span v-else>↕</span>
+                </span>
+              </div>
             </th>
           </tr>
         </thead>
         <tbody>
-          <tr :key="`news-${news.id}`" v-for="news in newsList">
+          <tr :key="`news-${news.id}`" v-for="news in sortedNewsList">
             <td v-if="!day">
               {{ formatDate(news.created_at) }}
             </td>
@@ -48,8 +134,9 @@
                 class="validation-tag"
                 :task="buildTaskFromNews(news)"
                 :is-static="true"
-                :thin="!news.change"
-                :is-initial="news.initial_status"
+                :style="
+                  news.initial_status ? 'full' : news.change ? 'half' : 'thin'
+                "
               />
             </td>
             <td v-if="countMode !== 'count'">{{ getNewsValue(news) }}</td>
@@ -131,6 +218,13 @@ export default {
   },
 
   emits: ['close'],
+
+  data() {
+    return {
+      sortColumn: 'created_at',
+      sortDirection: 'desc'
+    }
+  },
 
   computed: {
     ...mapGetters(['currentEpisode', 'currentProduction', 'taskStatusMap']),
@@ -218,6 +312,59 @@ export default {
       }
       route.query = this.$route.query
       return route
+    },
+
+    sortedNewsList() {
+      if (!this.newsList) return []
+
+      return [...this.newsList].sort((a, b) => {
+        let aValue, bValue, aStatus, bStatus
+
+        switch (this.sortColumn) {
+          case 'created_at':
+            aValue = new Date(a.created_at)
+            bValue = new Date(b.created_at)
+            break
+          case 'time':
+            aValue = this.formatTime(a.created_at)
+            bValue = this.formatTime(b.created_at)
+            break
+          case 'name':
+            aValue = a.full_entity_name.toLowerCase()
+            bValue = b.full_entity_name.toLowerCase()
+            break
+          case 'status':
+            // First compare by task_status_id
+            aStatus =
+              this.taskStatusMap
+                .get(a.task_status_id)
+                ?.short_name.toLowerCase() || ''
+            bStatus =
+              this.taskStatusMap
+                .get(b.task_status_id)
+                ?.short_name.toLowerCase() || ''
+            if (aStatus !== bStatus) {
+              aValue = aStatus
+              bValue = bStatus
+            } else {
+              // If status is the same, sort by initial_status
+              aValue = a.initial_status ? 1 : 0
+              bValue = b.initial_status ? 1 : 0
+            }
+            break
+          case 'count':
+            aValue = this.getNewsValue(a)
+            bValue = this.getNewsValue(b)
+            break
+          default:
+            aValue = a[this.sortColumn]
+            bValue = b[this.sortColumn]
+        }
+
+        if (aValue < bValue) return this.sortDirection === 'asc' ? -1 : 1
+        if (aValue > bValue) return this.sortDirection === 'asc' ? 1 : -1
+        return 0
+      })
     }
   },
 
@@ -267,6 +414,15 @@ export default {
 
     onCloseClicked() {
       this.$emit('close')
+    },
+
+    toggleSort(column) {
+      if (this.sortColumn === column) {
+        this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc'
+      } else {
+        this.sortColumn = column
+        this.sortDirection = 'asc'
+      }
     }
   }
 }
@@ -355,5 +511,23 @@ tbody {
   tr:hover {
     background: $light-green-lightest;
   }
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background-color: var(--background-hover);
+  }
+}
+
+.flexrow {
+  display: flex;
+  align-items: center;
+}
+
+.ml05 {
+  margin-left: 0.5rem;
 }
 </style>

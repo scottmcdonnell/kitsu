@@ -58,9 +58,9 @@
                   v-if="stat"
                   :status="taskStatusMap.get(status_id)"
                   :date="stat.date"
-                  :first-take="stat.first_take"
-                  :retake="stat.retake"
-                  :unit="countMode"
+                  :initial="stat.initial_status"
+                  :repeat="stat.repeat_status"
+                  :count-mode="countMode"
                 />
               </span>
             </td>
@@ -90,9 +90,9 @@
                     v-if="stat"
                     :status="taskStatusMap.get(status_id)"
                     :date="stat.date"
-                    :first-take="stat.first_take"
-                    :retake="stat.retake"
-                    :unit="countMode"
+                    :initial="stat.initial_status"
+                    :repeat="stat.repeat_status"
+                    :count-mode="countMode"
                   />
                 </span>
               </div>
@@ -209,7 +209,7 @@ export default {
       isError: false,
       lastParams: false,
       personIds: [],
-      statsMap: {},
+      statsData: {},
       totalsMap: {},
       statsLength: 0,
       averageColumnX: '12rem',
@@ -218,6 +218,7 @@ export default {
   },
 
   mounted() {
+    console.log('mounted')
     this.loadData()
     this.setPersonIndex()
   },
@@ -264,7 +265,7 @@ export default {
 
     personTaskTypeIds() {
       const taskTypeIds = sortTaskTypes(
-        Object.keys(this.statsMap)
+        Object.keys(this.statsData)
           .filter(key => key !== 'total')
           .map(taskTypeId => this.taskTypeMap.get(taskTypeId)),
         this.currentProduction
@@ -284,102 +285,10 @@ export default {
       this.personIndex = buildNameIndex(Array.from(this.personMap.values()))
     },
 
-    /**
-     * Parse the date and return the appropriate key for the detail level
-     * @param datetime - The date to parse
-     * @param detailLevel - The detail level day/week/month
-     * @returns day: YYYY-MM-DD, week: YYYY-week, month: YYYY-MM
-     * examples: day: 2025-04-14, week: 2025-15, month: 2025-04
-     */
-    parseDateTime(stat, detailLevel) {
-      let momentDate
-      switch (detailLevel) {
-        case 'day':
-          momentDate = moment(stat.date)
-          return momentDate.format('YYYY-MM-DD')
-        case 'week': {
-          momentDate = moment(stat.week)
-          const weekNum = momentDate.isoWeek().toString().padStart(2, '0')
-          return `${momentDate.year()}-${weekNum}`
-        }
-        case 'month':
-          momentDate = moment(stat.month)
-          return momentDate.format('YYYY-MM')
-        default:
-          throw new Error(`Invalid detail level: ${detailLevel}`)
-      }
-    },
-
-    getDateKey(opt) {
-      let key = false
-      if (opt.day) {
-        key = `${opt.year}-${this.dateDigit(opt.month)}-${this.dateDigit(opt.day)}`
-      } else if (opt.week) {
-        key = `${opt.year}-${opt.week}`
-      } else {
-        key = `${opt.year}-${this.dateDigit(opt.month)}`
-      }
-      return key
-    },
-
-    /**
-     * Restructure the api response to be grouped by task_type > author > detail level
-     * @param stats - The news stats to group
-     * @param detailLevel - The detail level day/week/month
-     * @returns The grouped stats
-     * example day format:
-     * {
-     *   'task_type_id': {
-     *     'author_id': {
-     *       'YYYY-MM-DD': {
-     *        'status_id': {
-     *         first_take: 40,
-     *         retake: 31
-     *       }
-     *     }
-     *   }
-     * }
-     */
-    groupStats(stats, detailLevel = 'day') {
-      const value_key = this.countMode
-      return stats.reduce((groupedStats, stat) => {
-        const taskTypeId = stat.task_type_id
-        const authorId = stat.author_id
-        const timeKey = this.parseDateTime(stat, detailLevel)
-
-        if (!groupedStats[taskTypeId]) groupedStats[taskTypeId] = {}
-        if (!groupedStats[taskTypeId][authorId])
-          groupedStats[taskTypeId][authorId] = {}
-        if (!groupedStats[taskTypeId][authorId][timeKey])
-          groupedStats[taskTypeId][authorId][timeKey] = {}
-
-        if (!groupedStats[taskTypeId][authorId][timeKey][stat.task_status_id])
-          groupedStats[taskTypeId][authorId][timeKey][stat.task_status_id] = {
-            first_take: 0,
-            retake: 0,
-            date: timeKey
-          }
-
-        // For news data, we'll count based on initial_status
-        // if true its the first occurance of the status for the task
-        // if false its a retake of the status for the task
-        if (stat.initial_status) {
-          groupedStats[taskTypeId][authorId][timeKey][
-            stat.task_status_id
-          ].first_take += stat[value_key]
-        } else {
-          groupedStats[taskTypeId][authorId][timeKey][
-            stat.task_status_id
-          ].retake += stat[value_key]
-        }
-        return groupedStats
-      }, {})
-    },
-
     getPersonIds() {
       const personIds = []
-      Object.keys(this.statsMap).forEach(taskTypeId => {
-        Object.keys(this.statsMap[taskTypeId]).forEach(personId => {
+      Object.keys(this.statsData).forEach(taskTypeId => {
+        Object.keys(this.statsData[taskTypeId]).forEach(personId => {
           if (!personIds.includes(personId)) personIds.push(personId)
         })
       })
@@ -411,11 +320,12 @@ export default {
 
         this.lastParams = params
         this.isLoading = this.isLoadingData = true
+        this.isError = false
 
         this.loadNewsStats(params)
-          .then(stats_list => {
-            this.statsList = stats_list
-            this.statsMap = this.groupStats(stats_list, this.detailLevel)
+          .then(data => {
+            console.log('data', data)
+            this.statsData = data
             this.personIds = this.getPersonIds()
             this.statsLength = this.personIds.length
             this.calcAverageColumnX()
@@ -429,48 +339,16 @@ export default {
             })
           })
           .catch(err => {
-            this.statsMap = {}
+            this.statsData = {}
             this.statsLength = 0
             this.calcAverageColumnX()
-            this.isLoading = this.isLoadingData = false
             this.isError = true
             console.error(err)
           })
+          .finally(() => {
+            this.isLoading = this.isLoadingData = false
+          })
       }
-    },
-
-    loadDetails(row, column) {
-      this.isLoading = true
-      const year = this.year
-      const month = this.month
-      const week = this.detailLevel === 'week' ? column : null
-      const day = this.detailLevel === 'day' ? column : null
-
-      const { from, to } = getDateBoundaries(year, month, week, day)
-
-      const newsParams = {
-        isStudio: false,
-        productionId: this.currentProduction?.id,
-        only_preview: false,
-        page_size: 50,
-        task_type_id: this.taskTypeId,
-        task_status_id: this.taskStatusIds,
-        person_id: row !== 'total' ? row : undefined,
-        page: 1,
-        before: to,
-        after: from,
-        only_first_status: true
-      }
-
-      this.loadNews(newsParams)
-        .then(news => {
-          this.detailsMap = news
-          this.isLoading = false
-        })
-        .catch(err => {
-          console.error(err)
-          this.isLoading = false
-        })
     },
 
     monthToString,
@@ -495,11 +373,11 @@ export default {
 
       // if we are in person mode then the row is the task_type_id
       if (this.personId) {
-        return this.statsMap?.[row]?.[this.personId]?.[column] || false
+        return this.statsData?.[row]?.[this.personId]?.[column] || false
       }
       // other wise the row is the author_id
       else if (this.taskTypeId) {
-        return this.statsMap?.[this.taskTypeId]?.[row]?.[column] || false
+        return this.statsData?.[this.taskTypeId]?.[row]?.[column] || false
       }
       // else we have a problem
       else return false
@@ -523,14 +401,6 @@ export default {
           return `${year}-${this.dateDigit(month)}`
       }
     },
-
-    // isWeekend(dayNumber) {
-    //   if (this.detailLevel !== 'day') return false
-    //   const year = this.year
-    //   const month = this.month
-    //   const momentDate = moment(`${year}-${month}-${dayNumber}`, 'YYYY-MM-DD')
-    //   return momentDate.day() === 0 || momentDate.day() === 6
-    // },
 
     isSelected(personId, time) {
       switch (this.detailLevel) {
@@ -645,8 +515,8 @@ export default {
 
     calcPersonAverageAndTotals() {
       // Calculate averages for each person within each task type
-      Object.keys(this.statsMap).forEach(taskTypeId => {
-        const taskTypeStats = this.statsMap[taskTypeId]
+      Object.keys(this.statsData).forEach(taskTypeId => {
+        const taskTypeStats = this.statsData[taskTypeId]
         Object.keys(taskTypeStats).forEach(personId => {
           const personStats = taskTypeStats[personId]
           const timeKeys = Object.keys(personStats).filter(
@@ -662,14 +532,37 @@ export default {
               Object.keys(dayStats).forEach(statusId => {
                 if (!averageStats[statusId]) {
                   averageStats[statusId] = {
-                    first_take: 0,
-                    retake: 0,
+                    initial_status: {
+                      nb_frames: 0,
+                      nb_seconds: 0,
+                      nb_drawings: 0,
+                      count: 0
+                    },
+                    repeat_status: {
+                      nb_frames: 0,
+                      nb_seconds: 0,
+                      nb_drawings: 0,
+                      count: 0
+                    },
                     date: 'average'
                   }
                 }
-                averageStats[statusId].first_take +=
-                  dayStats[statusId].first_take
-                averageStats[statusId].retake += dayStats[statusId].retake
+                averageStats[statusId].initial_status.count +=
+                  dayStats[statusId].initial_status.count
+                averageStats[statusId].initial_status.nb_frames +=
+                  dayStats[statusId].initial_status.nb_frames
+                averageStats[statusId].initial_status.nb_seconds +=
+                  dayStats[statusId].initial_status.nb_seconds
+                averageStats[statusId].initial_status.nb_drawings +=
+                  dayStats[statusId].initial_status.nb_drawings
+                averageStats[statusId].repeat_status.count +=
+                  dayStats[statusId].repeat_status.count
+                averageStats[statusId].repeat_status.nb_frames +=
+                  dayStats[statusId].repeat_status.nb_frames
+                averageStats[statusId].repeat_status.nb_seconds +=
+                  dayStats[statusId].repeat_status.nb_seconds
+                averageStats[statusId].repeat_status.nb_drawings +=
+                  dayStats[statusId].repeat_status.nb_drawings
               })
             })
 
@@ -683,7 +576,7 @@ export default {
               )
             })
 
-            this.statsMap[taskTypeId][personId]['average'] = averageStats
+            this.statsData[taskTypeId][personId]['average'] = averageStats
           }
         })
       })
@@ -694,7 +587,7 @@ export default {
 
       // Collect all time keys across all task types and persons
       const allTimeKeys = []
-      Object.values(this.statsMap).forEach(taskTypeStats => {
+      Object.values(this.statsData).forEach(taskTypeStats => {
         Object.values(taskTypeStats).forEach(personStats => {
           Object.keys(personStats).forEach(timeKey => {
             if (timeKey !== 'average') allTimeKeys.push(timeKey)
@@ -707,7 +600,7 @@ export default {
         const totals = {}
 
         // Sum up stats across all task types and persons
-        Object.values(this.statsMap).forEach(taskTypeStats => {
+        Object.values(this.statsData).forEach(taskTypeStats => {
           Object.values(taskTypeStats).forEach(personStats => {
             if (personStats[timeKey]) {
               Object.keys(personStats[timeKey]).forEach(statusId => {
@@ -767,37 +660,47 @@ export default {
   },
 
   watch: {
-    countMode() {
-      // watch to trigger refresh on mode change
+    $route() {
+      setTimeout(() => this.scrollToSelected(), 500)
     },
     taskTypeId() {
+      console.log('taskTypeId')
       this.loadData()
     },
     personId() {
+      console.log('personId')
       this.loadData()
     },
     taskStatusIds() {
+      console.log('taskStatusIds')
       this.loadData()
     },
     detailLevel() {
+      console.log('detailLevel')
       this.loadData()
     },
     year() {
+      console.log('year')
       this.loadData()
     },
     month() {
+      console.log('month')
       this.loadData()
     },
     week() {
+      console.log('week')
       this.loadData()
     },
     day() {
+      console.log('day')
       this.loadData()
     },
     before() {
+      console.log('before')
       this.loadData()
     },
     after() {
+      console.log('after')
       this.loadData()
     }
   }
