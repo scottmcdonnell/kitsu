@@ -98,8 +98,17 @@ const actions = {
  *     'author_id': {
  *       'YYYY-MM-DD': {
  *        'status_id': {
- *         first_take: 40,
- *         retake: 31
+ *         initial_status: {
+ *           nb_frames: 50,
+ *           nb_seconds: 2,
+ *           nb_drawings: 25,
+ *           count: 2
+ *         },
+ *         repeat_status: {
+ *           nb_frames: 123,
+ *           nb_seconds: 31,
+ *           nb_drawings: 31,
+ *           count: 31
  *       }
  *     }
  *   }
@@ -141,12 +150,12 @@ const groupStats = (stats, detailLevel = 'day') => {
     // if true its the first occurance of the status for the task
     // if false its a retake of the status for the task
     if (stat.initial_status) {
-      groupedStat.initial_status.count += 1
+      groupedStat.initial_status.count += stat.count
       groupedStat.initial_status.nb_frames += stat.nb_frames
       groupedStat.initial_status.nb_seconds += stat.nb_seconds
       groupedStat.initial_status.nb_drawings += stat.nb_drawings
     } else {
-      groupedStat.repeat_status.count += 1
+      groupedStat.repeat_status.count += stat.count
       groupedStat.repeat_status.nb_frames += stat.nb_frames
       groupedStat.repeat_status.nb_seconds += stat.nb_seconds
       groupedStat.repeat_status.nb_drawings += stat.nb_drawings

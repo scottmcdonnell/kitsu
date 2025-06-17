@@ -205,6 +205,9 @@ export default {
   &.open-top {
     bottom: 41px;
   }
+  &.dark {
+    background: var(--background);
+  }
 }
 
 .task-type-combo.shy {

@@ -95,6 +95,7 @@
         <text-field
           class="flexrow-item max-stats-input"
           type="number"
+          :title="$t('news-stats.stat_low_tooltip', { maxStat })"
           v-model="maxStat"
         />
       </div>
@@ -108,10 +109,10 @@
         "
         :task-status-ids="params.taskStatusIds"
         :detail-level="detailLevelString"
-        :year="currentYear"
-        :month="currentMonth"
-        :week="currentWeek"
-        :day="currentDay"
+        :year="year"
+        :month="month"
+        :week="week"
+        :day="day"
         :count-mode="currentMode"
         :search-text="searchText"
         :max-stat="maxStat"
@@ -127,10 +128,10 @@
         "
         :task-status-ids="params.taskStatusIds"
         :detail-level="detailLevelString"
-        :year="currentYear"
-        :month="currentMonth"
-        :week="currentWeek"
-        :day="currentDay"
+        :year="year"
+        :month="month"
+        :week="week"
+        :day="day"
         :count-mode="params.countMode"
         :search-text="searchText"
         :max-stat="maxStat"
@@ -144,10 +145,10 @@
         "
         :task-status-ids="params.taskStatusIds"
         :detail-level="detailLevelString"
-        :year="currentYear"
-        :month="currentMonth"
-        :week="currentWeek"
-        :day="currentDay"
+        :year="year"
+        :month="month"
+        :week="week"
+        :day="day"
         :count-mode="params.countMode"
         :search-text="searchText"
         :max-stat="maxStat"
@@ -158,10 +159,10 @@
     <div class="column side-column" v-if="showInfo && currentPerson">
       <people-news-stats-info
         :person="currentPerson"
-        :year="currentYear"
-        :month="currentMonth"
-        :week="currentWeek"
-        :day="currentDay"
+        :year="year"
+        :month="month"
+        :week="week"
+        :day="day"
         :is-loading="isNewsLoading"
         :is-loading-error="false"
         :news-list="newsList"
@@ -236,6 +237,10 @@ export default {
         { label: this.$t('news-stats.week'), value: 'week' },
         { label: this.$t('news-stats.month'), value: 'month' }
       ],
+      year: null,
+      month: null,
+      week: null,
+      day: null,
       currentYear: moment().year(),
       currentMonth: moment().month() + 1,
       currentWeek: moment().week(),
@@ -272,7 +277,7 @@ export default {
     const savedParams = preferences.getObjectPreference(key) || {}
     const defaultParams = {
       countMode: this.countModeOptions[0].value,
-      taskTypeId: this.productionShotTaskTypes[0].id,
+      taskTypeId: this.productionTaskTypes[0].id,
       taskStatusIds: []
     }
     this.activeTab = this.$route.query.tab || 'tasktypes'
@@ -307,11 +312,11 @@ export default {
       'getProductionTaskStatuses',
       'isCurrentUserArtist',
       'isPaperProduction',
-      'productionShotTaskTypes'
+      'productionTaskTypes'
     ]),
 
     taskTypeList() {
-      return [...this.productionShotTaskTypes]
+      return [...this.productionTaskTypes]
     },
 
     teamPersons() {
@@ -325,8 +330,7 @@ export default {
 
     yearOptions() {
       const year = 2018
-      const currentYear = moment().year()
-      return range(year, currentYear)
+      return range(year, this.currentYear)
         .map(year => ({
           label: year,
           value: `${year}`
@@ -335,12 +339,10 @@ export default {
     },
 
     monthOptions() {
-      const currentYear = `${moment().year()}`
       const month = 1
-      const currentMonth = moment().month() + 1
       let monthRange = range(month, 12)
-      if (currentYear === this.yearString) {
-        monthRange = range(month, currentMonth)
+      if (this.year === this.currentYear) {
+        monthRange = range(month, this.currentMonth)
       }
       return monthRange.map(month => ({
         label: monthToString(month),
@@ -357,20 +359,20 @@ export default {
 
     beforeDate() {
       const boundaries = getDateBoundaries(
-        this.currentYear,
-        this.currentMonth,
-        this.currentWeek,
-        this.currentDay
+        this.year,
+        this.month,
+        this.week,
+        this.day
       )
       return this.formatDateAsUTC(boundaries.to)
     },
 
     afterDate() {
       const boundaries = getDateBoundaries(
-        this.currentYear,
-        this.currentMonth,
-        this.currentWeek,
-        this.currentDay
+        this.year,
+        this.month,
+        this.week,
+        this.day
       )
       return this.formatDateAsUTC(boundaries.from)
     }
@@ -411,27 +413,22 @@ export default {
         if (!idsEqual) this.params.taskStatusIds = ids
       }
 
-      this.currentYear =
-        this.currentMonth =
-        this.currentWeek =
-        this.currentDay =
-          null
+      this.year = this.month = this.week = this.day = null
 
       if (month) {
-        this.currentMonth = Number(month)
+        this.month = Number(month)
         this.monthString = `${month}`
       }
       if (year) {
-        this.currentYear = Number(year)
+        this.year = Number(year)
         this.yearString = `${year}`
       }
       if (week) {
-        this.currentWeek = Number(week)
+        this.week = Number(week)
         this.weekString = `${week}`
       }
-      if (day) {
-        this.currentDay = Number(day)
-      }
+      if (day) this.day = Number(day)
+
       if (this.$route.path.indexOf('person') > 0) {
         this.loadSideInfoNews()
       } else {
@@ -545,13 +542,13 @@ export default {
       if (this.detailLevel !== this.detailLevelString) {
         const route = {
           name: `news-stats-${this.detailLevelString}`,
-          params: {
-            year: this.currentYear
-          },
+          params: { year: this.year },
           query: this.getQuery()
         }
         if (this.detailLevelString === 'day') {
-          route.params.month = this.currentMonth
+          if (!this.month)
+            this.month = this.year === this.currentYear ? this.currentMonth : 1
+          route.params.month = this.month
         }
         this.$router.push(route)
       }
@@ -559,33 +556,25 @@ export default {
 
     yearString() {
       const year = Number(this.yearString)
-      const currentMonth = moment().month() + 1
-      if (this.currentYear !== year) {
+      if (this.year !== year) {
         const route = {
           name: `news-stats-${this.detailLevelString}`,
-          params: {
-            year
-          },
+          params: { year },
           query: this.getQuery()
         }
-        if (this.detailLevelString === 'day') {
-          route.params.month = `${Math.min(
-            Number(this.monthString),
-            currentMonth
-          )}`
+        if (year === this.currentYear && this.detailLevelString === 'day') {
+          route.params.month = `${Math.min(this.month, this.currentMonth)}`
         }
         this.$router.push(route)
       }
     },
 
     monthString() {
-      if (this.currentMonth !== Number(this.monthString)) {
+      const month = Number(this.monthString)
+      if (this.month !== month) {
         const route = {
           name: 'news-stats-day',
-          params: {
-            year: this.currentYear,
-            month: this.monthString
-          },
+          params: { year: this.year, month },
           query: this.getQuery()
         }
         this.$router.push(route)

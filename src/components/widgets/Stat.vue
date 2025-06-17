@@ -3,26 +3,28 @@
     class="stat-widget"
     :class="{ clickable: !!link }"
     @click="handleClick"
-    v-tooltip="tooltip"
+    :title="tooltip"
   >
     <div class="stat-header">
       <span class="stat-label" v-if="label">{{ label }}</span>
-      <div class="stat-trend" v-if="arrow">
-        <span
-          class="trend-arrow"
-          :class="{
-            'trend-up': arrow === 'up',
-            'trend-down': arrow === 'down'
-          }"
-        >
-          {{ arrow === 'up' ? '↑' : '↓' }}
-        </span>
-      </div>
     </div>
 
     <div class="stat-content">
       <div class="stat-number-container">
-        <span class="stat-number">{{ formatNumber(number) }}</span>
+        <div class="stat-trend" v-if="arrow" :title="trendTooltip">
+          <span
+            class="trend-arrow"
+            :class="{
+              'trend-up': arrow === 'up',
+              'trend-down': arrow === 'down'
+            }"
+          >
+            {{ arrow === 'up' ? '↑' : '↓' }}
+          </span>
+        </div>
+        <span class="stat-number" :title="numberTooltip">{{
+          formatNumber(number)
+        }}</span>
         <span class="stat-unit" v-if="unit">{{ unit }}</span>
       </div>
       <p class="stat-description" v-if="description">{{ description }}</p>
@@ -52,6 +54,14 @@ export default {
       default: ''
     },
     tooltip: {
+      type: String,
+      default: ''
+    },
+    numberTooltip: {
+      type: String,
+      default: ''
+    },
+    trendTooltip: {
       type: String,
       default: ''
     },
@@ -131,17 +141,19 @@ export default {
 .stat-trend {
   display: flex;
   align-items: center;
+  margin-right: 0.5rem;
+  cursor: help;
 
   .trend-arrow {
     font-size: 1.25rem;
     font-weight: bold;
 
     &.trend-up {
-      color: var(--green);
+      color: #00aa3c; // Green color
     }
 
     &.trend-down {
-      color: var(--red);
+      color: #ff8c00; // Orange color
     }
   }
 }
@@ -163,6 +175,7 @@ export default {
   font-weight: 600;
   line-height: 1;
   color: var(--text);
+  cursor: help;
 }
 
 .stat-unit {

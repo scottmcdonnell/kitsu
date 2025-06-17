@@ -218,7 +218,6 @@ export default {
   },
 
   mounted() {
-    console.log('mounted')
     this.loadData()
     this.setPersonIndex()
   },
@@ -324,7 +323,6 @@ export default {
 
         this.loadNewsStats(params)
           .then(data => {
-            console.log('data', data)
             this.statsData = data
             this.personIds = this.getPersonIds()
             this.statsLength = this.personIds.length
@@ -367,7 +365,7 @@ export default {
       // convert 1, 2, 3... to YYYY-MM-DD, YYYY-MM, YYYY-MM-DD
       if (column !== 'average') column = this.getDateKeyFromColumn(column)
 
-      if (row === 'total' && column !== 'average') {
+      if (row === 'total') {
         return this.totalsMap[column] || false
       }
 
@@ -402,44 +400,32 @@ export default {
       }
     },
 
-    isSelected(personId, time) {
+    isSelected(key, time) {
+      // if we are in person tab then key is the taskType and vice versa
+      const personId = this.taskTypeId ? key : this.personId
+
+      let month, week, day
+
       switch (this.detailLevel) {
         case 'day':
-          return this.isDaySelected(personId, this.year, this.month, time)
-        case 'week':
-          return this.isWeekSelected(personId, this.year, time)
-        case 'month':
-          return this.isMonthSelected(personId, this.year, time)
         default:
-          throw new Error(`Invalid detail level: ${this.detailLevel}`)
+          month = this.month
+          day = time
+          break
+        case 'week':
+          week = time
+          break
+        case 'month':
+          month = time
+          break
       }
-    },
-
-    isDaySelected(personId, year, month, day) {
       return (
         this.$route.params.person_id &&
         this.$route.params.person_id === personId &&
-        '' + this.$route.params.year === '' + year &&
+        '' + this.$route.params.year === '' + this.year &&
+        '' + this.$route.params.week === '' + week &&
         '' + this.$route.params.month === '' + month &&
         '' + this.$route.params.day === '' + day
-      )
-    },
-
-    isWeekSelected(personId, year, week) {
-      return (
-        this.$route.params.person_id &&
-        this.$route.params.person_id === personId &&
-        '' + this.$route.params.year === '' + year &&
-        '' + this.$route.params.week === '' + week
-      )
-    },
-
-    isMonthSelected(personId, year, month) {
-      return (
-        this.$route.params.person_id &&
-        this.$route.params.person_id === personId &&
-        '' + this.$route.params.year === '' + year &&
-        '' + this.$route.params.month === '' + month
       )
     },
 
@@ -451,12 +437,17 @@ export default {
       return [0, 6].includes(date.day())
     },
 
+    /**
+     * returns true if the initial status of any status is less than the maxStat
+     * @param stats
+     */
     isStatLow(stats) {
-      if (!stats || this.maxStat === 0) return false
-      const totalValue = Object.values(stats).reduce((sum, stat) => {
-        return sum + stat.first_take || 0
-      }, 0)
-      return totalValue < this.maxStat
+      if (!this.maxStat || !stats) return false
+      for (const statusId in stats) {
+        if (stats[statusId].initial_status?.[this.countMode] < this.maxStat)
+          return true
+      }
+      return false
     },
 
     openDetail(row, column, query) {
@@ -568,11 +559,34 @@ export default {
 
             // Divide by number of days for average
             Object.keys(averageStats).forEach(statusId => {
-              averageStats[statusId].first_take = Math.round(
-                averageStats[statusId].first_take / timeKeys.length
+              averageStats[statusId].initial_status.count = Math.round(
+                averageStats[statusId].initial_status.count / timeKeys.length
               )
-              averageStats[statusId].retake = Math.round(
-                averageStats[statusId].retake / timeKeys.length
+              averageStats[statusId].initial_status.nb_frames = Math.round(
+                averageStats[statusId].initial_status.nb_frames /
+                  timeKeys.length
+              )
+              averageStats[statusId].initial_status.nb_seconds = Math.round(
+                averageStats[statusId].initial_status.nb_seconds /
+                  timeKeys.length
+              )
+              averageStats[statusId].initial_status.nb_drawings = Math.round(
+                averageStats[statusId].initial_status.nb_drawings /
+                  timeKeys.length
+              )
+              averageStats[statusId].repeat_status.count = Math.round(
+                averageStats[statusId].repeat_status.count / timeKeys.length
+              )
+              averageStats[statusId].repeat_status.nb_frames = Math.round(
+                averageStats[statusId].repeat_status.nb_frames / timeKeys.length
+              )
+              averageStats[statusId].repeat_status.nb_seconds = Math.round(
+                averageStats[statusId].repeat_status.nb_seconds /
+                  timeKeys.length
+              )
+              averageStats[statusId].repeat_status.nb_drawings = Math.round(
+                averageStats[statusId].repeat_status.nb_drawings /
+                  timeKeys.length
               )
             })
 
@@ -605,11 +619,38 @@ export default {
             if (personStats[timeKey]) {
               Object.keys(personStats[timeKey]).forEach(statusId => {
                 if (!totals[statusId]) {
-                  totals[statusId] = { first_take: 0, retake: 0, date: timeKey }
+                  totals[statusId] = {
+                    initial_status: {
+                      nb_frames: 0,
+                      nb_seconds: 0,
+                      nb_drawings: 0,
+                      count: 0
+                    },
+                    repeat_status: {
+                      nb_frames: 0,
+                      nb_seconds: 0,
+                      nb_drawings: 0,
+                      count: 0
+                    },
+                    date: timeKey
+                  }
                 }
-                totals[statusId].first_take +=
-                  personStats[timeKey][statusId].first_take
-                totals[statusId].retake += personStats[timeKey][statusId].retake
+                const stat = personStats[timeKey][statusId]
+                totals[statusId].initial_status.count +=
+                  stat.initial_status.count
+                totals[statusId].initial_status.nb_frames +=
+                  stat.initial_status.nb_frames
+                totals[statusId].initial_status.nb_seconds +=
+                  stat.initial_status.nb_seconds
+                totals[statusId].initial_status.nb_drawings +=
+                  stat.initial_status.nb_drawings
+                totals[statusId].repeat_status.count += stat.repeat_status.count
+                totals[statusId].repeat_status.nb_frames +=
+                  stat.repeat_status.nb_frames
+                totals[statusId].repeat_status.nb_seconds +=
+                  stat.repeat_status.nb_seconds
+                totals[statusId].repeat_status.nb_drawings +=
+                  stat.repeat_status.nb_drawings
               })
             }
           })
@@ -618,6 +659,61 @@ export default {
         if (Object.keys(totals).length > 0) {
           this.totalsMap[timeKey] = totals
         }
+        // Calculate average across all time periods for totals
+        const averageTotals = {}
+        const timeKeyCount = Object.keys(this.totalsMap).length
+
+        Object.values(this.totalsMap).forEach(totals => {
+          Object.entries(totals).forEach(([statusId, stat]) => {
+            if (!averageTotals[statusId]) {
+              averageTotals[statusId] = {
+                initial_status: {
+                  nb_frames: 0,
+                  nb_seconds: 0,
+                  nb_drawings: 0,
+                  count: 0
+                },
+                repeat_status: {
+                  nb_frames: 0,
+                  nb_seconds: 0,
+                  nb_drawings: 0,
+                  count: 0
+                },
+                date: 'average'
+              }
+            }
+            averageTotals[statusId].initial_status.count +=
+              stat.initial_status.count
+            averageTotals[statusId].initial_status.nb_frames +=
+              stat.initial_status.nb_frames
+            averageTotals[statusId].initial_status.nb_seconds +=
+              stat.initial_status.nb_seconds
+            averageTotals[statusId].initial_status.nb_drawings +=
+              stat.initial_status.nb_drawings
+            averageTotals[statusId].repeat_status.count +=
+              stat.repeat_status.count
+            averageTotals[statusId].repeat_status.nb_frames +=
+              stat.repeat_status.nb_frames
+            averageTotals[statusId].repeat_status.nb_seconds +=
+              stat.repeat_status.nb_seconds
+            averageTotals[statusId].repeat_status.nb_drawings +=
+              stat.repeat_status.nb_drawings
+          })
+        })
+
+        // Divide sums by number of time periods to get averages
+        Object.values(averageTotals).forEach(stat => {
+          stat.initial_status.count /= timeKeyCount
+          stat.initial_status.nb_frames /= timeKeyCount
+          stat.initial_status.nb_seconds /= timeKeyCount
+          stat.initial_status.nb_drawings /= timeKeyCount
+          stat.repeat_status.count /= timeKeyCount
+          stat.repeat_status.nb_frames /= timeKeyCount
+          stat.repeat_status.nb_seconds /= timeKeyCount
+          stat.repeat_status.nb_drawings /= timeKeyCount
+        })
+
+        this.totalsMap.average = averageTotals
       })
     },
 
@@ -664,43 +760,33 @@ export default {
       setTimeout(() => this.scrollToSelected(), 500)
     },
     taskTypeId() {
-      console.log('taskTypeId')
       this.loadData()
     },
     personId() {
-      console.log('personId')
       this.loadData()
     },
     taskStatusIds() {
-      console.log('taskStatusIds')
       this.loadData()
     },
     detailLevel() {
-      console.log('detailLevel')
       this.loadData()
     },
     year() {
-      console.log('year')
       this.loadData()
     },
     month() {
-      console.log('month')
       this.loadData()
     },
     week() {
-      console.log('week')
       this.loadData()
     },
     day() {
-      console.log('day')
       this.loadData()
     },
     before() {
-      console.log('before')
       this.loadData()
     },
     after() {
-      console.log('after')
       this.loadData()
     }
   }
@@ -768,6 +854,10 @@ export default {
   cursor: pointer;
   color: inherit;
   font-size: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
   &:hover,
   &:focus,
   &.selected {
@@ -792,7 +882,7 @@ td.stat-low {
 }
 .stat-chip-container {
   .stat-chip {
-    margin-bottom: 5px;
+    margin-bottom: 0.3rem;
   }
   &:last-child {
     .stat-chip {

@@ -1,36 +1,37 @@
 <template>
-  <div class="tasks-pie-chart flexrow">
-    <div class="chart-container flexrow-item">
+  <div class="tasks-pie-chart">
+    <div class="chart-container">
       <h4 class="chart-title">{{ $t('tasks.status_breakdown') }}</h4>
-      <pie-chart
-        v-if="chartData.length > 0"
-        :data="chartData"
-        :colors="chartColors"
-        height="300px"
-        :legend="false"
-        :library="chartOptions"
-        @click="handleChartClick"
-      />
-      <div v-else class="empty-chart">
-        <p>{{ $t('people.no_task_assigned') }}</p>
+      <div class="chart-wrapper">
+        <pie-chart
+          v-if="chartData.length > 0"
+          :data="chartData"
+          :colors="chartColors"
+          height="300px"
+          width="100%"
+          :legend="false"
+          :library="chartOptions"
+          @click="handleChartClick"
+        />
+        <div v-else class="empty-chart">
+          <p>{{ $t('people.no_task_assigned') }}</p>
+        </div>
       </div>
     </div>
 
     <!-- Clickable status list below chart -->
-    <div v-if="chartData.length > 0" class="status-list flexrow-item">
+    <div v-if="chartData.length > 0" class="status-list">
       <div
         v-for="status in Object.values(statusCounts)"
         :key="status.statusId"
-        class="status-item flexrow"
+        class="status-item"
         @click="handleStatusClick(status)"
       >
         <div
-          class="status-color flexrow-item"
+          class="status-color"
           :style="{ backgroundColor: status.color }"
         ></div>
-        <span class="status-text flexrow-item"
-          >{{ status.name }} ({{ status.count }})</span
-        >
+        <span class="status-text">{{ status.name }} ({{ status.count }})</span>
       </div>
     </div>
   </div>
@@ -100,6 +101,8 @@ export default {
 
     chartOptions() {
       return {
+        responsive: true,
+        maintainAspectRatio: false,
         plugins: {
           tooltip: {
             callbacks: {
@@ -154,11 +157,30 @@ export default {
 .tasks-pie-chart {
   border-radius: 10px;
   padding: 1.5rem;
+  display: flex;
   flex-direction: column;
   width: 100%;
+  max-width: 100%;
+  background-color: var(--background-panel);
+  box-sizing: border-box;
 
   .chart-container {
     width: 100%;
+    max-width: 100%;
+    flex-shrink: 0;
+  }
+
+  .chart-wrapper {
+    width: 100%;
+    height: 300px;
+    max-width: 100%;
+    position: relative;
+    overflow: hidden;
+
+    :deep(canvas) {
+      max-width: 100% !important;
+      max-height: 300px !important;
+    }
   }
 
   .chart-title {
@@ -186,12 +208,16 @@ export default {
     justify-content: center;
     align-items: center;
     gap: 0.5rem;
+    width: 100%;
+    flex-shrink: 0;
 
     .status-item {
       cursor: pointer;
       padding: 0.5rem;
       border-radius: 5px;
       transition: background-color 0.2s ease;
+      display: flex;
+      align-items: center;
       gap: 0.5rem;
 
       &:hover {
@@ -202,10 +228,12 @@ export default {
         width: 1rem;
         height: 1rem;
         border-radius: 50%;
+        flex-shrink: 0;
       }
 
       .status-text {
         font-size: 0.875rem;
+        white-space: nowrap;
       }
     }
   }

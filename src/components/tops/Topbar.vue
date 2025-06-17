@@ -490,10 +490,6 @@ export default {
             value: 'quota'
           })
           options.push({
-            label: this.$t('status-stats.title'),
-            value: 'status-stats'
-          })
-          options.push({
             label: this.$t('news.stats_title'),
             value: 'news-stats'
           })

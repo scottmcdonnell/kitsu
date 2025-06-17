@@ -72,17 +72,20 @@
             />
           </div>
 
-          <div v-if="isActiveTab('summary')" class="summary-content">
-            <tasks-pie-chart
-              :tasks="personDoneTasks.concat(personTasks)"
-              :on-status-click="onPieChartStatusClick"
-            />
-            <person-news-stats
-              :person-id="person.id"
-              :productions="userOpenProductions"
-            />
-            <!--person-status-stats-charts :person-id="person.id" /-->
-          </div>
+          <template v-if="isActiveTab('summary')">
+            <!--person-stats :person-id="person.id" / -->
+            <div class="summary-content">
+              <person-news-stats
+                :person-id="person.id"
+                :productions="userOpenProductions"
+              />
+              <tasks-pie-chart
+                :tasks="personDoneTasks.concat(personTasks)"
+                :on-status-click="onPieChartStatusClick"
+              />
+              <!--person-status-stats-charts :person-id="person.id" /-->
+            </div>
+          </template>
 
           <todos-list
             ref="task-list"
@@ -201,6 +204,7 @@ import TimesheetList from '@/components/lists/TimesheetList.vue'
 import TodosList from '@/components/lists/TodosList.vue'
 import TaskInfo from '@/components/sides/TaskInfo.vue'
 import TasksPieChart from '@/components/widgets/TasksPieChart.vue'
+//import PersonStats from '@/components/widgets/PersonStats.vue'
 import PersonNewsStats from '@/components/widgets/PersonNewsStats.vue'
 //import PersonStatusStatsCharts from '@/components/widgets/PersonStatusStatsCharts.vue'
 import UserCalendar from '@/components/widgets/UserCalendar.vue'
@@ -222,6 +226,7 @@ export default {
     SearchQueryList,
     TaskInfo,
     TasksPieChart,
+    //PersonStats,
     PersonNewsStats,
     //PersonStatusStatsCharts,
     TimesheetList,
@@ -992,5 +997,22 @@ export default {
 
 .summary-content {
   padding: 1rem 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  width: 100%;
+  align-items: start;
+  overflow-y: scroll;
+
+  @media screen and (max-width: 1024px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Ensure both components take full width of their grid cell */
+  > * {
+    width: 100%;
+    min-width: 0; /* Allow shrinking below content size */
+  }
 }
 </style>
