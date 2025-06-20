@@ -567,22 +567,20 @@ export default {
     },
 
     getCurrentSectionFromRoute() {
-      if (this.$route.name === 'person') {
-        return 'person'
-      }
-      let name = ''
+      if (this.$route.name === 'person') return 'person'
+
       const segments = this.$route.path.split('/')
-      if (this.isTVShow) name = segments[5]
-      if (this.isTVShow && name && name.length === 36) name = 'episodes'
-      if (!name) {
+
+      let name
+      if (segments.length >= 5 && segments[3] === 'episodes') {
+        name = segments[5]
+      } else if (segments.length >= 2) {
         name = segments[3]
-        if (name === 'episodes' && segments.length === 6) {
-          name = segments[5]
-        }
       }
+      if (name?.length === 36) name = this.isTVShow ? 'episodes' : 'assets'
+
       if (name === 'asset-types') name = 'assetTypes'
       if (name === 'news-feed') name = 'newsFeed'
-      if (name === 'news-stats') name = 'news-stats'
       return name
     },
 
