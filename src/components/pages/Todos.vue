@@ -52,6 +52,19 @@
           />
         </div>
 
+        <template v-if="isActiveTab('summary')">
+          <div class="summary-content">
+            <person-news-stats
+              :person-id="person.id"
+              :productions="userOpenProductions"
+            />
+            <tasks-pie-chart
+              :tasks="personDoneTasks.concat(personTasks)"
+              :on-status-click="onPieChartStatusClick"
+            />
+          </div>
+        </template>
+
         <todos-list
           ref="todo-list"
           :empty-text="$t('people.no_task_assigned')"
@@ -160,6 +173,8 @@ import TaskInfo from '@/components/sides/TaskInfo.vue'
 import TimesheetList from '@/components/lists/TimesheetList.vue'
 import TodosList from '@/components/lists/TodosList.vue'
 import UserCalendar from '@/components/widgets/UserCalendar.vue'
+import PersonNewsStats from '@/components/widgets/PersonNewsStats.vue'
+import TasksPieChart from '@/components/widgets/TasksPieChart.vue'
 
 export default {
   name: 'todos',
@@ -177,14 +192,16 @@ export default {
     TaskInfo,
     TimesheetList,
     TodosList,
-    UserCalendar
+    UserCalendar,
+    PersonNewsStats,
+    TasksPieChart
   },
 
   data() {
     return {
       currentFilter: 'all_tasks',
       currentSort: 'priority',
-      currentSection: 'todos',
+      currentSection: 'summary',
       daysOff: [],
       dayOffError: false,
       filterOptions: ['all_tasks', 'due_this_week'].map(name => ({
@@ -236,6 +253,8 @@ export default {
       'nbSelectedTasks',
       'openProductions',
       'productionMap',
+      'personDoneTasks',
+      'personTasks',
       'selectedTasks',
       'taskStatuses',
       'taskTypeMap',
@@ -247,6 +266,18 @@ export default {
       'todosSearchText',
       'user'
     ]),
+
+    person() {
+      return this.user
+    },
+    userOpenProductions() {
+      if (!this.person) {
+        return []
+      }
+      return this.openProductions.filter(production =>
+        production.team.includes(this.person.id)
+      )
+    },
 
     searchField() {
       return this.$refs['todos-search-field']
@@ -313,6 +344,10 @@ export default {
         production => this.getBoardStatusesByProduction(production).length
       )
       return [
+        {
+          label: this.$t('people.summary'),
+          name: 'summary'
+        },
         {
           label: this.$t('main.tasks'),
           name: 'todos'
@@ -445,7 +480,7 @@ export default {
       const currentSection = this.$route.query.section
       this.currentSection = availableSections.includes(currentSection)
         ? currentSection
-        : 'todos'
+        : 'summary'
 
       if (this.currentSection === 'board') {
         const currentProduction = this.openProductions.find(
@@ -470,6 +505,16 @@ export default {
       if (this.searchField) {
         this.setTodosSearch(this.searchField.getValue())
       }
+    },
+
+    onPieChartStatusClick(status) {
+      this.$router.push({
+        query: {
+          ...this.$route.query,
+          section: status.is_done ? 'done' : 'todos',
+          search: status.short_name || status.name
+        }
+      })
     },
 
     async saveSearchQuery(searchQuery) {

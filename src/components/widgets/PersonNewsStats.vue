@@ -9,9 +9,6 @@
         v-model="unitMode"
       />
     </div>
-    <div v-if="isLoading" class="loading-container">
-      <p>{{ $t('main.loading') }}...</p>
-    </div>
 
     <!-- Year-to-date stats boxes -->
     <div class="avg-stats-container" v-if="avgStats.length > 0">
@@ -30,10 +27,11 @@
       </div>
     </div>
 
-    <div
-      v-if="!isLoading && statsRows.length > 0"
-      class="stats-table-container"
-    >
+    <div class="has-text-centered mt2" v-if="isLoading">
+      <spinner />
+    </div>
+
+    <div v-else-if="statsRows.length > 0" class="stats-table-container">
       <table class="stats-table">
         <thead>
           <tr>
@@ -88,7 +86,7 @@
       </table>
     </div>
     <div v-else class="empty-stats">
-      <p>{{ $t('people.no_data') }}</p>
+      <p>{{ $t('news-stats.no_data') }}</p>
     </div>
   </div>
 </template>
@@ -99,9 +97,10 @@ import moment from 'moment-timezone'
 import preferences from '@/lib/preferences'
 import { timeMixin } from '@/components/mixins/time'
 
-import StatusChip from '@/components/widgets/StatusChip.vue'
 import Combobox from '@/components/widgets/Combobox.vue'
+import Spinner from '@/components/widgets/Spinner.vue'
 import Stat from '@/components/widgets/Stat.vue'
+import StatusChip from '@/components/widgets/StatusChip.vue'
 
 export default {
   name: 'person-status-stats',
@@ -109,9 +108,10 @@ export default {
   mixins: [timeMixin],
 
   components: {
-    StatusChip,
     Combobox,
-    Stat
+    Spinner,
+    Stat,
+    StatusChip
   },
 
   props: {
@@ -364,7 +364,7 @@ export default {
   },
 
   async mounted() {
-    await this.loadStats()
+    this.$nextTick(() => this.loadStats())
     this.loadUnitMode()
   },
 
