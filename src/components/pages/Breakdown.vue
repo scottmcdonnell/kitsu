@@ -109,9 +109,7 @@
           <div
             class="entity-header"
             ref="name-header"
-            :style="{
-              'min-width': columnWidth.name ? columnWidth.name + 'px' : '250px'
-            }"
+            :style="{ 'min-width': nameHeaderMinWidth }"
           >
             <div>
               {{ $t('shots.fields.name') }}
@@ -179,8 +177,8 @@
             v-for="descriptor in visibleMetadataDescriptors"
             v-show="isShowInfosBreakdown"
           >
-            <div
-              class="mr1"
+            <span
+              class="descriptor-departments mr05"
               v-if="descriptorCurrentDepartments(descriptor).length"
             >
               <department-name
@@ -190,9 +188,9 @@
                 only-dot
                 v-for="department in descriptorCurrentDepartments(descriptor)"
               />
-            </div>
+            </span>
             <span
-              class="flexrow-item ellipsis descriptor-name filler"
+              class="ellipsis nowrap descriptor-name filler"
               :title="descriptor.name"
             >
               {{ descriptor.name }}
@@ -214,7 +212,9 @@
             class="asset-type-header"
             v-for="assetType in castingAssetTypes"
           >
-            {{ assetType }}
+            <span class="ellipsis nowrap" :title="assetType">
+              {{ assetType }}
+            </span>
           </div>
 
           <div class="actions filler"></div>
@@ -245,11 +245,10 @@
               :column-width="columnWidth"
               @add-one="addOneAsset"
               @click="selectEntity"
-              @description-changed="onDescriptionChanged"
               @edit-label="onEditLabelClicked"
+              @field-changed="onFieldChanged"
               @metadata-changed="onMetadataChanged"
               @remove-one="removeOneAssetFromSelection"
-              @standby-changed="onStandbyChanged"
               v-for="entity in castingEntities"
             />
           </div>
@@ -619,7 +618,10 @@ export default {
     availableAssetsByType() {
       const result = []
       this.assetsByType.forEach(typeGroup => {
-        let newGroup = typeGroup.filter(asset => !asset.canceled)
+        let newGroup = typeGroup.filter(
+          asset =>
+            !asset.canceled && (!asset.is_shared || this.libraryDisplayed)
+        )
         if (this.isTVShow && this.isOnlyCurrentEpisode) {
           newGroup = typeGroup.filter(asset => {
             return (
@@ -747,6 +749,12 @@ export default {
       } else {
         return this.assetMetadataDescriptors
       }
+    },
+
+    nameHeaderMinWidth() {
+      return this.columnWidth.name
+        ? parseInt(this.columnWidth.name, 10) + 1 + 'px'
+        : '251px'
     }
   },
 
@@ -1266,48 +1274,32 @@ export default {
       return castingToPaste
     },
 
-    onMetadataChanged({ entry, descriptor, value }) {
-      const metadata = {}
-      metadata[descriptor.field_name] = value
+    async editEntity(data) {
+      if (this.isEpisodeCasting) {
+        await this.editEpisode(data)
+      } else if (this.isShotCasting) {
+        await this.editShot(data)
+      } else {
+        await this.editAsset(data)
+      }
+    },
+
+    async onFieldChanged({ entry, fieldName, value }) {
       const data = {
         id: entry.id,
-        data: metadata
+        [fieldName]: value
       }
-      if (this.isEpisodeCasting) {
-        this.editEpisode(data)
-      } else if (this.isShotCasting) {
-        this.editShot(data)
-      } else {
-        this.editAsset(data)
-      }
+      await this.editEntity(data)
     },
 
-    onDescriptionChanged(entity, value) {
+    async onMetadataChanged({ entry, descriptor, value }) {
       const data = {
-        id: entity.id,
-        description: value
+        id: entry.id,
+        data: {
+          [descriptor.field_name]: value
+        }
       }
-      if (this.isEpisodeCasting) {
-        this.editEpisode(data)
-      } else if (this.isShotCasting) {
-        this.editShot(data)
-      } else {
-        this.editAsset(data)
-      }
-    },
-
-    onStandbyChanged(entity, value) {
-      const data = {
-        id: entity.id,
-        is_casting_standby: value
-      }
-      if (this.isEpisodeCasting) {
-        this.editEpisode(data)
-      } else if (this.isShotCasting) {
-        this.editShot(data)
-      } else {
-        this.editAsset(data)
-      }
+      await this.editEntity(data)
     },
 
     descriptorCurrentDepartments(descriptor) {
@@ -1826,8 +1818,13 @@ export default {
 }
 
 .descriptor-header {
-  min-width: 119px;
-  max-width: 119px;
+  min-width: 110px;
+  max-width: 110px;
+}
+
+.descriptor-departments {
+  display: inline-flex;
+  gap: 2px;
 }
 
 .frames-header {

@@ -1191,6 +1191,12 @@ export default {
     this.resetPencilConfiguration()
   },
 
+  beforeUnmount() {
+    if (this.wavesurfer) {
+      this.wavesurfer.destroy()
+    }
+  },
+
   computed: {
     ...mapGetters([
       'currentEpisode',
@@ -1588,11 +1594,11 @@ export default {
       }
 
       // we've seen all the frames the picture should be visible
-      this.framesSeenOfPicture = 1
       const previews = this.currentEntity.preview_file_previews
       if (previews.length === this.currentPreviewIndex) {
         this.$nextTick(() => {
           this.onPlayNextEntity(true)
+          this.framesSeenOfPicture = 1
         })
       } else {
         this.currentPreviewIndex++
@@ -2100,21 +2106,50 @@ export default {
           container: '#waveform',
           waveColor: '#00B242', // green
           progressColor: '#008732', // dark-green,
+          backend: 'MediaElement', // or 'WebAudio'
+          mediaType: 'video',
           height: 60,
           fillParent: true,
           minPxPerSec: 1
         })
-        this.wavesurfer.on('seek', position => {
-          this.setCurrentTimeRaw(this.maxDurationRaw * position)
+        this.wavesurfer.on('error', error => {
+          console.error('Error loading audio:', error)
         })
+        this.wavesurfer.on('seeking', this.onWaveformSeeking)
       } catch (err) {
         console.error(err)
       }
     },
 
+    onWaveformSeeking(position) {
+      if (!this.$options.isWaveformSeekingSilent && !this.isPlaying) {
+        this.$options.isWaveformSeekingSilent = true
+        this.setCurrentTimeRaw(position)
+        setTimeout(() => {
+          this.$options.isWaveformSeekingSilent = false
+        }, 500)
+      }
+    },
+
     loadWaveForm() {
       if (this.isWaveformDisplayed && this.isCurrentPreviewMovie) {
-        this.wavesurfer.load(this.rawPlayer.currentPlayer)
+        if (this.rawPlayer?.currentPlayer?.src) {
+          try {
+            if (this.wavesurfer) {
+              this.wavesurfer.destroy()
+            }
+            this.configureWaveForm()
+            setTimeout(() => {
+              this.wavesurfer.load(this.rawPlayer.currentPlayer.src)
+            }, 100)
+          } catch (err) {
+            console.error('Error loading waveform:', err)
+          }
+        }
+      } else {
+        if (this.wavesurfer) {
+          this.wavesurfer.destroy()
+        }
       }
     },
 
@@ -2336,6 +2371,10 @@ export default {
           this.loadWaveForm()
           if (this.isPlaying) this.play()
         })
+      } else {
+        if (this.wavesurfer && this.isWaveformDisplayed) {
+          this.wavesurfer.destroy()
+        }
       }
       if (this.currentEntity) {
         this.annotations = this.currentEntity.preview_file_annotations || []
