@@ -237,10 +237,8 @@ export default {
         { label: this.$t('news-stats.week'), value: 'week' },
         { label: this.$t('news-stats.month'), value: 'month' }
       ],
-      year: null,
-      month: null,
-      week: null,
-      day: null,
+
+      // default values
       currentYear: moment().year(),
       currentMonth: moment().month() + 1,
       currentWeek: moment().week(),
@@ -248,6 +246,10 @@ export default {
       currentPerson: this.getCurrentPerson(),
       currentMode: 'nb_frames',
       detailLevel: 'day',
+      year: moment().year(),
+      month: moment().month() + 1,
+      week: null,
+      day: null,
 
       isLoading: false,
       isNewsLoading: false,
@@ -412,9 +414,6 @@ export default {
         const idsEqual = ids.every(id => this.params.taskStatusIds.includes(id))
         if (!idsEqual) this.params.taskStatusIds = ids
       }
-
-      this.year = this.month = this.week = this.day = null
-
       if (month) {
         this.month = Number(month)
         this.monthString = `${month}`
@@ -501,6 +500,7 @@ export default {
       const query = this.getQuery()
       const key = `news-stats:${this.currentProduction.id}:params`
       preferences.setObjectPreference(key, this.params)
+      console.log('query', query)
       this.$router.push({ query })
     },
 

@@ -9,7 +9,10 @@
           :tabs="todoTabs"
         />
 
-        <div class="flexrow" v-show="!isActiveTab('daysoff')">
+        <div
+          class="flexrow"
+          v-show="!isActiveTab('daysoff') && !isActiveTab('summary')"
+        >
           <search-field
             ref="todos-search-field"
             class="flexrow-item search-field"
@@ -437,6 +440,7 @@ export default {
     ]),
 
     isActiveTab(tab) {
+      console.log('isActiveTab', tab, this.currentSection)
       return this.currentSection === tab
     },
 
@@ -475,7 +479,8 @@ export default {
         'daysoff',
         'done',
         'pending',
-        'timesheets'
+        'timesheets',
+        'todos'
       ]
       const currentSection = this.$route.query.section
       this.currentSection = availableSections.includes(currentSection)
@@ -742,5 +747,30 @@ export default {
 
 .field {
   margin-bottom: 0;
+}
+
+.summary-content {
+  padding: 1rem 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  width: 100%;
+  align-items: start;
+  overflow-y: scroll;
+
+  :deep(.stat-widget) {
+    padding-bottom: 0;
+  }
+
+  @media screen and (max-width: 1024px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Ensure both components take full width of their grid cell */
+  > * {
+    width: 100%;
+    min-width: 0; /* Allow shrinking below content size */
+  }
 }
 </style>

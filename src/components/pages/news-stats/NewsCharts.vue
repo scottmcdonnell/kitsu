@@ -3,46 +3,39 @@
     <h4 class="stats-title">{{ $t('news-stats.charts_title') }}</h4>
 
     <!-- Project Manager Stats Overview -->
-    <div class="stats-overview" v-if="!isLoading && chartData.length > 0">
+    <div
+      class="stats-overview"
+      v-if="!isLoading && Object.keys(statsData).length > 0"
+    >
       <stat
         :label="$t('news-stats.total_work')"
         :number="totalCompletedWork"
-        :unit="
-          countMode === 'count'
-            ? 'tasks'
-            : countMode === 'nb_frames'
-              ? 'frames'
-              : 'seconds'
+        :unit="unitString"
+        :number-tooltip="
+          $t('news-stats.total_work_tooltip', {
+            who: personId ? personMap.get(personId).full_name : 'the team',
+            statusCount: taskStatusIds.length
+          })
         "
-        :description="$t('news-stats.total_work_desc')"
-        :tooltip="$t('news-stats.total_work_tooltip')"
       />
       <stat
-        :label="$t('news-stats.first_take_rate')"
-        :number="firstTakeSuccessRate"
+        :label="$t('news-stats.initial_status_rate')"
+        :number="initialStatusSuccessRate"
         unit="%"
-        :description="$t('news-stats.efficiency_metric')"
-        :tooltip="$t('news-stats.first_take_tooltip')"
+        :number-tooltip="$t('news-stats.initial_status_rate_tooltip')"
         :arrow="
-          firstTakeSuccessRate >= 70
+          initialStatusSuccessRate >= 30
             ? 'up'
-            : firstTakeSuccessRate <= 40
+            : initialStatusSuccessRate <= 20
               ? 'down'
               : null
         "
       />
       <stat
-        :label="$t('news-stats.daily_average')"
-        :number="averageDailyOutput"
-        :unit="
-          countMode === 'count'
-            ? 'tasks/day'
-            : countMode === 'nb_frames'
-              ? 'frames/day'
-              : 'seconds/day'
-        "
-        :description="$t('news-stats.productivity_metric')"
-        :tooltip="$t('news-stats.daily_average_tooltip')"
+        :label="$t(`news-stats.${detailLevel}_average`)"
+        :number="averageOutput"
+        :unit="unitString"
+        :number-tooltip="$t(`news-stats.${detailLevel}_average_tooltip`)"
       />
     </div>
 
@@ -50,15 +43,43 @@
       <p>{{ $t('main.loading') }}...</p>
     </div>
 
-    <div v-else-if="chartData.length > 0" class="charts-container">
+    <div v-else-if="Object.keys(statsData).length > 0" class="charts-container">
+      <!-- Top Performers Chart -->
+      <div
+        class="chart-section"
+        v-if="showTopPerformers && topPerformersData.length > 0"
+      >
+        <h5 class="chart-subtitle">{{ $t('news-stats.top_performers') }}</h5>
+        <column-chart
+          :data="topPerformersData"
+          :options="topPerformersOptions"
+          height="300px"
+        />
+      </div>
+
+      <!-- All Users Comparison Chart -->
+      <div
+        class="chart-section"
+        v-if="showAllUsersComparison && allUsersComparisonData.length > 0"
+      >
+        <h5 class="chart-subtitle">
+          {{ $t('news-stats.all_users_comparison') }}
+        </h5>
+        <column-chart
+          :data="allUsersComparisonData"
+          :options="allUsersComparisonOptions"
+          height="400px"
+        />
+      </div>
+
       <!-- Individual Person+Status Lines Chart -->
       <div class="chart-section" v-if="chartDatasets.length > 0">
         <h5 class="chart-subtitle">
-          Individual Performance Lines (Person + Status)
+          {{ $t('news-stats.individual_performance_lines') }}
         </h5>
         <line-chart
           :data="chartDatasets"
-          :options="chartOptions"
+          :options="chartOptionsWithColors"
           height="400px"
         />
       </div>
@@ -66,14 +87,14 @@
       <!-- Aggregated First Take Count over Time -->
       <div
         class="chart-section"
-        v-if="Object.keys(firstTakeChartData).length > 0"
+        v-if="Object.keys(initialStatusChartData).length > 0"
       >
         <h5 class="chart-subtitle">
-          {{ $t('news-stats.first_take_timeline') }} (Aggregated)
+          {{ $t('news-stats.initial_status_timeline') }} (Aggregated)
         </h5>
         <line-chart
-          :data="firstTakeChartData"
-          :colors="firstTakeColors"
+          :data="initialStatusChartData"
+          :colors="initialStatusColors"
           height="300px"
           :library="chartOptions"
           :curve="false"
@@ -102,22 +123,9 @@
         />
       </div>
 
-      <!-- Top Performers Chart -->
-      <div
-        class="chart-section"
-        v-if="showTopPerformers && topPerformersData.length > 0"
-      >
-        <h5 class="chart-subtitle">{{ $t('news-stats.top_performers') }}</h5>
-        <column-chart
-          :data="topPerformersData"
-          :options="topPerformersOptions"
-          height="300px"
-        />
-      </div>
-
       <!-- Show message if no chart data available -->
       <div
-        v-if="Object.keys(firstTakeChartData).length === 0"
+        v-if="Object.keys(initialStatusChartData).length === 0"
         class="empty-stats"
       >
         <p>{{ $t('news-stats.no_chart_data') }}</p>
@@ -133,10 +141,16 @@
 <script>
 import { mapGetters, mapActions } from 'vuex'
 import moment from 'moment-timezone'
+import { getDateBoundaries } from '@/lib/time'
+import { timeMixin } from '@/components/mixins/time'
+import colors from '@/lib/colors'
+
 import Stat from '@/components/widgets/Stat.vue'
 
 export default {
   name: 'news-stats-charts',
+
+  mixins: [timeMixin],
 
   components: {
     Stat
@@ -160,10 +174,6 @@ export default {
       required: true
     },
     countMode: {
-      type: String,
-      required: true
-    },
-    userMode: {
       type: String,
       required: true
     },
@@ -195,8 +205,8 @@ export default {
   data() {
     return {
       isLoading: false,
-      chartData: [],
-      processedData: null // Add this to store processed data
+      statsData: {},
+      lastParams: null
     }
   },
 
@@ -208,120 +218,165 @@ export default {
       'personMap'
     ]),
 
-    // First compute the time series data
+    unitString() {
+      return this.countMode === 'count'
+        ? 'tasks/day'
+        : this.countMode === 'nb_frames'
+          ? 'frames/day'
+          : 'seconds/day'
+    },
+
+    // First compute the time series data from the nested structure
     timeSeriesData() {
-      // Structure: { person_id: { YYYY-MM-DD: { task_status_id: {first_take: 0, retake: 3, date: '2024-11-20'}}}}
+      // Input structure: { task_type_id: { author_id: { 'YYYY-MM-DD': { status_id: { initial_status: {...}, repeat_status: {...} }}}}}
+      // Output structure: { person_id: { YYYY-MM-DD: { task_status_id: {initial_status: 0, repeat: 3, date: '2024-11-20'}}}}
       const statsMap = {}
 
-      this.chartData.forEach(stat => {
-        const personId = stat.person_id
-        const statusId = stat.task_status_id
-        const statDate = moment(stat.date)
-        const dateKey = statDate.format('YYYY-MM-DD')
+      Object.entries(this.statsData).forEach(([taskTypeId, taskTypeData]) => {
+        Object.entries(taskTypeData).forEach(([personId, personData]) => {
+          Object.entries(personData).forEach(([dateKey, dateData]) => {
+            Object.entries(dateData).forEach(([statusId, statusData]) => {
+              // Initialize nested structure
+              if (!statsMap[personId]) {
+                statsMap[personId] = {}
+              }
+              if (!statsMap[personId][dateKey]) {
+                statsMap[personId][dateKey] = {}
+              }
+              if (!statsMap[personId][dateKey][statusId]) {
+                statsMap[personId][dateKey][statusId] = {
+                  initial_status: 0,
+                  repeat: 0,
+                  date: dateKey
+                }
+              }
 
-        // Initialize nested structure
-        if (!statsMap[personId]) {
-          statsMap[personId] = {}
-        }
-        if (!statsMap[personId][dateKey]) {
-          statsMap[personId][dateKey] = {}
-        }
-        if (!statsMap[personId][dateKey][statusId]) {
-          statsMap[personId][dateKey][statusId] = {
-            first_take: 0,
-            retake: 0,
-            date: statDate.format('YYYY-MM-DD')
-          }
-        }
+              // Extract values based on countMode
+              const initialStatusValue =
+                statusData.initial_status?.[this.countMode] || 0
+              const repeatValue =
+                statusData.repeat_status?.[this.countMode] || 0
 
-        // Aggregate values based on is_first flag
-        const value = stat.value || 0
-        if (stat.is_first) {
-          statsMap[personId][dateKey][statusId].first_take += value
-        } else {
-          statsMap[personId][dateKey][statusId].retake += value
-        }
+              statsMap[personId][dateKey][statusId].initial_status +=
+                initialStatusValue
+              statsMap[personId][dateKey][statusId].repeat += repeatValue
+            })
+          })
+        })
       })
 
       console.log('timeSeriesData computed:', statsMap)
       return statsMap
     },
 
-    // Then compute the chart datasets
+    // Then compute the chart datasets - aggregated by status across all users
     chartDatasets() {
-      const statsMap = this.timeSeriesData
-      if (!statsMap || Object.keys(statsMap).length === 0) {
-        console.log('No data in statsMap')
-        return []
-      }
-
-      const datasets = []
-      const personStatusCombos = new Set()
-
-      // First, collect all person+status combinations that have data
-      Object.entries(statsMap).forEach(([personId, personData]) => {
-        Object.entries(personData).forEach(([, dateData]) => {
-          Object.entries(dateData).forEach(([statusId, statusData]) => {
-            if (statusData) {
-              personStatusCombos.add(`${personId}:${statusId}`)
-            }
-          })
-        })
-      })
-
-      // Create datasets for each person+status combination
-      Array.from(personStatusCombos).forEach(combo => {
-        const [personId, statusId] = combo.split(':')
-        const person = this.personMap.get(personId)
-        const status = this.taskStatusMap.get(statusId)
-
-        if (!person || !status) {
-          console.log('Skipping invalid person/status:', { personId, statusId })
-          return
+      try {
+        const statsMap = this.timeSeriesData
+        if (!statsMap || Object.keys(statsMap).length === 0) {
+          console.log('No data in statsMap')
+          return []
         }
 
-        // Create first take dataset
-        const firstTakeData = {}
-        // Create retake dataset
-        const retakeData = {}
+        const datasets = []
+        const statusTotals = {}
 
-        // Collect data points
-        Object.entries(statsMap[personId]).forEach(([date, dateData]) => {
-          const statusData = dateData[statusId]
-          if (statusData) {
-            if (statusData.first_take) {
-              firstTakeData[date] = statusData.first_take
+        // Collect all unique statuses and aggregate data across all users
+        Object.entries(statsMap).forEach(([personId, personData]) => {
+          Object.entries(personData).forEach(([date, dateData]) => {
+            Object.entries(dateData).forEach(([statusId, statusData]) => {
+              if (statusData) {
+                // Initialize status tracking
+                if (!statusTotals[statusId]) {
+                  statusTotals[statusId] = {
+                    initial: {},
+                    repeat: {}
+                  }
+                }
+
+                // Aggregate initial status data
+                if (statusData.initial_status) {
+                  statusTotals[statusId].initial[date] =
+                    (statusTotals[statusId].initial[date] || 0) +
+                    statusData.initial_status
+                }
+
+                // Aggregate repeat data
+                if (statusData.repeat) {
+                  statusTotals[statusId].repeat[date] =
+                    (statusTotals[statusId].repeat[date] || 0) +
+                    statusData.repeat
+                }
+              }
+            })
+          })
+        })
+
+        // Create datasets for each status
+        Object.entries(statusTotals).forEach(([statusId, statusData]) => {
+          const status = this.taskStatusMap.get(statusId)
+          if (!status) {
+            console.log('Skipping invalid status:', statusId)
+            return
+          }
+
+          const statusColor = status.color || '#6c757d'
+
+          // Add initial status dataset if it has data
+          if (Object.keys(statusData.initial).length > 0) {
+            const initialData = {}
+            Object.entries(statusData.initial).forEach(([date, value]) => {
+              initialData[date] = parseFloat(value.toFixed(2))
+            })
+
+            datasets.push({
+              name: `${status.short_name.toUpperCase()} (${this.$t('news-stats.initial')})`,
+              initial: true,
+              data: initialData,
+              color: statusColor
+            })
+          }
+
+          // Add repeat dataset if it has data
+          if (Object.keys(statusData.repeat).length > 0) {
+            const repeatData = {}
+            Object.entries(statusData.repeat).forEach(([date, value]) => {
+              repeatData[date] = parseFloat(value.toFixed(2))
+            })
+
+            // Convert hex color to rgba with 40% alpha
+            let rgbaColor
+            try {
+              const alphaColorObj = colors.alphaColor(statusColor, 0.4)
+              rgbaColor =
+                alphaColorObj.toString() ||
+                alphaColorObj.toHexString() ||
+                colors.hexToRGBa(statusColor, 0.4)
+            } catch (error) {
+              console.warn('Error creating alpha color:', error)
+              rgbaColor = colors.hexToRGBa(statusColor, 0.4)
             }
-            if (statusData.retake) {
-              retakeData[date] = statusData.retake
-            }
+
+            datasets.push({
+              name: `${status.short_name.toUpperCase()} (${this.$t('news-stats.repeat')})`,
+              initial: false,
+              data: repeatData,
+              color: rgbaColor
+            })
           }
         })
 
-        const personStatusLabel = `${person.full_name} - ${status.short_name}`
+        console.log('datasets', datasets)
 
-        // Add first take dataset if it has data
-        if (Object.keys(firstTakeData).length > 0) {
-          datasets.push({
-            name: `${personStatusLabel} (First Take)`,
-            data: firstTakeData
-          })
-        }
-
-        // Add retake dataset if it has data
-        if (Object.keys(retakeData).length > 0) {
-          datasets.push({
-            name: `${personStatusLabel} (Retake)`,
-            data: retakeData
-          })
-        }
-      })
-
-      return datasets
+        return datasets
+      } catch (error) {
+        console.error('Error creating chart datasets:', error)
+        return []
+      }
     },
 
     // Aggregated first take data (sum across all people+statuses)
-    firstTakeChartData() {
+    initialStatusChartData() {
       const datasets = this.chartDatasets
       if (!datasets || datasets.length === 0) {
         return []
@@ -331,22 +386,24 @@ export default {
       const aggregatedData = {}
 
       datasets.forEach(dataset => {
-        if (dataset.name.includes('First Take')) {
+        if (dataset.initial) {
           Object.entries(dataset.data).forEach(([date, value]) => {
-            aggregatedData[date] = (aggregatedData[date] || 0) + value
+            aggregatedData[date] = parseFloat(
+              ((aggregatedData[date] || 0) + value).toFixed(2)
+            )
           })
         }
       })
 
       return [
         {
-          name: this.$t('news-stats.first_take_count'),
+          name: this.$t('news-stats.initial_status_count'),
           data: aggregatedData
         }
       ]
     },
 
-    firstTakeColors() {
+    initialStatusColors() {
       return ['#28a745'] // Green for first takes (productive work)
     },
 
@@ -358,33 +415,37 @@ export default {
       }
 
       // Collect all dates and aggregate values
-      const firstTakeData = {}
-      const retakeData = {}
+      const initialStatusData = {}
+      const repeatData = {}
 
       datasets.forEach(dataset => {
         Object.entries(dataset.data).forEach(([date, value]) => {
-          if (dataset.name.includes('First Take')) {
-            firstTakeData[date] = (firstTakeData[date] || 0) + value
-          } else if (dataset.name.includes('Retake')) {
-            retakeData[date] = (retakeData[date] || 0) + value
+          if (dataset.initial) {
+            initialStatusData[date] = parseFloat(
+              ((initialStatusData[date] || 0) + value).toFixed(2)
+            )
+          } else {
+            repeatData[date] = parseFloat(
+              ((repeatData[date] || 0) + value).toFixed(2)
+            )
           }
         })
       })
 
       return [
         {
-          name: this.$t('news-stats.first_take_count'),
-          data: firstTakeData
+          name: this.$t('news-stats.initial_status_count'),
+          data: initialStatusData
         },
         {
-          name: this.$t('news-stats.retake_count'),
-          data: retakeData
+          name: this.$t('news-stats.repeat_count'),
+          data: repeatData
         }
       ]
     },
 
     comparisonColors() {
-      return ['#28a745', '#ffc107'] // Green for first takes, amber for retakes
+      return ['#28a745', '#ffc107'] // Green for first takes, amber for repeats
     },
 
     // Rolling average data (aggregated with smoothing)
@@ -405,67 +466,72 @@ export default {
 
       // Calculate daily totals
       const dailyTotals = sortedDates.map(date => {
-        let firstTakeTotal = 0
-        let retakeTotal = 0
+        let initialStatusTotal = 0
+        let repeatTotal = 0
 
         datasets.forEach(dataset => {
           const value = dataset.data[date] || 0
-          if (dataset.name.includes('First Take')) {
-            firstTakeTotal += value
-          } else if (dataset.name.includes('Retake')) {
-            retakeTotal += value
+          if (dataset.initial) {
+            initialStatusTotal += value
+          } else {
+            repeatTotal += value
           }
         })
 
         return {
           date,
-          firstTake: firstTakeTotal,
-          retake: retakeTotal
+          initialStatus: initialStatusTotal,
+          repeat: repeatTotal
         }
       })
 
       // Calculate rolling averages
-      const firstTakeAvg = {}
-      const retakeAvg = {}
+      const initialStatusAvg = {}
+      const repeatAvg = {}
 
       for (let i = 0; i < dailyTotals.length; i++) {
         const startIdx = Math.max(0, i - rollingWindow + 1)
         const windowData = dailyTotals.slice(startIdx, i + 1)
         const date = dailyTotals[i].date
 
-        firstTakeAvg[date] =
-          Math.round(
-            (windowData.reduce((sum, day) => sum + day.firstTake, 0) /
-              windowData.length) *
-              10
-          ) / 10
+        initialStatusAvg[date] = parseFloat(
+          (
+            windowData.reduce((sum, day) => sum + day.initialStatus, 0) /
+            windowData.length
+          ).toFixed(2)
+        )
 
-        retakeAvg[date] =
-          Math.round(
-            (windowData.reduce((sum, day) => sum + day.retake, 0) /
-              windowData.length) *
-              10
-          ) / 10
+        repeatAvg[date] = parseFloat(
+          (
+            windowData.reduce((sum, day) => sum + day.repeat, 0) /
+            windowData.length
+          ).toFixed(2)
+        )
       }
 
       return [
         {
-          name: this.$t('news-stats.avg_first_take'),
-          data: firstTakeAvg
+          name: this.$t('news-stats.avg_initial_status'),
+          data: initialStatusAvg
         },
         {
-          name: this.$t('news-stats.avg_retake'),
-          data: retakeAvg
+          name: this.$t('news-stats.avg_repeat'),
+          data: repeatAvg
         }
       ]
     },
 
     rollingAverageColors() {
-      return ['#17a2b8', '#fd7e14'] // Blue for avg first takes, orange for avg retakes
+      return ['#17a2b8', '#fd7e14'] // Blue for avg first takes, orange for avg repeats
     },
 
     // Show top performers chart only when looking at task types (multiple people)
     showTopPerformers() {
+      return this.taskTypeId && !this.personId
+    },
+
+    // Show all users comparison chart when looking at task types (multiple people)
+    showAllUsersComparison() {
       return this.taskTypeId && !this.personId
     },
 
@@ -502,7 +568,7 @@ export default {
             if (!performerTotals[personId]) {
               performerTotals[personId] = 0
             }
-            performerTotals[personId] += statusData.first_take || 0
+            performerTotals[personId] += statusData.initial_status || 0
           })
         })
       })
@@ -514,12 +580,14 @@ export default {
         .slice(0, 10) // Top 10 performers
         .forEach(([personId, total]) => {
           const person = this.personMap.get(personId)
-          data[person ? person.full_name : 'Unknown'] = total
+          data[person ? person.full_name : 'Unknown'] = parseFloat(
+            total.toFixed(2)
+          )
         })
 
       return [
         {
-          name: this.$t('news-stats.first_take_count'),
+          name: this.$t('news-stats.initial_status_count'),
           data
         }
       ]
@@ -529,53 +597,140 @@ export default {
       return ['#6c757d'] // Gray for top performers
     },
 
-    // Project Manager Stats
-    totalCompletedWork() {
-      if (!this.chartData || this.chartData.length === 0) return 0
+    // All users comparison data - shows both initial and repeat for all users
+    allUsersComparisonData() {
+      if (!this.showAllUsersComparison) return []
 
-      return this.chartData.reduce((total, stat) => {
-        return total + (stat.value || 0)
-      }, 0)
+      const performerTotals = {}
+
+      // Iterate over the nested structure to collect totals
+      Object.entries(this.timeSeriesData).forEach(([personId, personData]) => {
+        Object.values(personData).forEach(dateData => {
+          Object.values(dateData).forEach(statusData => {
+            if (!performerTotals[personId]) {
+              performerTotals[personId] = {
+                initial: 0,
+                repeat: 0
+              }
+            }
+            performerTotals[personId].initial += statusData.initial_status || 0
+            performerTotals[personId].repeat += statusData.repeat || 0
+          })
+        })
+      })
+
+      // Sort users by initial status value in descending order
+      const sortedUsers = Object.entries(performerTotals).sort(
+        ([, a], [, b]) => b.initial - a.initial
+      )
+
+      // Create data structure for column chart with two series
+      const initialData = {}
+      const repeatData = {}
+
+      sortedUsers.forEach(([personId, totals]) => {
+        const person = this.personMap.get(personId)
+        const personName = person ? person.full_name : 'Unknown'
+        initialData[personName] = parseFloat(totals.initial.toFixed(2))
+        repeatData[personName] = parseFloat(totals.repeat.toFixed(2))
+      })
+
+      return [
+        {
+          name: this.$t('news-stats.initial_status_count'),
+          data: initialData
+        },
+        {
+          name: this.$t('news-stats.repeat_count'),
+          data: repeatData
+        }
+      ]
     },
 
-    firstTakeSuccessRate() {
-      if (!this.chartData || this.chartData.length === 0) return 0
+    allUsersComparisonOptions() {
+      return {
+        ...this.chartOptions,
+        chart: {
+          type: 'bar',
+          height: 400
+        },
+        xaxis: {
+          type: 'category'
+        },
+        plotOptions: {
+          bar: {
+            horizontal: false,
+            columnWidth: '65%',
+            endingShape: 'rounded'
+          }
+        },
+        colors: ['#28a745', '#ffc107'] // Green for initial, amber for repeat
+      }
+    },
 
-      const firstTakeWork = this.chartData
-        .filter(stat => stat.is_first)
-        .reduce((total, stat) => total + (stat.value || 0), 0)
+    // Project Manager Stats - updated to work with nested structure
+    totalCompletedWork() {
+      if (!this.statsData || Object.keys(this.statsData).length === 0) return 0
 
-      const totalWork = this.totalCompletedWork
+      let total = 0
+      Object.values(this.statsData).forEach(taskTypeData => {
+        Object.values(taskTypeData).forEach(personData => {
+          Object.values(personData).forEach(dateData => {
+            Object.values(dateData).forEach(statusData => {
+              total += statusData.initial_status?.[this.countMode] || 0
+              total += statusData.repeat_status?.[this.countMode] || 0
+            })
+          })
+        })
+      })
+
+      return total.toFixed(1)
+    },
+
+    initialStatusSuccessRate() {
+      if (!this.statsData || Object.keys(this.statsData).length === 0) return 0
+
+      let initialStatusWork = 0
+      let totalWork = 0
+
+      Object.values(this.statsData).forEach(taskTypeData => {
+        Object.values(taskTypeData).forEach(personData => {
+          Object.values(personData).forEach(dateData => {
+            Object.values(dateData).forEach(statusData => {
+              const initialStatus =
+                statusData.initial_status?.[this.countMode] || 0
+              const repeat = statusData.repeat_status?.[this.countMode] || 0
+              initialStatusWork += initialStatus
+              totalWork += initialStatus + repeat
+            })
+          })
+        })
+      })
 
       if (totalWork === 0) return 0
-      return Math.round((firstTakeWork / totalWork) * 100)
+      return Math.round((initialStatusWork / totalWork) * 100)
     },
 
-    averageDailyOutput() {
-      if (!this.chartData || this.chartData.length === 0) return 0
+    averageOutput() {
+      if (!this.statsData || Object.keys(this.statsData).length === 0) return 0
 
-      // Get unique dates
-      const uniqueDates = new Set(this.chartData.map(stat => stat.date))
-      const totalDays = uniqueDates.size
+      // Get unique dates across all data
+      const uniqueDates = new Set()
+      Object.values(this.statsData).forEach(taskTypeData => {
+        Object.values(taskTypeData).forEach(personData => {
+          Object.keys(personData).forEach(dateKey => {
+            uniqueDates.add(dateKey)
+          })
+        })
+      })
 
-      if (totalDays === 0) return 0
-      return Math.round(this.totalCompletedWork / totalDays)
+      const totalCount = uniqueDates.size
+      if (totalCount === 0) return 0
+      return (this.totalCompletedWork / totalCount).toFixed(1)
     },
 
     chartOptions() {
       return {
-        colors: [
-          '#28a745',
-          '#dc3545',
-          '#007bff',
-          '#ffc107',
-          '#6c757d',
-          '#17a2b8',
-          '#fd7e14',
-          '#6f42c1',
-          '#20c997',
-          '#e83e8c'
-        ],
         chart: {
           type: 'line',
           height: 400
@@ -593,6 +748,23 @@ export default {
         line: {
           spanGaps: true
         }
+      }
+    },
+
+    chartOptionsWithColors() {
+      try {
+        const colors = this.chartDatasets
+          .map(dataset => dataset.color)
+          .filter(color => color && typeof color === 'string')
+
+        console.log('colors', colors)
+        return {
+          ...this.chartOptions,
+          colors: colors.length > 0 ? colors : undefined
+        }
+      } catch (error) {
+        console.warn('Error creating chart options with colors:', error)
+        return this.chartOptions
       }
     },
 
@@ -623,13 +795,19 @@ export default {
 
   async mounted() {
     console.log('mounted')
-    await this.loadChartData()
+    await this.loadData()
   },
 
   methods: {
-    ...mapActions(['getStatusStats']),
+    ...mapActions(['loadNewsStats']),
 
-    async loadChartData() {
+    async stat(params) {
+      // Use the same API call as NewsStats.vue
+      const response = await this.$store.dispatch('loadNewsStats', params)
+      return response
+    },
+
+    async loadData() {
       if (!this.currentProduction || (!this.taskTypeId && !this.personId)) {
         console.log('Early return - missing production or task/person:', {
           production: this.currentProduction,
@@ -640,75 +818,43 @@ export default {
       }
 
       this.isLoading = true
+
+      const year = this.year
+      const month = this.detailLevel === 'day' ? this.month : null
+      const { from, to } = getDateBoundaries(year, month)
+
+      const params = {
+        productionId: this.currentProduction?.id,
+        task_type_id: this.taskTypeId || undefined,
+        task_status_id: this.taskStatusIds?.join(',') || undefined,
+        person_id: this.personId || undefined,
+        detail: this.detailLevel,
+        // we want only the changed statuses
+        change: 1,
+        // timezone for calulating the group by day/week/month correctly
+        timezone: this.timezone, // eg. "Europe/London" "UTC"
+        after: this.formatDateAsUTC(from),
+        before: this.formatDateAsUTC(to)
+      }
+
+      // dont reload if the params are the same
+      if (JSON.stringify(params) === JSON.stringify(this.lastParams)) {
+        console.log('params are the same, skipping')
+        this.isLoading = false
+        return
+      }
+      console.log('params', params)
+
+      this.lastParams = params
+
       try {
-        // Calculate date range - ensure we cover all the data we have
-        const to = moment('2024-12-31')
-        const from = moment('2024-09-01')
-
-        console.log('Loading chart data with params:', {
-          taskTypeId: this.taskTypeId,
-          personId: this.personId,
-          taskStatusIds: this.taskStatusIds,
-          detailLevel: this.detailLevel,
-          countMode: this.countMode,
-          userMode: this.userMode,
-          from: from.format('YYYY-MM-DD'),
-          to: to.format('YYYY-MM-DD')
-        })
-
-        const statsList = await this.getStatusStats({
-          taskTypeId: this.taskTypeId,
-          personId: this.personId,
-          taskStatusIds: this.taskStatusIds,
-          detailLevel: 'day',
-          countMode: this.countMode,
-          userMode: this.userMode,
-          from: from.format('YYYY-MM-DD'),
-          to: to.format('YYYY-MM-DD')
-        })
-
-        console.log(
-          'Raw stats data received:',
-          JSON.stringify(statsList, null, 2)
-        )
-
-        // Filter and process the data
-        this.chartData = statsList.filter(stat => {
-          if (!stat.date || !stat.task_status_id || stat.value === undefined) {
-            console.log('Dropping invalid stat:', stat)
-            return false
-          }
-
-          if (this.taskStatusIds && this.taskStatusIds.length > 0) {
-            const included = this.taskStatusIds.includes(stat.task_status_id)
-            if (!included) {
-              console.log('Dropping stat due to status filter:', stat)
-            }
-            return included
-          }
-
-          const status = this.taskStatusMap.get(stat.task_status_id)
-          const isAllowed = status && status.is_artist_allowed
-          if (!isAllowed) {
-            console.log('Dropping stat due to not artist-allowed:', stat)
-          }
-          return isAllowed
-        })
-
-        console.log(
-          'Processed chart data:',
-          JSON.stringify(this.chartData, null, 2)
-        )
-
-        // Force computed properties to update
-        this.$nextTick(() => {
-          console.log('Computed timeSeriesData:', this.timeSeriesData)
-          console.log('Computed chartDatasets:', this.chartDatasets)
-        })
+        const data = await this.stat(params)
+        this.statsData = data
+        console.log('statsData', this.statsData)
+        this.isLoading = false
       } catch (error) {
-        console.error('Failed to load chart data:', error)
-        this.chartData = []
-      } finally {
+        console.error('Error loading data:', error)
+        this.statsData = {}
         this.isLoading = false
       }
     },
@@ -759,35 +905,31 @@ export default {
 
   watch: {
     taskTypeId() {
-      this.loadChartData()
+      this.loadData()
     },
 
     personId() {
-      this.loadChartData()
+      this.loadData()
     },
 
     taskStatusIds() {
-      this.loadChartData()
+      this.loadData()
     },
 
     detailLevel() {
-      this.loadChartData()
+      this.loadData()
     },
 
     countMode() {
-      this.loadChartData()
-    },
-
-    userMode() {
-      this.loadChartData()
+      this.loadData()
     },
 
     year() {
-      this.loadChartData()
+      this.loadData()
     },
 
     month() {
-      this.loadChartData()
+      this.loadData()
     }
   }
 }

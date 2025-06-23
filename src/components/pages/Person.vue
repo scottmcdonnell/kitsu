@@ -1004,6 +1004,10 @@ export default {
   align-items: start;
   overflow-y: scroll;
 
+  :deep(.stat-widget) {
+    padding-bottom: 0;
+  }
+
   @media screen and (max-width: 1024px) {
     grid-template-columns: 1fr;
     gap: 1rem;

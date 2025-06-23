@@ -187,14 +187,6 @@ export default {
     },
     maxStat: {
       default: 0
-    },
-    before: {
-      type: String,
-      default: null
-    },
-    after: {
-      type: String,
-      default: null
     }
   },
 
@@ -218,7 +210,7 @@ export default {
   },
 
   mounted() {
-    this.loadData()
+    this.$nextTick(() => this.loadData())
     this.setPersonIndex()
   },
 
@@ -781,12 +773,6 @@ export default {
       this.loadData()
     },
     day() {
-      this.loadData()
-    },
-    before() {
-      this.loadData()
-    },
-    after() {
       this.loadData()
     }
   }
