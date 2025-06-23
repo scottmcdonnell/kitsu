@@ -127,8 +127,7 @@ export default {
 
   data() {
     return {
-      testing: true,
-      currentDate: moment('2024-12-14'), // moment(),
+      currentDate: moment(),
       isLoading: false,
       isError: false,
       includeZeroStats: true, // if true, include stats with 0 average and rows with only zeros
@@ -438,15 +437,6 @@ export default {
         .startOf('week')
         .subtract(6, 'months')
       const to = moment(this.currentDate).endOf('week')
-
-      if (this.testing) console.log('TESTING in PersonNewsStats')
-      console.log('currentDate', this.currentDate)
-      console.log(
-        'Loading from:',
-        from.format('YYYY-MM-DD'),
-        'to:',
-        to.format('YYYY-MM-DD')
-      )
 
       for (const production of this.productions) {
         // get just status.id for the production filtered by is_feedback_request or is_done
