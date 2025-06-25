@@ -57,10 +57,10 @@
 
         <template v-if="isActiveTab('summary')">
           <div class="summary-content">
-            <person-news-stats
+            <!--person-news-stats
               :person-id="person.id"
               :productions="userOpenProductions"
-            />
+            /-->
             <tasks-pie-chart
               :tasks="personDoneTasks.concat(personTasks)"
               :on-status-click="onPieChartStatusClick"
@@ -176,7 +176,7 @@ import TaskInfo from '@/components/sides/TaskInfo.vue'
 import TimesheetList from '@/components/lists/TimesheetList.vue'
 import TodosList from '@/components/lists/TodosList.vue'
 import UserCalendar from '@/components/widgets/UserCalendar.vue'
-import PersonNewsStats from '@/components/widgets/PersonNewsStats.vue'
+// import PersonNewsStats from '@/components/widgets/PersonNewsStats.vue'
 import TasksPieChart from '@/components/widgets/TasksPieChart.vue'
 
 export default {
@@ -196,7 +196,7 @@ export default {
     TimesheetList,
     TodosList,
     UserCalendar,
-    PersonNewsStats,
+    // PersonNewsStats,
     TasksPieChart
   },
 
@@ -440,7 +440,6 @@ export default {
     ]),
 
     isActiveTab(tab) {
-      console.log('isActiveTab', tab, this.currentSection)
       return this.currentSection === tab
     },
 
