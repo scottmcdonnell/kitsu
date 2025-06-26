@@ -612,7 +612,6 @@ export default {
             taskType.url = `/productions/${task.project_id}/episodes/${task.episode_id || 'all'}/${task_type_entity_slug}/tasks/${task.id}`
           return taskType
         })
-      console.log('filtered', filtered)
       return filtered
     },
 

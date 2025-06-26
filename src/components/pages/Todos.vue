@@ -62,7 +62,8 @@
               :productions="userOpenProductions"
             /-->
             <tasks-pie-chart
-              :tasks="personDoneTasks.concat(personTasks)"
+              :tasks="sortedDoneTasks.concat(sortedTasks)"
+              :is-loading="isTodosLoading"
               :on-status-click="onPieChartStatusClick"
             />
           </div>
@@ -256,8 +257,8 @@ export default {
       'nbSelectedTasks',
       'openProductions',
       'productionMap',
-      'personDoneTasks',
-      'personTasks',
+      // 'personDoneTasks',
+      // 'personTasks',
       'selectedTasks',
       'taskStatuses',
       'taskTypeMap',
@@ -448,6 +449,7 @@ export default {
         date: this.selectedDate,
         forced
       })
+      console.log('loaded todos')
       this.$nextTick(() => {
         this.todoList?.setScrollPosition(this.todoListScrollPosition)
       })
@@ -515,7 +517,11 @@ export default {
       this.$router.push({
         query: {
           ...this.$route.query,
-          section: status.is_done ? 'done' : 'todos',
+          section: status.is_done
+            ? 'done'
+            : status.is_feedback_request
+              ? 'pending'
+              : 'todos',
           search: status.short_name || status.name
         }
       })
@@ -689,6 +695,11 @@ export default {
     },
 
     '$route.query.section'() {
+      if (this.$route.query.section === 'summary' && this.$route.query.search) {
+        // clear search field
+        this.searchField.setValue('')
+        this.onSearchChange()
+      }
       this.updateActiveTab()
     },
 

@@ -506,11 +506,6 @@ export default {
   },
 
   mounted() {
-    console.log(
-      'comment',
-      this.comment.task_status.name,
-      this.comment.initial_status
-    )
     if (this.comment.checklist) {
       this.$options.silent = true
       this.checklist = [...this.comment.checklist]

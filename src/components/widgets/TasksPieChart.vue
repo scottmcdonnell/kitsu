@@ -3,8 +3,11 @@
     <div class="chart-container">
       <h4 class="chart-title">{{ $t('tasks.status_breakdown') }}</h4>
       <div class="chart-wrapper">
+        <div v-if="isLoading" class="has-text-centered">
+          <spinner class="mt2" />
+        </div>
         <pie-chart
-          v-if="chartData.length > 0"
+          v-else-if="chartData.length > 0"
           :data="chartData"
           :colors="chartColors"
           height="300px"
@@ -39,11 +42,20 @@
 
 <script>
 import { mapGetters } from 'vuex'
+import Spinner from '@/components/widgets/Spinner.vue'
 
 export default {
   name: 'tasks-pie-chart',
 
+  components: {
+    Spinner
+  },
+
   props: {
+    isLoading: {
+      type: Boolean,
+      default: false
+    },
     tasks: {
       type: Array,
       required: true
@@ -72,7 +84,8 @@ export default {
               count: 0,
               color: status.color,
               short_name: status.short_name?.toUpperCase(),
-              is_done: status.is_done,
+              is_done: status.is_done || false,
+              is_feedback_request: status.is_feedback_request || false,
               statusId: statusId
             }
           }
