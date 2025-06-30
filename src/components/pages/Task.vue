@@ -1017,6 +1017,50 @@ export default {
         })
     },
 
+    hideHookupPlaylistModal() {
+      this.modals.hookupPlaylist = false
+    },
+    showHookupPlaylistModal() {
+      // use a method instead of computed property for hookupPlaylistTaskIds so that it is only calculated if the modal is opened
+
+      // create a playlist with the previous, current and next task
+      const current_task_id = this.task.id
+
+      const tasks = Array.from(this.taskMap.values())
+        // get all tasks for this entity
+        .filter(
+          task =>
+            task.episode_id === this.task.episode_id &&
+            task.sequence_name === this.task.sequence_name &&
+            task.task_type_id === this.task.task_type_id
+        )
+        // sort the tasks by entity_name
+        .sort((a, b) => a.entity_name.localeCompare(b.entity_name))
+
+      for (const task of tasks) {
+        console.log(task.entity_name)
+      }
+
+      const current_task_index = tasks.findIndex(
+        task => task.id === current_task_id
+      )
+
+      const previous_task_id =
+        current_task_index > 0 ? tasks[current_task_index - 1].id : null
+
+      const next_task_id =
+        current_task_index < tasks.length - 1
+          ? tasks[current_task_index + 1].id
+          : null
+
+      this.hookupPlaylistTaskIds = [current_task_id]
+      if (previous_task_id) this.hookupPlaylistTaskIds.unshift(previous_task_id)
+      if (next_task_id) this.hookupPlaylistTaskIds.push(next_task_id)
+
+      // open the playlist
+      this.modals.hookupPlaylist = true
+    },
+
     reset({ keepPreviewFiles = false } = {}) {
       this.resetModals()
       this.resetPreview(false)
