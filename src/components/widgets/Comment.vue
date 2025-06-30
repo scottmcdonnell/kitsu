@@ -16,9 +16,7 @@
             class="flexrow-item"
             :task="{ task_status_id: comment.task_status.id }"
             :is-static="true"
-            :style="
-              comment.initial_status ? 'full' : isChange ? 'half' : 'thin'
-            "
+            :style="getValidationTagStyle(comment)"
           />
           <people-avatar
             class="flexrow-item"
@@ -335,7 +333,7 @@
           class="flexrow-item"
           :task="{ task_status_id: comment.task_status.id }"
           :is-static="true"
-          :style="comment.initial_status ? 'full' : isChange ? 'thin' : 'half'"
+          :style="getValidationTagStyle(comment)"
         />
         <people-avatar
           class="flexrow-item"
@@ -644,6 +642,14 @@ export default {
 
     formatDate(date) {
       return formatDate(date)
+    },
+
+    getValidationTagStyle(comment) {
+      // we have 3 style choices
+      // full: the comment status is the initial occurrence of the status for this task
+      // half: the comment status is a repeat of the status for this task
+      // thin: the comment status is unchanged from the previous comment
+      return comment.initial_status ? 'full' : this.isChange ? 'half' : 'thin'
     },
 
     replyFullDate(date) {
