@@ -49,8 +49,8 @@ export const renderComment = (
   departmentMentions,
   personMap,
   departmentMap,
-  className = '',
-  taskTypes = []
+  taskTypes,
+  className = ''
 ) => {
   let html = renderMarkdown(input)
 
@@ -81,7 +81,6 @@ export const renderComment = (
           `<a class="mention mention-task" href="${taskType.url}">#${task_name}</a>`
         )
     })
-
     // replace #All with a link to the shot
     html = html.replaceAll(
       '#All',

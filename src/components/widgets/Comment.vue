@@ -89,8 +89,8 @@
                   comment.department_mentions || [],
                   personMap,
                   departmentMap,
-                  uniqueClassName,
-                  taskTypes
+                  taskTypes,
+                  uniqueClassName
                 )
               "
               class="comment-text"
@@ -177,8 +177,8 @@
                       replyComment.department_mentions || [],
                       personMap,
                       departmentMap,
-                      uniqueClassName,
-                      taskTypes
+                      taskTypes,
+                      uniqueClassName
                     )
                   "
                   class="comment-text"

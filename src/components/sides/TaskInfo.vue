@@ -605,6 +605,9 @@ export default {
         // filter down to just those that match this task entity type Shot, Asset etc.
         .filter(taskType => taskType.for_entity === task_type_entity)
 
+        // filter to tasks that exist
+        .filter(taskType => entity_tasks[taskType.id])
+
         // add a url that points to the task
         .map(taskType => {
           const task = entity_tasks[taskType.id]

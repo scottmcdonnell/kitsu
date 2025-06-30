@@ -394,7 +394,6 @@ export default {
   data() {
     return {
       membersForAts: { '@': [], '#': [] },
-      atOptions: [],
       isDragging: false,
       errors: {
         addCommentAttachment: false

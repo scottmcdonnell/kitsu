@@ -824,7 +824,6 @@ export default {
         )
       )
     },
-
     // get current task types for this project filtered by current task entity type (Shot or Asset)
     currentTaskTypes() {
       if (!this.task || !this.currentProduction) return []
@@ -852,6 +851,9 @@ export default {
 
         // filter down to just those that match this task entity type Shot, Asset etc.
         .filter(taskType => taskType.for_entity === task_type_entity)
+
+        // filter to tasks that exist
+        .filter(taskType => entity_tasks[taskType.id])
 
         // add a url that points to the task
         .map(taskType => {

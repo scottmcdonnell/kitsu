@@ -74,13 +74,17 @@ const applyFiltersFunctions = {
       const taskId = entry.validations.get(filter.taskType.id)
       const task = taskMap.get(taskId)
       filter.personIds.forEach(personId => {
-        isOk = task?.assignees.includes(personId) || isOk
+        isOk = isOk || task?.assignees.includes(personId)
       })
     } else {
       isOk =
         entry.tasks?.some(taskId => {
           const task = taskMap.get(taskId)
-          return task?.assignees.includes(filter.personId)
+          let hasAssignees = false
+          filter.personIds.forEach(personId => {
+            hasAssignees = hasAssignees || task?.assignees.includes(personId)
+          })
+          return hasAssignees
         }) ?? false
     }
     return filter.excluding ? !isOk : isOk
