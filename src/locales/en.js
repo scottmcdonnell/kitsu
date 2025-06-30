@@ -1778,7 +1778,7 @@ export default {
     for_project: 'For project',
     hide_assignations: 'Hide assignments',
     hide_infos: 'Hide additional information',
-    hookup_playlist: 'Generate a hookup playlist',
+    hookup_playlist: 'Generate a hook-up playlist',
     late: 'Late status',
     my_checks: 'My Checks',
     my_tasks: 'My Tasks',
