@@ -1081,7 +1081,7 @@ export default {
     applyTaskFilters() {
       this.onSearchChange(this.searchField.getValue())
       this.sortTasks()
-      this.$refs['task-list'].resetSelection()
+      this.$refs['task-list']?.resetSelection()
       this.updateUrlParams()
       this.clearSelectedTasks()
     },
